@@ -80,4 +80,4 @@ $result = $conn->query($sql);
 </tr>
 <?php } ?>
 
-</table>
+</table>    
