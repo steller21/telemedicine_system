@@ -42,5 +42,4 @@ if (isset($_POST['book'])) {
     <input type="datetime-local" name="date" required><br><br>
 
     <button type="submit" name="book">Book Appointment</button>
-    <a href="book_appointment.php">Book Appointment</a>
 </form>
