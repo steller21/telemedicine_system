@@ -2,8 +2,9 @@
 session_start();
 require_once("../config/db.php");
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') {
     header("Location: ../login.php");
+    exit;
 }
 
 $patient_id = $_SESSION['user_id'];
@@ -15,13 +16,13 @@ if (isset($_POST['book'])) {
     $doctor_id = $_POST['doctor_id'];
     $date = $_POST['date'];
 
-    $sql = "INSERT INTO appointments (patient_id, doctor_id, appointment_date) 
-            VALUES ('$patient_id', '$doctor_id', '$date')";
+    $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date) VALUES (?, ?, ?)");
+    $stmt->bind_param("iis", $patient_id, $doctor_id, $date);
 
-    if ($conn->query($sql)) {
+    if ($stmt->execute()) {
         echo "✅ Appointment booked!";
     } else {
-        echo "❌ Error: " . $conn->error;
+        echo "❌ Error: Could not book appointment.";
     }
 }
 ?>

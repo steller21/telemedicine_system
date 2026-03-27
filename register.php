@@ -1,27 +1,45 @@
 <?php
-include("config/db.php");
+require_once("config/db.php");
 
 if (isset($_POST['register'])) {
 
     $name = $_POST['name'];
     $email = $_POST['email'];
-    $password = md5($_POST['password']);
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $role = $_POST['role'];
 
-    // Check if email already exists
-    $check = $conn->query("SELECT * FROM users WHERE email='$email'");
+    // Check if email exists
+    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
+    $stmt->execute();
+    $check = $stmt->get_result();
 
     if ($check->num_rows > 0) {
         echo "⚠️ Email already exists!";
     } else {
+        // Insert into users
+        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $name, $email, $password, $role);
 
-        $sql = "INSERT INTO users (name, email, password, role) 
-                VALUES ('$name', '$email', '$password', '$role')";
+        if ($stmt->execute()) {
+            $user_id = $stmt->insert_id;
 
-        if ($conn->query($sql) === TRUE) {
+            // Insert into patients or doctors
+            if ($role == 'patient') {
+                $p_stmt = $conn->prepare("INSERT INTO patients (user_id) VALUES (?)");
+                $p_stmt->bind_param("i", $user_id);
+                $p_stmt->execute();
+            }
+
+            if ($role == 'doctor') {
+                $d_stmt = $conn->prepare("INSERT INTO doctors (user_id) VALUES (?)");
+                $d_stmt->bind_param("i", $user_id);
+                $d_stmt->execute();
+            }
+
             echo "✅ Registered Successfully!";
         } else {
-            echo "❌ Error: " . $conn->error;
+            echo "❌ Registration failed. Please try again.";
         }
     }
 }
