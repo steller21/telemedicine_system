@@ -1,134 +1,199 @@
 <?php session_start(); ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Smart Health Assistant</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Health Assistant - Telemedicine India</title>
 
     <style>
-        body { font-family: Arial; background: #f4f4f4; }
-        #chatbox {
-            width: 450px;
-            margin: 30px auto;
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-        }
-        #messages {
-            height: 380px;
-            overflow-y: scroll;
-            border: 1px solid #ccc;
-            padding: 10px;
-        }
-        .user { text-align: right; color: blue; }
-        .bot { text-align: left; color: green; }
-        input { width: 75%; padding: 10px; }
-        button { padding: 10px; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; }
+        .container { width: 100%; max-width: 600px; }
+        #chatbox { background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; display: flex; flex-direction: column; height: 85vh; max-height: 720px; }
+        .chat-header { padding: 15px 18px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .header-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; }
+        .header-content { color: white; }
+        .header-title { font-size: 16px; font-weight: 600; }
+        .header-sub { font-size: 11px; opacity: 0.9; }
+        .emergency-bar { display: flex; gap: 6px; padding: 10px 14px; background: #FCEBEB; border-bottom: 1px solid #F7C1C1; flex-wrap: wrap; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #791F1F; }
+        .em-btn { background: #fff; border: 1px solid #F09595; border-radius: 16px; padding: 3px 10px; color: #791F1F; cursor: pointer; transition: background 0.2s; }
+        .em-btn:hover { background: #FCEBEB; }
+        #messages { flex: 1; overflow-y: auto; padding: 20px 14px; background: #f8f9fa; display: flex; flex-direction: column; gap: 12px; }
+        .msg { display: flex; gap: 8px; max-width: 90%; }
+        .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+        .msg-content { padding: 9px 13px; border-radius: 10px; font-size: 14px; line-height: 1.55; }
+        .msg.bot .msg-content { background: #e9ecef; color: #333; border-radius: 4px 10px 10px 10px; }
+        .msg.user .msg-content { background: #667eea; color: white; border-radius: 10px 4px 10px 10px; }
+        .msg-content.emergency { background: #ff4757; color: white; font-weight: bold; }
+        .msg-content.warning { background: #ffa502; color: white; }
+        .input-area { display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid #e5e7eb; background: white; }
+        input { flex: 1; font-size: 14px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #f9fafb; color: #111827; outline: none; }
+        input:focus { border-color: #667eea; background: white; }
+        button { padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
+        button:hover { background: #555bd8; }
+        @media (max-width: 600px) { #chatbox { height: 100vh; max-height: none; border-radius: 0; } }
     </style>
 </head>
 
 <body>
 
-<div id="chatbox">
-    <h3>🚑 Smart Health Assistant</h3>
+<div class="container">
+    <div id="chatbox">
+        <div class="chat-header">
+            <div class="header-icon">🚑</div>
+            <div class="header-content">
+                <div class="header-title">Smart Health Assistant</div>
+                <div class="header-sub">India medical guidance & emergency help</div>
+            </div>
+        </div>
 
-    <div id="messages"></div>
+        <div class="emergency-bar">
+            <span>🚨 Emergency:</span>
+            <button class="em-btn" onclick="callEmergency('108')">🚑 108 Ambulance</button>
+            <button class="em-btn" onclick="callEmergency('112')">📞 112 All</button>
+            <button class="em-btn" onclick="callEmergency('100')">👮 100 Police</button>
+            <button class="em-btn" onclick="callEmergency('101')">🚒 101 Fire</button>
+        </div>
 
-    <input type="text" id="userInput" placeholder="Describe symptoms...">
-    <button onclick="sendMessage()">Send</button>
+        <div id="messages" class="scrollbar"></div>
+
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type symptom: bleeding, fever, asthma, fracture..." autocomplete="off" onkeypress="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
 </div>
 
 <script>
-function sendMessage() {
+// Comprehensive merged knowledge base
+const KB = [
+  { keys: /bleed|bleeding|blood coming|khoon|haemorrhage|wound bleed|cut bleed|leg bleed|arm bleed|head bleed|nose bleed|blood.*not stop/i, title: "Bleeding", emergency: true, steps: ["Call 108 immediately for heavy bleeding.", "Place clean cloth on wound and apply FIRM pressure for 10-15 minutes.", "If blood soaks cloth, add another on top — do NOT remove first cloth.", "Elevate injured area above heart if possible.", "For limb bleeding, apply tourniquet above the wound if heavy.", "Keep person calm and lying down.", "Go to nearest hospital if heavy or ongoing bleeding."], medicines: ["Betadine antiseptic solution for cleaning", "Sterile gauze and bandages", "Pain reliever: Paracetamol 500mg", "Tetanus injection — free at government PHC if needed"], note: "For deep cuts or wounds with objects embedded — go immediately to hospital. Tetanus injection is free at government hospitals." },
+  
+  { keys: /fracture|broken bone|haddi toot|leg.*broken|arm.*broken|broke.*leg|broke.*arm|fell.*broken|broken.*fell|hairline|bone crack|compound|open fracture|bone break/i, title: "Fracture", emergency: true, steps: ["DO NOT move the injured limb.", "Immobilize using support or splint immediately.", "Apply ice wrapped in cloth for 15-20 minutes.", "Elevate the limb if possible.", "For spine/neck injury: do NOT move — wait for 108 ambulance.", "Go to nearest hospital for X-ray and proper treatment.", "If open fracture (bone protruding) — call 108 immediately."], medicines: ["Paracetamol 500mg for pain relief", "Ibuprofen 200-400mg for inflammation", "Pain-relief spray: Volini or Moov"], note: "X-rays are free at government district hospitals under health schemes. Never massage a suspected fracture." },
+  
+  { keys: /heart attack|dil ka daura|chest pain|chest.*tight|chest.*pressure|cardiac arrest|left arm.*pain|jaw.*pain|myocardial|dil.*dard/i, title: "Heart Attack", emergency: true, steps: ["Call 108 ambulance IMMEDIATELY.", "Sit/lie the person down in a comfortable position.", "If available: chew 1 aspirin (300-500mg).", "Loosen tight clothing.", "Keep person calm.", "If unconscious and not breathing: start CPR.", "Note the time symptoms started."], medicines: ["Aspirin 300-500mg (chew, do not swallow)", "Angina spray (Isosorbide) if available", "At hospital: Thrombolysis or Angioplasty — free under PMJAY"], note: "Heart attacks are rising in young Indians. Every minute counts. Call 108 immediately." },
+  
+  { keys: /cpr|cardiac arrest|not breathing|stopped breathing|no pulse|resuscit|no heartbeat|unconscious.*breathing/i, title: "CPR - Cardiac First Aid", emergency: true, steps: ["Call 108 immediately.", "Place person on flat hard surface.", "Tilt head back, lift chin to open airway.", "Check for breathing — max 10 seconds.", "Place heel of hand on center of chest.", "Push hard and fast: 5-6 cm deep, 100-120 compressions per minute.", "Give 2 rescue breaths after every 30 compressions (if trained).", "Continue until ambulance arrives or person recovers.", "AED machines: use immediately if available."], medicines: [], note: "Hands-only CPR (without breaths) is also effective. Free CPR training available at Indian Red Cross Society branches." },
+  
+  { keys: /asthma|saans.*nahi|breathless|wheezing|inhaler|bronchial|breathing.*difficult|saans phool|cant breathe|can't breathe|dyspnea/i, title: "Asthma Attack", emergency: true, steps: ["Sit upright immediately.", "Use blue/rescue inhaler (Salbutamol/Asthalin): 1-2 puffs, breathe in deeply.", "Wait 15 minutes for improvement.", "If no improvement: use inhaler again (1-2 puffs).", "Wait another 15 minutes.", "If still no relief or lips turning blue: call 108.", "Go to nearest PHC or hospital for nebulization if severe."], medicines: ["Asthalin Inhaler (Salbutamol) — reliever, most common, ~₹50-80", "Budecort/Foracort Inhaler — controller (preventive)", "Deriphyllin tablet — bronchodilator", "Montelukast (Montair) — for mild persistent asthma", "Levolin Respules — for nebulization"], note: "Asthalin is available free at government hospitals and ~₹50 at Jan Aushadhi stores. Always carry your inhaler." },
+  
+  { keys: /fever|bukhar|high temperature|pyrexia|viral fever|body heat|temperature/i, title: "Fever", emergency: false, steps: ["Rest completely.", "Drink plenty of fluids: water, juice, warm tea.", "Take cool baths or use damp cloth on forehead.", "Wear light clothing.", "Use temperature thermometer to monitor.", "If fever > 3 days, > 103°F, or with rash/stiff neck: see doctor immediately."], medicines: ["Crocin or Dolo 650 (Paracetamol) — 500mg every 4-6 hours", "Combiflam (Ibuprofen + Paracetamol) — for pain with fever", "Avoid self-prescribing antibiotics — fever alone doesn't need antibiotics"], note: "Persistent fever in India may be malaria, dengue, or typhoid. Get blood test at PHC if fever > 3 days — free or low cost." },
+  
+  { keys: /dengue|platelet|aedes|denge|dengue fever/i, title: "Dengue", emergency: true, steps: ["Rest completely and stay hydrated: ORS, coconut water, juice.", "Monitor platelet count — get daily blood test if hospitalized.", "Watch for severe abdominal pain, vomiting, bleeding from nose/gums, blood in urine/stool.", "Use mosquito nets and repellents.", "Do NOT take Aspirin, Ibuprofen, Combiflam, or Diclofenac — dangerous bleeding risk."], medicines: ["Crocin or Dolo 650 (Paracetamol) ONLY for fever — 500mg every 6 hours", "ORS (Electral powder) for rehydration — ₹15, available everywhere", "DO NOT take: Aspirin, Brufen, Combiflam, Diclofenac", "Platelet transfusion only if count < 10,000 — at hospital"], note: "Dengue NS1 test and CBC available free at government hospitals. Report to municipality for mosquito control." },
+  
+  { keys: /typhoid|motijhara|enteric|widal|typhoid fever/i, title: "Typhoid", emergency: false, steps: ["Get Widal test or blood culture at nearest lab.", "Rest completely.", "Eat soft, easily digestible food: rice, yogurt rice, boiled rice.", "Drink only boiled or filtered water.", "Maintain strict hand hygiene.", "Complete full antibiotic course — do NOT stop midway.", "Go to hospital if confusion, severe pain, or persistent fever."], medicines: ["Azithromycin 500mg (Azithral) — 5-7 days, first-line treatment", "Cefixime (Taxim-O) 200mg — twice daily", "Crocin or Dolo 650 for fever", "ORS (Electral) for hydration"], note: "Typhoid vaccination (Typbar-TCV) available — recommended for children and travelers, free under government immunization." },
+  
+  { keys: /burn|jalna|scald|hot.*water|fire.*skin|chemical burn|acid attack|jalana/i, title: "Burns", emergency: true, steps: ["Call 108 for severe burns.", "Do NOT remove stuck clothing.", "Cool burn with cool water (not ice) for 10-20 minutes.", "Stop if person shivers (risk of hypothermia).", "Cover with clean, dry cloth.", "Do NOT apply: ice, toothpaste, ghee, turmeric, egg white.", "Do NOT burst blisters.", "Go to government hospital for: burns larger than palm, face/hands/genitals, or deep/charred burns."], medicines: ["Betadine ointment — antiseptic, ₹40", "Silverex or SSD cream — for burns, at hospital", "Crocin 500mg for pain", "Tetanus injection — free at hospital"], note: "Government hospitals have free burn units. Firecracker and stove burns are common. For acid attacks — call 112 and flush continuously with water." },
+  
+  { keys: /snake|saanp|viper|cobra|krait|snake bite|sanp ka katna|banded krait|russell|snake.*bite/i, title: "Snake Bite", emergency: true, steps: ["Stay very calm to slow venom spread.", "Immobilize bitten limb — keep it below heart level.", "Remove rings, watches, tight clothing near bite.", "Do NOT cut, suck venom, apply tourniquet, or use herbs.", "Do NOT give food, water, or alcohol.", "Mark swelling edge with pen and note time.", "Rush to nearest government district hospital IMMEDIATELY.", "Anti-Snake Venom (ASV) is FREE at all government hospitals."], medicines: ["Anti-Snake Venom (ASV) injection — ONLY at hospital, FREE", "Atropine injection — for neurotoxic bites", "Neostigmine injection — for neurotoxic envenomation"], note: "India has ~50,000 snake bite deaths yearly. Big 4 venomous snakes: Cobra, Krait, Russell Viper, Saw-scaled Viper. Reach hospital within 1-2 hours." },
+  
+  { keys: /heat stroke|loo|sun stroke|sunstroke|loo lagna|heat exhaustion|garmi/i, title: "Heat Stroke", emergency: true, steps: ["Move to cool/shaded area or AC room immediately.", "Remove excess clothing.", "Cool body rapidly: wet cloths on neck, armpits, groin; fan them.", "Give ORS or water if conscious.", "Do NOT give paracetamol — doesn't help in heat stroke.", "Call 108 if confused, unconscious, or stopping sweating.", "This is a medical emergency — death can occur within hours."], medicines: ["ORS (Electral) for rehydration if conscious", "IV fluids (Normal Saline) — at hospital", "No specific medicine — rapid cooling is the treatment"], note: "Hot winds (loo) common in North India May-June. Drink 3-4 liters water daily in summer. Avoid 12pm-4pm. Free ORS at PHC." },
+  
+  { keys: /diarrh|loose motion|loose stool|dast|ulti dast|vomiting.*loose|dehydrat|stomach.*running|watery stool|diarrhoea/i, title: "Diarrhea", emergency: false, steps: ["Start ORS immediately — mix 1 sachet in 1 liter clean water.", "Eat bland foods: rice, toast, bananas, boiled potatoes.", "Avoid dairy, fatty, spicy foods.", "Wash hands after bathroom.", "Give Zinc tablets for children under 5 for 14 days.", "Seek hospital if: blood in stool, vomiting everything, sunken eyes, or no urination 6+ hours."], medicines: ["ORS or Electral sachets — ₹10-15, FREE at PHC", "Zinc 20mg tablets — given free under government program", "Loperamide (Lopamide) — for adults only", "Probiotics: Enterogermina or Sporlac"], note: "ORS + Zinc is WHO/UNICEF recommended. ORS sachets FREE at government health centers and from ASHA workers." },
+  
+  { keys: /chok|gala.*phansa|throat.*stuck|airway.*block|swallow.*wrong|food.*stuck|gagging|choking/i, title: "Choking", emergency: true, steps: ["Stay calm.", "If person can cough: encourage forceful coughing.", "If cannot cough/breathe — Heimlich maneuver: stand behind, fist above navel, press inward & upward quickly, repeat 5 times.", "Alternate: 5 back blows + 5 abdominal thrusts.", "For infants under 1 year: 5 back blows + 5 chest thrusts (NEVER abdominal).", "Call 108 if choking doesn't clear in 1 minute."], medicines: [], note: "Always seek medical evaluation after choking even if resolved. Keep small objects away from children." },
+  
+  { keys: /seizure|epilepsy|fit|dora|mirgi|convuls|mitti.*daura|shaking|fits/i, title: "Seizure", emergency: true, steps: ["Call 108 immediately.", "Do NOT restrain person.", "Move dangerous objects away.", "Place pillow under head.", "Turn person on side (recovery position).", "Stay with person — do NOT put objects in mouth.", "Give rescue medication if prescribed.", "Note duration of seizure.", "Call 108 if seizure > 5 minutes or back-to-back seizures."], medicines: ["Anti-epileptic medication — Phenytoin, Valproate, Levetiracetam (only as prescribed)", "Free treatment at government hospitals under NMHP"], note: "After seizure, stay with person until conscious. Never leave near water, fire, or height. Epilepsy treatment free at government hospitals." },
+  
+  { keys: /vomit|nausea|throwing up|ulti aana|matalic/i, title: "Nausea & Vomiting", emergency: false, steps: ["Rest in bed, sit upright.", "Sip water slowly — avoid large gulps.", "Eat light foods when ready: crackers, rice, toast.", "Avoid strong smells.", "Keep head elevated.", "Try ginger tea or lemon water."], medicines: ["Domperidone (Motilium) 10mg for nausea", "Metoclopramide 10mg every 6-8 hours", "Ginger supplement 500-1000mg", "Electrolyte drinks for rehydration"], note: "If vomiting > 2 hours, vomiting blood, or severe dehydration — seek hospital care." },
+  
+  { keys: /sore throat|throat pain|gala dard|pain.*swallow|swallowing.*pain|painful.*swallow|throat.*sore/i, title: "Sore Throat", emergency: false, steps: ["Gargle warm salt water 4-6 times daily.", "Drink warm tea with honey.", "Suck on lozenges.", "Avoid hot/cold foods.", "Rest voice.", "Stay hydrated."], medicines: ["Paracetamol 500mg every 4-6 hours", "Ibuprofen 200-400mg every 6-8 hours", "Throat lozenges: Strepsils, Halls", "Throat spray for numbing relief", "Antibiotics only if bacterial (prescribed)"], note: "Natural remedies: honey-lemon tea, ginger tea, apple cider vinegar gargle. See doctor if fever > 3 days, difficulty swallowing, or rash." },
+  
+  { keys: /skin rash|itching|itch|rash|khujli|skin.*red|laal nishan|skin.*irritat/i, title: "Skin Rash", emergency: false, steps: ["Do not scratch — prevents infection.", "Keep skin clean and dry.", "Wear loose clothing.", "Apply cool compress.", "Use fragrance-free moisturizer.", "Wash with mild soap."], medicines: ["Calamine lotion — apply to rash", "Hydrocortisone cream 1% for inflammation", "Antihistamine: Cetirizine 10mg or Diphenhydramine", "Moisturizer for dry skin"], note: "See doctor if: rash spreads rapidly, signs of infection (pus), facial/respiratory rash, or rash with fever/joint pain." },
+  
+  { keys: /wound|cut|minor bleeding|ghaav|chot|chhil/i, title: "Wound or Cut", emergency: false, steps: ["Wash hands with soap.", "Apply pressure to stop bleeding (5-10 min).", "Rinse wound with clean water.", "Wash with soap.", "Remove debris with sterilized tweezers.", "Apply Betadine or Dettol solution.", "Apply antibiotic ointment and sterile bandage.", "Change bandage daily.", "Keep dry.", "Watch for infection signs."], medicines: ["Betadine antiseptic for cleaning", "Antibiotic ointment (Neosporin)", "Paracetamol 500mg for pain", "Tetanus shot if > 5 years since last"], note: "For deep cuts needing stitches, heavy bleeding, or infection signs — see doctor." },
+  
+  { keys: /insect bite|mosquito|bee sting|saanp ka gad|bite|mach.dar|sting/i, title: "Insect Bite or Sting", emergency: false, steps: ["Remove stinger if present (use card to scrape off).", "Wash with soap and cool water.", "Apply ice pack (15 min).", "Elevate if swollen.", "Do NOT scratch."], medicines: ["Calamine lotion for itching", "Hydrocortisone cream 1% for inflammation", "Antihistamine: Cetirizine 10mg", "Paracetamol if painful", "Ice pack every 2-3 hours"], note: "Emergency signs (allergic reaction): difficulty breathing, facial swelling, severe itching/hives → use EpiPen if available, call 108." },
+  
+  { keys: /back pain|back strain|back.*dard|spine.*pain|lumber.*pain|kee dard/i, title: "Back Pain", emergency: false, steps: ["Rest — but not complete bed rest.", "Apply heat pad (15-20 min) after 2 days.", "Use proper posture.", "Sleep on firm mattress.", "Do gentle stretching.", "Avoid heavy lifting."], medicines: ["Ibuprofen 200-400mg every 6-8 hours", "Paracetamol 500mg every 4-6 hours", "Diclofenac topical cream", "Muscle relaxer if severe"], note: "See doctor if: pain > 2 weeks, numbness/tingling in legs, difficulty with bowel/bladder, or after trauma." },
+  
+  { keys: /migraine|sar.*dard.*ek taraf|sar dard|throbbing|headache.*migraine/i, title: "Migraine", emergency: false, steps: ["Rest in quiet, dark room.", "Apply cold compress on head.", "Drink water.", "Avoid screens/bright lights.", "Try to sleep."], medicines: ["Ibuprofen 200-400mg at first sign", "Paracetamol 500mg", "Sumatriptan 50mg (prescription)", "Antiemetic for nausea"], note: "Prevention: identify triggers (stress, food, lack of sleep, caffeine). Regular sleep, exercise, hydration, stress management help." },
+  
+  { keys: /sleep|insomnia|can't sleep|nahi so raha|neend nahi aa rahi|sleepless/i, title: "Sleep Problems", emergency: false, steps: ["Maintain regular sleep schedule (same time daily).", "Keep bedroom dark, cool, quiet.", "Avoid screens 1 hour before bed.", "No caffeine after 3pm.", "Exercise during day — not before bed.", "Try relaxation: meditation, deep breathing.", "Warm milk or herbal tea before sleep."], medicines: ["Melatonin 3-5mg before bed", "Herbal: Chamomile, Valerian tea", "Diphenhydramine if needed", "Prescription: consult doctor"], note: "See doctor if: insomnia > 2 weeks, daytime drowsiness severe, or sleep apnea suspected." },
+  
+  { keys: /anxiety|panic|stress|dar.*laga|ghabra|tension/i, title: "Anxiety or Panic", emergency: false, steps: ["Deep breathing: 4 counts in, 4 counts out.", "Progressive muscle relaxation.", "Mindfulness of present moment.", "Exercise or walk.", "Warm bath.", "Talk to someone."], medicines: ["Herbal: Chamomile, Ashwagandha tea", "Supplements: Magnesium, B vitamins", "Prescription: consult doctor"], note: "Long-term: regular exercise (30 min, 5x/week), meditation/yoga, sleep schedule, limit caffeine/alcohol, connect with others." },
+  
+  { keys: /diabetes|blood sugar|hypoglycemia|glucose|shakar|shakara rog/i, title: "Diabetes", emergency: false, steps: ["Monitor blood sugar regularly.", "Take medicine on time (insulin/tablets).", "Eat balanced meals at fixed times.", "Exercise 30 min daily.", "Stay hydrated.", "Check feet daily for sores.", "For low blood sugar: drink juice/eat candy immediately."], medicines: ["Metformin — first-line drug", "Insulin — if prescribed", "Glipizide, Glibenclamide — Sulfonylureas", "Always take as prescribed"], note: "Normal blood sugar: 80-130 mg/dL fasting. Diet: complex carbs, high fiber, lean proteins, limit sugar/salt." },
+  
+  { keys: /blood pressure|hypertension|high bp|bp.*high|dabaav|dbaav/i, title: "High Blood Pressure", emergency: false, steps: ["Monitor BP regularly.", "Take medicine as prescribed.", "Reduce salt intake.", "Exercise 30 min daily.", "Maintain healthy weight.", "Manage stress.", "Limit alcohol.", "Get adequate sleep."], medicines: ["ACE inhibitors: Lisinopril, Enalapril", "Beta blockers: Metoprolol", "Calcium channel blockers: Amlodipine", "Diuretics: Hydrochlorothiazide"], note: "Normal BP: <120/80 mmHg. DASH diet: low sodium, high potassium (bananas, spinach), whole grains, lean proteins, low-fat dairy." },
+  
+  { keys: /normal temperature|body temperature|healthy temperature|normal tapmaan|tapmaan/i, title: "Normal Body Temperature", emergency: false, steps: [], medicines: [], note: "Oral: 36.1-37.2°C (97-99°F) | Armpit: 36.5-37.5°C | Rectal: 37-38°C. Measure after 30 min rest. Avoid hot/cold drinks before measurement. Time of day, activity, hormones affect temperature." },
 
-    let input = document.getElementById("userInput").value;
-    let messages = document.getElementById("messages");
+  { keys: /poison|overdose|toxic|swallow.*chemical|acid.*drink/i, title: "Poisoning", emergency: true, steps: ["Call 108 or Poison Control (1800-116-117) immediately.", "Identify what was taken and the amount.", "Do NOT induce vomiting unless instructed by a doctor.", "If on skin or in eyes: Rinse with plenty of water for 20 minutes.", "Keep the container/bottle to show medical staff."], medicines: ["Activated Charcoal (only if directed by a medical professional)"], note: "Poison Control (AIIMS Delhi): 1800-116-117. Act fast." },
 
-    if (input.trim() === "") return;
+  { keys: /allergic|anaphylaxis|swelling.*face|hives|rash.*breath|bee.*allergic/i, title: "Severe Allergic Reaction", emergency: true, steps: ["Call 108 immediately.", "Use an Epinephrine auto-injector (EpiPen) if available.", "Lie the person flat with legs raised.", "If breathing is difficult, sit them up.", "Stay with them until the ambulance arrives."], medicines: ["Epinephrine (EpiPen) - Life saving", "Antihistamine (Cetirizine) - Only for mild itching/rash"], note: "Anaphylaxis is a life-threatening emergency. Do not wait to see if symptoms improve." },
 
-    messages.innerHTML += "<p class='user'>" + input + "</p>";
+  { keys: /cold|cough|sardi|khansi|runny.*nose|sneezing|congestion|blocked.*nose|gala dard|sardi|khansi|flu/i, title: "Cold & Cough", emergency: false, steps: ["Rest adequately (7-9 hours sleep).", "Stay hydrated: water, warm tea, soup.", "Gargle salt water for sore throat.", "Use saline nasal drops.", "Keep warm.", "Avoid smoking & passive smoke."], medicines: ["Paracetamol 500mg for pain/fever", "Antihistamine: Cetirizine 10mg if allergic", "Decongestant: Pseudoephedrine 30mg", "Vitamin C: 1000mg daily", "Honey: 1 tsp for throat comfort"], note: "Antibiotics NOT needed for viral cold. Avoid unnecessary antibiotics — India has antibiotic resistance problem. Natural remedies effective for mild symptoms." }
+];
 
-    let text = input.toLowerCase();
-    let response = "";
-
-    // 🚨 EMERGENCY CASES
-
-    if (text.includes("not breathing") || text.includes("no breathing")) {
-        response = "🚨 EMERGENCY: Person is not breathing.\n\n" +
-        "👉 Start CPR:\n" +
-        "• 30 chest compressions (100–120/min)\n" +
-        "• 2 rescue breaths\n" +
-        "• Repeat continuously\n\n" +
-        "📞 Call emergency services immediately!";
-    }
-
-    else if (text.includes("asthma") || text.includes("breathing problem")) {
-        response = "😮‍💨 Asthma attack detected.\n\n" +
-        "👉 What to do:\n" +
-        "• Use inhaler immediately (Salbutamol)\n" +
-        "• Sit upright and stay calm\n" +
-        "• Take slow deep breaths\n\n" +
-        "💊 Medicine: Asthalin inhaler (if prescribed)\n" +
-        "⚠️ If severe → go to hospital immediately";
-    }
-
-    else if (text.includes("bleeding") || text.includes("cut")) {
-        response = "🩸 Bleeding injury.\n\n" +
-        "👉 Steps:\n" +
-        "• Apply firm pressure with clean cloth\n" +
-        "• Elevate the injured part\n" +
-        "• Do not remove cloth if soaked\n\n" +
-        "💊 Medicine: Use antiseptic (Betadine), pain relief (Paracetamol)\n" +
-        "⚠️ If heavy bleeding → emergency care";
-    }
-
-    else if (text.includes("fracture") || text.includes("broken") || text.includes("leg")) {
-        response = "🦴 Possible fracture detected.\n\n" +
-        "👉 Steps:\n" +
-        "• Do NOT move the limb\n" +
-        "• Immobilize using support/splint\n" +
-        "• Apply ice (wrapped cloth)\n\n" +
-        "💊 Medicine: Paracetamol for pain\n" +
-        "⚠️ Visit hospital for X-ray immediately";
-    }
-
-    else if (text.includes("fever")) {
-        response = "🤒 Fever detected.\n\n" +
-        "👉 Rest and drink fluids\n\n" +
-        "💊 Medicine: Paracetamol (500mg)\n" +
-        "⚠️ If >3 days → consult doctor";
-    }
-
-    else if (text.includes("headache")) {
-        response = "🤕 Headache.\n\n" +
-        "👉 Rest and hydrate\n\n" +
-        "💊 Medicine: Paracetamol or Ibuprofen\n";
-    }
-
-    else if (text.includes("cough")) {
-        response = "😷 Cough detected.\n\n" +
-        "👉 Drink warm fluids\n\n" +
-        "💊 Medicine: Cough syrup (like Benadryl)\n" +
-        "⚠️ If persistent → consult doctor";
-    }
-
-    else if (text.includes("stomach pain")) {
-        response = "🤢 Stomach pain.\n\n" +
-        "👉 Eat light food, stay hydrated\n\n" +
-        "💊 Medicine: Antacid (Digene)\n";
-    }
-
-    else {
-        response = "⚠️ I could not fully understand.\n\n" +
-        "👉 Please describe symptoms clearly or consult a doctor.";
-    }
-
-    messages.innerHTML += "<p class='bot'>" + response + "</p>";
-
-    document.getElementById("userInput").value = "";
-    messages.scrollTop = messages.scrollHeight;
+function findMatch(q) {
+  q = q.toLowerCase();
+  for (let entry of KB) {
+    if (entry.keys.test(q)) return entry;
+  }
+  return null;
 }
+
+function formatResponse(data) {
+  if (!data) return null;
+  let html = '';
+  if (data.emergency) html += '<span style="background:#FCEBEB;color:#791F1F;padding:3px 8px;border-radius:8px;font-weight:bold;font-size:12px;">🚨 Emergency — Call 108</span><br><br>';
+  html += '<strong>' + data.title + '</strong><br><br>';
+  if (data.steps && data.steps.length) {
+    html += '<strong style="font-size:13px;">Steps:</strong><br>';
+    data.steps.forEach(s => { html += '• ' + s + '<br>'; });
+  }
+  if (data.medicines && data.medicines.length) {
+    html += '<br><strong style="font-size:13px;">Medicines:</strong><br>';
+    data.medicines.forEach(m => { html += '• ' + m + '<br>'; });
+  }
+  if (data.note) {
+    html += '<br><em style="font-size:12px;color:#666;border-left:2px solid #ddd;padding-left:8px;display:block;margin-top:8px;">' + data.note + '</em>';
+  }
+  return html;
+}
+
+function initChat() {
+  let msgs = document.getElementById("messages");
+  msgs.innerHTML = '<div class="msg bot"><div class="msg-content">👋 Hello! I am your Smart Health Assistant.<br><br>Type any symptom or condition:<br>• Bleeding, chest pain, poisoning<br>• Fracture, burns, snake bite<br>• Fever, cough, diabetes, BP<br>• Diarrhea, headache, anxiety<br><br>I provide Indian medical guidance.<br><br>🚨 For life-threatening emergencies → Call <b>108</b> (Ambulance)</div></div>';
+}
+
+function callEmergency(num) {
+  if (confirm('Call ' + num + ' ?')) {
+    window.location.href = 'tel:' + num;
+  }
+}
+
+function sendMessage() {
+  let input = document.getElementById("userInput");
+  let text = input.value.trim();
+  if (!text) return;
+  
+  let msgs = document.getElementById("messages");
+  msgs.innerHTML += '<div class="msg user"><div class="msg-content">' + escapeHtml(text) + '</div></div>';
+  input.value = "";
+  msgs.scrollTop = msgs.scrollHeight;
+  
+  setTimeout(() => {
+    let data = findMatch(text);
+    let response = data ? formatResponse(data) : '<span style="color:#666;">I could not find information about "' + escapeHtml(text) + '".</span><br><br>Try: bleeding, fever, fracture, asthma, dengue, cough, headache, burns, emergency...';
+    let cls = (data && data.emergency) ? 'emergency' : (data && data.steps && data.steps.length) ? 'warning' : '';
+    msgs.innerHTML += '<div class="msg bot"><div class="msg-content ' + cls + '">' + response + '</div></div>';
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 300);
+}
+
+function escapeHtml(t) {
+  let m = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+  return t.replace(/[&<>"\']/g, c => m[c]);
+}
+
+window.addEventListener('load', initChat);
+document.getElementById("userInput").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") sendMessage();
+});
 </script>
 
 </body>
-</html>
