@@ -2,11 +2,14 @@
 session_start();
 require_once("../config/db.php");
 
-$call_id = $_GET['call_id'];
+if (!isset($_GET['call_id'])) {
+    echo "❌ No call ID!"; exit;
+}
 
-// Activate call
+$call_id = intval($_GET['call_id']); // sanitized
+
 $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
 
-// Redirect to video
 header("Location: ../video_call.php?call_id=$call_id");
 exit;
+?>
