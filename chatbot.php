@@ -1,5 +1,4 @@
 <?php session_start(); ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,11 +119,11 @@ const KB = [
   { keys: /blood pressure|hypertension|high bp|bp.*high|dabaav|dbaav/i, title: "High Blood Pressure", emergency: false, steps: ["Monitor BP regularly.", "Take medicine as prescribed.", "Reduce salt intake.", "Exercise 30 min daily.", "Maintain healthy weight.", "Manage stress.", "Limit alcohol.", "Get adequate sleep."], medicines: ["ACE inhibitors: Lisinopril, Enalapril", "Beta blockers: Metoprolol", "Calcium channel blockers: Amlodipine", "Diuretics: Hydrochlorothiazide"], note: "Normal BP: <120/80 mmHg. DASH diet: low sodium, high potassium (bananas, spinach), whole grains, lean proteins, low-fat dairy." },
   
   { keys: /normal temperature|body temperature|healthy temperature|normal tapmaan|tapmaan/i, title: "Normal Body Temperature", emergency: false, steps: [], medicines: [], note: "Oral: 36.1-37.2°C (97-99°F) | Armpit: 36.5-37.5°C | Rectal: 37-38°C. Measure after 30 min rest. Avoid hot/cold drinks before measurement. Time of day, activity, hormones affect temperature." },
-
+  
   { keys: /poison|overdose|toxic|swallow.*chemical|acid.*drink/i, title: "Poisoning", emergency: true, steps: ["Call 108 or Poison Control (1800-116-117) immediately.", "Identify what was taken and the amount.", "Do NOT induce vomiting unless instructed by a doctor.", "If on skin or in eyes: Rinse with plenty of water for 20 minutes.", "Keep the container/bottle to show medical staff."], medicines: ["Activated Charcoal (only if directed by a medical professional)"], note: "Poison Control (AIIMS Delhi): 1800-116-117. Act fast." },
-
+  
   { keys: /allergic|anaphylaxis|swelling.*face|hives|rash.*breath|bee.*allergic/i, title: "Severe Allergic Reaction", emergency: true, steps: ["Call 108 immediately.", "Use an Epinephrine auto-injector (EpiPen) if available.", "Lie the person flat with legs raised.", "If breathing is difficult, sit them up.", "Stay with them until the ambulance arrives."], medicines: ["Epinephrine (EpiPen) - Life saving", "Antihistamine (Cetirizine) - Only for mild itching/rash"], note: "Anaphylaxis is a life-threatening emergency. Do not wait to see if symptoms improve." },
-
+  
   { keys: /cold|cough|sardi|khansi|runny.*nose|sneezing|congestion|blocked.*nose|gala dard|sardi|khansi|flu/i, title: "Cold & Cough", emergency: false, steps: ["Rest adequately (7-9 hours sleep).", "Stay hydrated: water, warm tea, soup.", "Gargle salt water for sore throat.", "Use saline nasal drops.", "Keep warm.", "Avoid smoking & passive smoke."], medicines: ["Paracetamol 500mg for pain/fever", "Antihistamine: Cetirizine 10mg if allergic", "Decongestant: Pseudoephedrine 30mg", "Vitamin C: 1000mg daily", "Honey: 1 tsp for throat comfort"], note: "Antibiotics NOT needed for viral cold. Avoid unnecessary antibiotics — India has antibiotic resistance problem. Natural remedies effective for mild symptoms." }
 ];
 
@@ -191,9 +190,6 @@ function escapeHtml(t) {
 }
 
 window.addEventListener('load', initChat);
-document.getElementById("userInput").addEventListener("keypress", function(e) {
-  if (e.key === "Enter") sendMessage();
-});
 </script>
 
 </body>

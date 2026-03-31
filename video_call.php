@@ -98,7 +98,7 @@ if (!$isDoctor && !$isPatient) {
 <body>
  
 <h2>🎥 Video Consultation</h2>
-<div id="status">⏳ Starting call setup...</div>
+<div id="status">⏳ Starting camera...</div>
  
 <div class="video-container">
     <div class="video-box">
@@ -109,6 +109,14 @@ if (!$isDoctor && !$isPatient) {
         <video id="remoteVideo" autoplay playsinline></video>
         <span class="video-label">Remote</span>
     </div>
+</div>
+ 
+<!-- Camera switcher -->
+<div style="margin-bottom:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center;">
+    <label style="font-size:0.9rem;">📷 Camera:</label>
+    <select id="cameraSelect" onchange="switchCamera()" style="padding:7px 12px; border-radius:6px; border:none; font-size:0.9rem; background:#0f3460; color:#fff; cursor:pointer;">
+        <option value="">Loading cameras...</option>
+    </select>
 </div>
  
 <div style="display:flex; gap:12px; justify-content:center;">
@@ -130,7 +138,7 @@ const isDoctor    = <?php echo $isDoctor ? 'true' : 'false'; ?>;
 const myPeerId    = (isDoctor ? "doc_" : "pat_") + callId;
 const otherPeerId = (isDoctor ? "pat_" : "doc_") + callId;
  
-let peer, localStream = null, activeCall;
+let peer, localStream, activeCall;
 let retryCount = 0;
 let callConnected = false;
 const MAX_RETRIES = 20; // try for ~40 seconds
@@ -140,12 +148,13 @@ function setStatus(msg) {
     console.log(msg);
 }
  
-const mediaConstraints = { video: true, audio: true };
-
-// ── 1. Get camera/mic for both doctor and patient ──────────────
+// ── 1. Get camera/mic ──────────────────────────────────────────
+ 
+// FIRST: warn if not HTTPS (camera won't work on plain HTTP except localhost)
 if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
     setStatus("❌ Camera blocked — site must use HTTPS!");
     alert("⚠️ Camera Error!\n\nYour site is running on HTTP, but cameras only work on HTTPS.\n\nFix: Open your site using https:// instead of http://\n\nIf you're on localhost, it will work without HTTPS.");
+    // stop here — no point continuing
 } else if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     setStatus("❌ Camera API not supported in this browser.");
     alert("Your browser does not support camera access.\nPlease use Chrome or Firefox.");
@@ -153,15 +162,49 @@ if (location.protocol !== 'https:' && location.hostname !== 'localhost' && locat
     startCamera();
 }
  
-function startCamera() {
+let currentDeviceId = null;
+ 
+function startCamera(deviceId = null) {
     setStatus("📷 Requesting camera access...");
  
-    navigator.mediaDevices.getUserMedia(mediaConstraints)
+    const videoConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : true;
+ 
+    navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
         .then(stream => {
+            // Stop old stream tracks if switching camera
+            if (localStream) {
+                localStream.getTracks().forEach(t => t.stop());
+            }
             localStream = stream;
             myVideo.srcObject = stream;
+ 
+            // Save current device id
+            const videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) {
+                currentDeviceId = videoTrack.getSettings().deviceId;
+            }
+ 
             setStatus("📷 Camera ready. Connecting to server...");
-            initPeer();
+ 
+            // Load camera list into dropdown
+            loadCameraList();
+ 
+            // Only init peer on first start, not on camera switch
+            if (!peer) {
+                initPeer();
+            } else if (callConnected && activeCall) {
+                // If already in a call, replace the video track live
+                const sender = activeCall.peerConnection
+                    ?.getSenders()
+                    ?.find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                    sender.replaceTrack(videoTrack)
+                        .then(() => setStatus("✅ Camera switched!"))
+                        .catch(e => setStatus("⚠️ Could not switch live: " + e.message));
+                }
+            }
         })
         .catch(err => {
             let msg = "";
@@ -191,6 +234,43 @@ function startCamera() {
             alert(msg);
             console.error("Camera error:", err);
         });
+}
+ 
+// Load all available cameras into the dropdown
+function loadCameraList() {
+    navigator.mediaDevices.enumerateDevices()
+        .then(devices => {
+            const cameras = devices.filter(d => d.kind === 'videoinput');
+            const select = document.getElementById('cameraSelect');
+            select.innerHTML = '';
+ 
+            if (cameras.length === 0) {
+                select.innerHTML = '<option>No cameras found</option>';
+                return;
+            }
+ 
+            cameras.forEach((cam, i) => {
+                const opt = document.createElement('option');
+                opt.value = cam.deviceId;
+                // Label: use real label if available, else generic name
+                opt.textContent = cam.label || ('Camera ' + (i + 1));
+                // Mark current active camera
+                if (cam.deviceId === currentDeviceId) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        });
+}
+ 
+// Called when user picks a different camera from dropdown
+function switchCamera() {
+    const select = document.getElementById('cameraSelect');
+    const selectedId = select.value;
+    if (selectedId && selectedId !== currentDeviceId) {
+        setStatus("🔄 Switching camera...");
+        startCamera(selectedId);
+    }
 }
  
 // ── 2. Create Peer ─────────────────────────────────────────────
@@ -271,8 +351,7 @@ function initPeer() {
  
 // ── 3. Both sides try to call each other ──────────────────────
 function tryCall() {
-    if (!peer || callConnected) return;
-    if (!localStream) return;
+    if (!localStream || !peer || callConnected) return;
     setStatus("📞 Trying to connect...");
  
     try {

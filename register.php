@@ -1,6 +1,7 @@
 <?php
 require_once("config/db.php");
 
+$msg = "";
 if (isset($_POST['register'])) {
 
     $name = $_POST['name'];
@@ -15,7 +16,7 @@ if (isset($_POST['register'])) {
     $check = $stmt->get_result();
 
     if ($check->num_rows > 0) {
-        echo "⚠️ Email already exists!";
+        $msg = "⚠️ Email already exists!";
     } else {
         // Insert into users
         $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
@@ -37,9 +38,9 @@ if (isset($_POST['register'])) {
                 $d_stmt->execute();
             }
 
-            echo "✅ Registered Successfully!";
+            $msg = "✅ Registered Successfully!";
         } else {
-            echo "❌ Registration failed. Please try again.";
+            $msg = "❌ Registration failed. Please try again.";
         }
     }
 }
@@ -53,6 +54,8 @@ if (isset($_POST['register'])) {
 <body>
 
 <h2>Register</h2>
+
+<?php if($msg) echo "<p>$msg</p>"; ?>
 
 <form method="POST">
     <input type="text" name="name" placeholder="Enter Name" required><br><br>

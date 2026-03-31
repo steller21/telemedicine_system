@@ -19,8 +19,7 @@ if ($check->num_rows > 0) {
     $row = $check->fetch_assoc();
     $checklist_id = $row['id'];
 } else {
-    echo "⚠️ No checklist found. Please add medicine first.";
-    exit;
+    $error = "⚠️ No checklist found. Please add medicine first.";
 }
 
 // Handle mark as taken
@@ -36,9 +35,19 @@ $stmt = $conn->prepare("SELECT * FROM checklist_items WHERE checklist_id = ? ORD
 $stmt->bind_param("i", $checklist_id);
 $stmt->execute();
 $result = $stmt->get_result();
-?>
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Medicines</title>
+</head>
+<body>
 
 <h2>My Medicines</h2>
+
+<?php if (isset($error)): ?>
+    <p><?php echo $error; ?></p>
+<?php else: ?>
 
 <table border="1" cellpadding="10">
 <tr>
@@ -86,3 +95,7 @@ $result = $stmt->get_result();
 <?php } ?>
 
 </table>    
+<?php endif; ?>
+
+</body>
+</html>
