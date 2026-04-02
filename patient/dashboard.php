@@ -7,13 +7,27 @@ $appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_
 $total_appts  = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
 $pending_meds = $conn->query("SELECT COUNT(*) as c FROM checklist_items ci JOIN checklists cl ON ci.checklist_id=cl.id WHERE cl.patient_id='$patient_id' AND ci.status='pending'")->fetch_assoc()['c'];
 $monitors     = $conn->query("SELECT COUNT(*) as c FROM patient_monitors WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
-$check_reports_table = $conn->query("SHOW TABLES LIKE 'reports'");
+
+// Get reports from file system
+$reports_dir = '../uploads/reports/';
 $reports_count = 0;
-$recent_reports = null;
-if ($check_reports_table && $check_reports_table->num_rows > 0) {
-    $reports_count = $conn->query("SELECT COUNT(*) as c FROM reports WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
-    $recent_reports = $conn->query("SELECT * FROM reports WHERE patient_id='$patient_id' ORDER BY created_at DESC LIMIT 5");
+$recent_reports = [];
+if (is_dir($reports_dir)) {
+    $files = array_diff(scandir($reports_dir, SCANDIR_SORT_DESCENDING), array('.', '..'));
+    foreach ($files as $file) {
+        $file_path = $reports_dir . $file;
+        if (is_file($file_path)) {
+            $recent_reports[] = [
+                'file_path' => $file,
+                'report_name' => pathinfo($file, PATHINFO_FILENAME),
+                'created_at' => date('d M Y', filemtime($file_path))
+            ];
+        }
+    }
+    $reports_count = count($recent_reports);
+    $recent_reports = array_slice($recent_reports, 0, 5); // Limit to 5 recent
 }
+?>
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -357,25 +371,25 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <!-- RECENT REPORTS -->
     <div class="card" style="margin-bottom:28px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;">📄 Recent Reports</h2>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;">📄 Recent Reports (<?php echo $reports_count; ?>)</h2>
             <a href="upload_report.php" class="btn btn-primary btn-sm">+ Upload New</a>
         </div>
-        <?php if($recent_reports && $recent_reports->num_rows > 0): ?>
-            <?php while($row = $recent_reports->fetch_assoc()):
+        <?php if(count($recent_reports) > 0): ?>
+            <?php foreach($recent_reports as $row):
                 $ext = strtolower(pathinfo($row['file_path'], PATHINFO_EXTENSION));
-                $icon = $ext === 'pdf' ? '📄' : '🖼️';
+                $icon = ($ext === 'pdf') ? '📄' : (in_array($ext, ['jpg', 'jpeg', 'png']) ? '🖼️' : '📋');
             ?>
             <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <div style="width:40px;height:40px;background:var(--teal-glow);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;"><?php echo $icon; ?></div>
                     <div>
                         <div style="font-weight:600;font-size:0.9rem;"><?php echo htmlspecialchars($row['report_name']); ?></div>
-                        <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['report_type']); ?> · <?php echo date('d M Y', strtotime($row['created_at'])); ?></div>
+                        <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['file_path']); ?> · <?php echo htmlspecialchars($row['created_at']); ?></div>
                     </div>
                 </div>
-                <a href="<?php echo htmlspecialchars("../" . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
+                <a href="<?php echo htmlspecialchars("../uploads/reports/" . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
             </div>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         <?php else: ?>
             <div class="empty-state" style="padding:40px 20px;">
                 <div class="empty-icon">📂</div>
