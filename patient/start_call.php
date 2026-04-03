@@ -27,7 +27,7 @@ if (!$row) {
 $doctor_id = intval($row['doctor_id']);
 
 // Insert call record
-$stmt2 = $conn->prepare("INSERT INTO video_calls (appointment_id, patient_id, doctor_id) VALUES (?, ?, ?)");
+$stmt2 = $conn->prepare("INSERT INTO video_calls (appointment_id, patient_id, doctor_id, status) VALUES (?, ?, ?, 'waiting')");
 $stmt2->bind_param("iii", $appointment_id, $patient_id, $doctor_id);
 $stmt2->execute();
 
