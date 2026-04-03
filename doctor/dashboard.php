@@ -18,141 +18,265 @@ $calls = $conn->query("SELECT vc.*, u.name as patient_name
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doctor Dashboard</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: Arial, sans-serif;
-            background: #f0f4f8;
-            padding: 30px;
-            color: #333;
-        }
-        h2 { margin-bottom: 20px; color: #2c3e50; }
-        h3 { margin-bottom: 12px; color: #2c3e50; }
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Doctor Dashboard — MediConnect</title>
+<link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
  
-        .card {
-            background: #fff;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
+:root {
+    --teal:       #0EB8A0;
+    --teal-dark:  #0A8A78;
+    --teal-glow:  rgba(14,184,160,0.15);
+    --navy:       #0B1526;
+    --navy-mid:   #112035;
+    --navy-light: #1A3050;
+    --navy-card:  #0F1E36;
+    --white:      #FFFFFF;
+    --cream:      #F5F0E8;
+    --muted:      #7A8EA8;
+    --muted-dim:  #4A5E78;
+    --accent:     #FF6B4A;
+    --success:    #22C55E;
+    --warning:    #F59E0B;
+    --danger:     #EF4444;
+    --border:     rgba(255,255,255,0.07);
+    --radius:     14px;
+    --radius-lg:  22px;
+    --shadow:     0 8px 32px rgba(0,0,0,0.25);
+}
  
-        .no-calls { color: #888; font-size: 0.95rem; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
  
-        .call-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fff8e1;
-            border-left: 4px solid #f39c12;
-            border-radius: 8px;
-            padding: 14px 18px;
-            margin-bottom: 10px;
-        }
-        .call-item span { font-size: 1rem; }
-        .accept-btn {
-            background: #27ae60;
-            color: #fff;
-            border: none;
-            padding: 10px 22px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .accept-btn:hover { background: #219150; }
+body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    min-height: 100vh;
+    line-height: 1.6;
+}
  
-        .links a {
-            display: inline-block;
-            margin-right: 12px;
-            margin-bottom: 10px;
-            background: #2980b9;
-            color: #fff;
-            padding: 10px 18px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-size: 0.95rem;
-        }
-        .links a:hover { background: #1f6391; }
-        .links a.logout { background: #e74c3c; }
-        .links a.logout:hover { background: #c0392b; }
+/* BG */
+.page-bg {
+    position: fixed; inset: 0; z-index: -1;
+    background:
+        radial-gradient(ellipse 60% 50% at 15% 0%, rgba(14,184,160,0.1) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 85% 90%, rgba(14,184,160,0.07) 0%, transparent 50%),
+        var(--navy);
+}
  
-        /* ── Incoming call popup overlay ── */
-        #callOverlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-        }
-        #callOverlay.show { display: flex; }
-        #callBox {
-            background: #fff;
-            border-radius: 16px;
-            padding: 36px 40px;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-            animation: popIn 0.3s ease;
-        }
-        @keyframes popIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to   { transform: scale(1);   opacity: 1; }
-        }
-        #callBox h2 { font-size: 1.5rem; margin-bottom: 8px; color: #2c3e50; }
-        #callBox p  { color: #666; margin-bottom: 24px; font-size: 1rem; }
-        #callBox .ring { font-size: 3rem; animation: ring 0.6s infinite alternate; }
-        @keyframes ring {
-            from { transform: rotate(-15deg); }
-            to   { transform: rotate(15deg); }
-        }
-        .popup-btns { display: flex; gap: 16px; justify-content: center; margin-top: 10px; }
-        .popup-btns a {
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-size: 1rem;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        .btn-accept { background: #27ae60; color: #fff; }
-        .btn-accept:hover { background: #219150; }
-        .btn-decline { background: #e74c3c; color: #fff; }
-        .btn-decline:hover { background: #c0392b; }
-    </style>
+/* SIDEBAR NAV */
+.layout { display: flex; min-height: 100vh; }
+ 
+.sidebar {
+    width: 240px;
+    background: var(--navy-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 50;
+    padding: 24px 0;
+}
+.sidebar-logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 24px 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    text-decoration: none;
+}
+.logo-dot {
+    width: 9px; height: 9px;
+    background: var(--teal);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--teal);
+    animation: blink 2s ease-in-out infinite;
+    flex-shrink: 0;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.logo-text {
+    font-family: 'Clash Display', sans-serif;
+    font-size: 1.15rem; font-weight: 700;
+    color: var(--white);
+}
+ 
+.nav-section { padding: 0 12px; margin-bottom: 8px; }
+.nav-section-label {
+    font-size: 0.65rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--muted-dim);
+    font-weight: 600; padding: 0 12px 8px;
+}
+.nav-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 10px;
+    color: var(--muted); text-decoration: none;
+    font-size: 0.875rem; font-weight: 500;
+    transition: all 0.2s; margin-bottom: 2px;
+}
+.nav-link:hover { background: var(--teal-glow); color: var(--white); }
+.nav-link.active { background: var(--teal-glow); color: var(--teal); }
+.nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+ 
+.sidebar-bottom {
+    margin-top: auto;
+    padding: 16px 12px 0;
+    border-top: 1px solid var(--border);
+}
+ 
+/* MAIN CONTENT */
+.main {
+    margin-left: 240px;
+    flex: 1;
+    padding: 36px 40px;
+    max-width: calc(100% - 240px);
+}
+ 
+/* PAGE HEADER */
+.page-header { margin-bottom: 32px; }
+.page-header h1 {
+    font-family: 'Clash Display', sans-serif;
+    font-size: 1.8rem; font-weight: 600;
+    margin-bottom: 4px;
+}
+.page-header p { color: var(--muted); font-size: 0.9rem; }
+ 
+/* CARDS */
+.card {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: var(--shadow);
+}
+.card-sm { padding: 20px; border-radius: var(--radius); }
+ 
+/* GRID */
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+ 
+/* BUTTONS */
+.btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 24px; border-radius: 50px;
+    font-size: 0.875rem; font-weight: 600;
+    cursor: pointer; border: none;
+    font-family: 'DM Sans', sans-serif;
+    text-decoration: none; transition: all 0.2s;
+}
+.btn-primary {
+    background: var(--teal); color: var(--navy);
+    box-shadow: 0 0 20px rgba(14,184,160,0.25);
+}
+.btn-primary:hover {
+    background: var(--teal-dark); color: var(--white);
+    transform: translateY(-1px);
+    box-shadow: 0 0 30px rgba(14,184,160,0.35);
+}
+.btn-secondary {
+    background: var(--navy-light); color: var(--white);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--navy-mid); transform: translateY(-1px); }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-sm { padding: 7px 16px; font-size: 0.8rem; }
+ 
+/* CALL STYLES */
+.call-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: var(--radius);
+    padding: 16px 20px; margin-bottom: 12px;
+}
+.no-calls { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 20px; }
+ 
+/* POPUP OVERLAY */
+#callOverlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+    z-index: 9999; align-items: center; justify-content: center;
+}
+#callOverlay.show { display: flex; }
+#callBox {
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 40px; text-align: center;
+    box-shadow: var(--shadow);
+    animation: popIn 0.3s ease;
+}
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#callBox h2 { font-family: 'Clash Display', sans-serif; font-size: 1.5rem; margin-bottom: 8px; }
+#callBox p { color: var(--muted); margin-bottom: 24px; }
+.ring { font-size: 3rem; margin-bottom: 10px; animation: ring 0.6s infinite alternate; }
+@keyframes ring { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+</style>
 </head>
 <body>
- 
-<h2>Welcome, Dr. <?php echo htmlspecialchars($_SESSION['name']); ?> 👨‍⚕️</h2>
- 
-<!-- Incoming calls section -->
-<div class="card">
-    <h3>📞 Incoming Calls</h3>
-    <div id="callList">
-        <?php if ($calls && $calls->num_rows > 0): ?>
-            <?php while($call = $calls->fetch_assoc()): ?>
-                <div class="call-item">
-                    <span>📞 <?php echo htmlspecialchars($call['patient_name'] ?? 'Patient'); ?> is calling...</span>
-                    <a class="accept-btn" href="accept_call.php?call_id=<?php echo $call['id']; ?>">
-                        ✅ Accept
-                    </a>
-                </div>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <p class="no-calls" id="noCalls">No incoming calls right now.</p>
-        <?php endif; ?>
+<div class="page-bg"></div>
+<div class="layout">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+    <a href="../index.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">MediConnect</span></a>
+    <div class="nav-section">
+        <div class="nav-section-label">Main</div>
+        <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
+        <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
     </div>
-</div>
+    <div class="nav-section">
+        <div class="nav-section-label">Monitoring</div>
+        <a href="../patient/monitor_view.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
+    </div>
+    <div class="sidebar-bottom">
+        <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
+    </div>
+</aside>
  
-<!-- Quick links -->
-<div class="card links">
-    <h3>Quick Links</h3><br>
-    <a href="appointments.php">📅 Appointments</a>
-    <a href="../patient/monitor_view.php">👥 Monitor Patients</a>
-    <a class="logout" href="../logout.php">🚪 Logout</a>
+<!-- MAIN -->
+<main class="main">
+    <div class="page-header">
+        <h1>Welcome back, Dr. <?php echo htmlspecialchars($_SESSION['name']); ?> 👨‍⚕️</h1>
+        <p>Your practice is online. Manage your incoming calls and appointments here.</p>
+    </div>
+ 
+    <!-- Incoming calls section -->
+    <div class="card" style="margin-bottom: 28px;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:20px;">📞 Incoming Calls</h2>
+        <div id="callList">
+            <?php if ($calls && $calls->num_rows > 0): ?>
+                <?php while($call = $calls->fetch_assoc()): ?>
+                    <div class="call-item">
+                        <span style="font-weight: 500;">📞 <?php echo htmlspecialchars($call['patient_name'] ?? 'Patient'); ?> is calling...</span>
+                        <a class="btn btn-primary btn-sm" href="accept_call.php?call_id=<?php echo $call['id']; ?>">
+                            ✅ Accept Call
+                        </a>
+                    </div>
+                <?php endwhile; ?>
+            <?php else: ?>
+                <div class="no-calls" id="noCalls">No incoming calls right now. Waiting for patients...</div>
+            <?php endif; ?>
+        </div>
+    </div>
+ 
+    <!-- Quick links -->
+    <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:20px;">Quick Actions</h2>
+    <div class="grid-3">
+        <a href="appointments.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">📅</div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Appointments</div><div style="font-size:0.8rem;color:var(--muted);">View your schedule</div></div>
+        </a>
+        <a href="../patient/monitor_view.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">👥</div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Monitor Patients</div><div style="font-size:0.8rem;color:var(--muted);">Remote care activity</div></div>
+        </a>
+        <a href="../logout.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">🚪</div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Logout</div><div style="font-size:0.8rem;color:var(--muted);">End your session</div></div>
+        </a>
+    </div>
+</main>
 </div>
  
 <!-- ── Incoming call popup ── -->
@@ -161,9 +285,9 @@ $calls = $conn->query("SELECT vc.*, u.name as patient_name
         <div class="ring">📞</div>
         <h2>Incoming Call!</h2>
         <p id="callerName">A patient is calling you...</p>
-        <div class="popup-btns">
-            <a id="acceptLink" class="btn-accept" href="#">✅ Accept</a>
-            <a id="declineLink" class="btn-decline" href="#">❌ Decline</a>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <a id="acceptLink" class="btn btn-primary" href="#">✅ Accept</a>
+            <a id="declineLink" class="btn btn-danger" href="#">❌ Decline</a>
         </div>
     </div>
 </div>
@@ -191,9 +315,9 @@ function checkCalls() {
                 let listHtml = '';
                 data.calls.forEach(call => {
                     listHtml += `
-                        <div class="call-item">
-                            <span>📞 ${call.patient_name} is calling...</span>
-                            <a class="accept-btn" href="accept_call.php?call_id=${call.id}">✅ Accept</a>
+                        <div class="call-item" style="display:flex; align-items:center; justify-content:space-between;">
+                            <span style="font-weight: 500;">📞 ${call.patient_name} is calling...</span>
+                            <a class="btn btn-primary btn-sm" href="accept_call.php?call_id=${call.id}">✅ Accept Call</a>
                         </div>`;
  
                     // Show popup for NEW calls only
@@ -230,7 +354,7 @@ function checkCalls() {
                 // No calls
                 popupShown = false;
                 document.getElementById('callOverlay').classList.remove('show');
-                document.getElementById('callList').innerHTML = '<p class="no-calls">No incoming calls right now.</p>';
+                document.getElementById('callList').innerHTML = '<div class="no-calls">No incoming calls right now. Waiting for patients...</div>';
             }
         })
         .catch(e => console.log('Poll error:', e));
