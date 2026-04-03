@@ -1,72 +1,72 @@
 <?php
 session_start(); 
 require_once("../config/db.php");
-
+ 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { 
     header("Location: ../login.php"); 
     exit; 
 }
-
+ 
 $patient_id = $_SESSION['user_id'];
 $msg = ""; 
 $msg_type = "";
-
+ 
 // ================= UPLOAD =================
 if (isset($_POST['upload'])) {
-
+ 
     $report_name = trim($_POST['report_name']);
     $report_type = $_POST['report_type'];
-
+ 
     if (!empty($_FILES['report_file']['name'])) {
-
+ 
         $upload_dir = "../uploads/reports/";
-
+ 
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }
-
+ 
         $ext = strtolower(pathinfo($_FILES['report_file']['name'], PATHINFO_EXTENSION));
         $allowed = ['pdf', 'jpg', 'jpeg', 'png'];
-
+ 
         if (!in_array($ext, $allowed)) {
             $msg = "Only PDF, JPG, PNG allowed";
             $msg_type = "error";
-
+ 
         } elseif ($_FILES['report_file']['size'] > 5 * 1024 * 1024) {
             $msg = "File must be under 5MB";
             $msg_type = "error";
-
+ 
         } else {
-
+ 
             $filename = time() . "_" . basename($_FILES['report_file']['name']);
-
+ 
             $target = $upload_dir . $filename;              // save file
             $db_path = "uploads/reports/" . $filename;      // store in DB
-
+ 
             if (move_uploaded_file($_FILES['report_file']['tmp_name'], $target)) {
-
+ 
                 $stmt = $conn->prepare("INSERT INTO reports (patient_id, report_name, report_type, file_path, created_at) VALUES (?, ?, ?, ?, NOW())");
-
+ 
                 if ($stmt) {
                     $stmt->bind_param("isss", $patient_id, $report_name, $report_type, $db_path);
                     $stmt->execute();
                 }
-
+ 
                 $msg = "Report uploaded successfully!";
                 $msg_type = "success";
-
+ 
             } else {
                 $msg = "Upload failed.";
                 $msg_type = "error";
             }
         }
-
+ 
     } else {
         $msg = "Select a file";
         $msg_type = "error";
     }
 }
-
+ 
 // ================= FETCH =================
 $reports = null;
 $stmt = $conn->prepare("SELECT * FROM reports WHERE patient_id=? ORDER BY created_at DESC");
@@ -470,7 +470,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                             <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['report_type']); ?> · <?php echo date('d M Y', strtotime($row['created_at'])); ?></div>
                         </div>
                     </div>
-                    <a href="<?php echo htmlspecialchars($row['file_path']); ?>" target="_blank" class="btn btn-secondary btn-sm">View</a>
+                    <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-secondary btn-sm">👁️ View</a>
                 </div>
                 <?php endwhile; ?>
  

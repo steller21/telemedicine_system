@@ -1,33 +1,33 @@
 <?php
 session_start();
 require_once("../config/db.php");
-
+ 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') { 
     header("Location: ../login.php"); 
     exit; 
 }
-
+ 
 $patient_id = intval($_SESSION['user_id']);
-
+ 
 $appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name 
 FROM appointments a 
 JOIN users u ON a.doctor_id = u.id 
 WHERE a.patient_id = '$patient_id' AND a.appointment_date >= NOW() 
 ORDER BY a.appointment_date ASC");
-
+ 
 $total_appts  = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
-
+ 
 $pending_meds = $conn->query("SELECT COUNT(*) as c FROM checklist_items ci 
 JOIN checklists cl ON ci.checklist_id=cl.id 
 WHERE cl.patient_id='$patient_id' AND ci.status='pending'")->fetch_assoc()['c'];
-
+ 
 $monitors     = $conn->query("SELECT COUNT(*) as c FROM patient_monitors WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
-
+ 
 /* ================= FIXED REPORTS ================= */
-
+ 
 $reports_count = 0;
 $recent_reports = [];
-
+ 
 $stmt = $conn->prepare("SELECT * FROM reports WHERE patient_id=? ORDER BY created_at DESC");
 if ($stmt === false) {
     // Table might not exist or connection error
@@ -37,11 +37,11 @@ if ($stmt === false) {
     $stmt->bind_param("i", $patient_id);
     $stmt->execute();
     $result = $stmt->get_result();
-
+ 
     while ($row = $result->fetch_assoc()) {
         $recent_reports[] = $row;
     }
-
+ 
     $reports_count = count($recent_reports);
     $recent_reports = array_slice($recent_reports, 0, 5);
 }
@@ -404,7 +404,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                         <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['file_path']); ?> · <?php echo htmlspecialchars($row['created_at']); ?></div>
                     </div>
                 </div>
-                <a href="<?php echo htmlspecialchars("../uploads/reports/" . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
+                <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
             </div>
             <?php endforeach; ?>
         <?php else: ?>
