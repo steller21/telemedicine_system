@@ -3,7 +3,11 @@ session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $doctor_id = $_SESSION['user_id'];
 $stmt = $conn->prepare("SELECT a.*, u.name AS patient_name FROM appointments a JOIN users u ON a.patient_id = u.id WHERE a.doctor_id = ? ORDER BY a.appointment_date DESC");
-$stmt->bind_param("i", $doctor_id); $stmt->execute(); $result = $stmt->get_result();
+if ($stmt !== false) {
+    $stmt->bind_param("i", $doctor_id); $stmt->execute(); $result = $stmt->get_result();
+} else {
+    $result = false;
+}
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">

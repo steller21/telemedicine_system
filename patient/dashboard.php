@@ -1,33 +1,50 @@
 <?php
 session_start();
 require_once("../config/db.php");
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') { header("Location: ../login.php"); exit; }
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') { 
+    header("Location: ../login.php"); 
+    exit; 
+}
+
 $patient_id = intval($_SESSION['user_id']);
-$appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name FROM appointments a JOIN users u ON a.doctor_id = u.id WHERE a.patient_id = '$patient_id' AND a.appointment_date >= NOW() ORDER BY a.appointment_date ASC");
+
+$appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name 
+FROM appointments a 
+JOIN users u ON a.doctor_id = u.id 
+WHERE a.patient_id = '$patient_id' AND a.appointment_date >= NOW() 
+ORDER BY a.appointment_date ASC");
+
 $total_appts  = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
-$pending_meds = $conn->query("SELECT COUNT(*) as c FROM checklist_items ci JOIN checklists cl ON ci.checklist_id=cl.id WHERE cl.patient_id='$patient_id' AND ci.status='pending'")->fetch_assoc()['c'];
+
+$pending_meds = $conn->query("SELECT COUNT(*) as c FROM checklist_items ci 
+JOIN checklists cl ON ci.checklist_id=cl.id 
+WHERE cl.patient_id='$patient_id' AND ci.status='pending'")->fetch_assoc()['c'];
+
 $monitors     = $conn->query("SELECT COUNT(*) as c FROM patient_monitors WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
 
-// Get reports from file system
-$reports_dir = '../uploads/reports/';
+/* ================= FIXED REPORTS ================= */
+
 $reports_count = 0;
 $recent_reports = [];
-if (is_dir($reports_dir)) {
-    $files = array_diff(scandir($reports_dir, SCANDIR_SORT_DESCENDING), array('.', '..'));
-    foreach ($files as $file) {
-        $file_path = $reports_dir . $file;
-        if (is_file($file_path)) {
-            $recent_reports[] = [
-                'file_path' => $file,
-                'report_name' => pathinfo($file, PATHINFO_FILENAME),
-                'created_at' => date('d M Y', filemtime($file_path))
-            ];
-        }
+
+$stmt = $conn->prepare("SELECT * FROM reports WHERE patient_id=? ORDER BY created_at DESC");
+if ($stmt === false) {
+    // Table might not exist or connection error
+    $recent_reports = [];
+    $reports_count = 0;
+} else {
+    $stmt->bind_param("i", $patient_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $recent_reports[] = $row;
     }
+
     $reports_count = count($recent_reports);
-    $recent_reports = array_slice($recent_reports, 0, 5); // Limit to 5 recent
+    $recent_reports = array_slice($recent_reports, 0, 5);
 }
-?>
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">

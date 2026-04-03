@@ -7,19 +7,23 @@ if (isset($_POST['login'])) {
     $email    = $_POST['email'];
     $password = $_POST['password'];
     $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result->num_rows > 0) {
-        $user = $result->fetch_assoc();
-        if (password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role']    = $user['role'];
-            $_SESSION['name']    = $user['name'];
-            header("Location: " . ($user['role'] == 'patient' ? "patient/dashboard.php" : "doctor/dashboard.php"));
-            exit;
+    if ($stmt === false) {
+        $error = "Database error. Please try again later.";
+    } else {
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($result->num_rows > 0) {
+            $user = $result->fetch_assoc();
+            if ($user && password_verify($password, $user['password'])) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role']    = $user['role'];
+                $_SESSION['name']    = $user['name'];
+                header("Location: " . ($user['role'] == 'patient' ? "patient/dashboard.php" : "doctor/dashboard.php"));
+                exit;
+            } else { $error = "Invalid email or password."; }
         } else { $error = "Invalid email or password."; }
-    } else { $error = "Invalid email or password."; }
+    }
 }
 ?>
 <!DOCTYPE html>

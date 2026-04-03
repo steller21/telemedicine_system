@@ -7,9 +7,13 @@ $msg = ""; $msg_type = "";
 if (isset($_POST['book'])) {
     $doctor_id = intval($_POST['doctor_id']); $date = $_POST['date'];
     $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date) VALUES (?, ?, ?)");
-    $stmt->bind_param("iis", $patient_id, $doctor_id, $date);
-    if ($stmt->execute()) { $msg = "Appointment booked successfully!"; $msg_type = "success"; }
-    else { $msg = "Could not book appointment. Please try again."; $msg_type = "error"; }
+    if ($stmt !== false) {
+        $stmt->bind_param("iis", $patient_id, $doctor_id, $date);
+        if ($stmt->execute()) { $msg = "Appointment booked successfully!"; $msg_type = "success"; }
+        else { $msg = "Could not book appointment. Please try again."; $msg_type = "error"; }
+    } else {
+        $msg = "Database error. Please try again."; $msg_type = "error";
+    }
 }
 ?>
 <!DOCTYPE html><html lang="en"><head>

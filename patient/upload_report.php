@@ -1,58 +1,81 @@
 <?php
-session_start(); require_once("../config/db.php");
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
+session_start(); 
+require_once("../config/db.php");
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { 
+    header("Location: ../login.php"); 
+    exit; 
+}
+
 $patient_id = $_SESSION['user_id'];
-$msg = ""; $msg_type = "";
- 
-// Handle upload
+$msg = ""; 
+$msg_type = "";
+
+// ================= UPLOAD =================
 if (isset($_POST['upload'])) {
+
     $report_name = trim($_POST['report_name']);
     $report_type = $_POST['report_type'];
- 
+
     if (!empty($_FILES['report_file']['name'])) {
+
         $upload_dir = "../uploads/reports/";
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
- 
+
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+
         $ext = strtolower(pathinfo($_FILES['report_file']['name'], PATHINFO_EXTENSION));
         $allowed = ['pdf', 'jpg', 'jpeg', 'png'];
- 
+
         if (!in_array($ext, $allowed)) {
-            $msg = "Only PDF, JPG, and PNG files are allowed."; $msg_type = "error";
+            $msg = "Only PDF, JPG, PNG allowed";
+            $msg_type = "error";
+
         } elseif ($_FILES['report_file']['size'] > 5 * 1024 * 1024) {
-            $msg = "File size must be under 5MB."; $msg_type = "error";
+            $msg = "File must be under 5MB";
+            $msg_type = "error";
+
         } else {
+
             $filename = time() . "_" . basename($_FILES['report_file']['name']);
-            $target   = $upload_dir . $filename;
- 
+
+            $target = $upload_dir . $filename;              // save file
+            $db_path = "uploads/reports/" . $filename;      // store in DB
+
             if (move_uploaded_file($_FILES['report_file']['tmp_name'], $target)) {
-                // Save to DB — insert into reports table if it exists, else just confirm
-                $check = $conn->query("SHOW TABLES LIKE 'reports'");
-                if ($check->num_rows > 0) {
-                    $stmt = $conn->prepare("INSERT INTO reports (patient_id, report_name, report_type, file_path) VALUES (?, ?, ?, ?)");
-                    if ($stmt) {
-                        $stmt->bind_param("isss", $patient_id, $report_name, $report_type, $target);
-                        $stmt->execute();
-                    }
+
+                $stmt = $conn->prepare("INSERT INTO reports (patient_id, report_name, report_type, file_path, created_at) VALUES (?, ?, ?, ?, NOW())");
+
+                if ($stmt) {
+                    $stmt->bind_param("isss", $patient_id, $report_name, $report_type, $db_path);
+                    $stmt->execute();
                 }
-                $msg = "Report uploaded successfully!"; $msg_type = "success";
+
+                $msg = "Report uploaded successfully!";
+                $msg_type = "success";
+
             } else {
-                $msg = "Upload failed. Please try again."; $msg_type = "error";
+                $msg = "Upload failed.";
+                $msg_type = "error";
             }
         }
+
     } else {
-        $msg = "Please select a file to upload."; $msg_type = "error";
+        $msg = "Select a file";
+        $msg_type = "error";
     }
 }
- 
-// Fetch previous reports if table exists
+
+// ================= FETCH =================
 $reports = null;
-$check = $conn->query("SHOW TABLES LIKE 'reports'");
-if ($check->num_rows > 0) {
-    $stmt = $conn->prepare("SELECT * FROM reports WHERE patient_id = ? ORDER BY created_at DESC");
-    if ($stmt) {
-        $stmt->bind_param("i", $patient_id); $stmt->execute();
-        $reports = $stmt->get_result();
-    }
+$stmt = $conn->prepare("SELECT * FROM reports WHERE patient_id=? ORDER BY created_at DESC");
+if ($stmt !== false) {
+    $stmt->bind_param("i", $patient_id);
+    $stmt->execute();
+    $reports = $stmt->get_result();
+} else {
+    $reports = false;
 }
 ?>
 <!DOCTYPE html><html lang="en"><head>
