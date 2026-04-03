@@ -15,6 +15,34 @@ $isPatient = ($user_id == $data['patient_id']);
 
 if (!$isDoctor && !$isPatient) { echo "❌ Unauthorized"; exit; }
 
+// Fetch current user name and gender
+$userQuery = $conn->query("SELECT name, gender, role FROM users WHERE id='".$user_id."'");
+$userData = $userQuery->fetch_assoc();
+$myPrefix = 'Mr.';
+if ($userData && isset($userData['role']) && $userData['role'] === 'doctor') {
+    $myPrefix = 'Dr.';
+} elseif ($userData && isset($userData['gender']) && strtolower($userData['gender']) === 'female') {
+    $myPrefix = 'Mrs.';
+}
+$myName = $myPrefix . ' ' . ($userData ? $userData['name'] : 'User');
+
+// Fetch doctor and patient names with gender
+$doctorQuery = $conn->query("SELECT name, gender FROM users WHERE id='".$data['doctor_id']."'");
+$doctorData = $doctorQuery->fetch_assoc();
+$doctorName = 'Dr. ' . ($doctorData ? $doctorData['name'] : 'Doctor');
+
+$patientQuery = $conn->query("SELECT name, gender FROM users WHERE id='".$data['patient_id']."'");
+$patientData = $patientQuery->fetch_assoc();
+$patientPrefix = 'Mr.';
+if ($patientData) {
+    if (isset($patientData['gender']) && strtolower($patientData['gender']) === 'female') {
+        $patientPrefix = 'Mrs.';
+    }
+    $patientName = $patientPrefix . ' ' . $patientData['name'];
+} else {
+    $patientName = 'Mr. Patient';
+}
+
 $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
 ?>
 
@@ -163,11 +191,11 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
     <div class="video-container">
         <div class="video-box">
             <video id="myVideo" autoplay muted playsinline></video>
-            <span class="video-label">📱 You</span>
+            <span class="video-label">📱 <?php echo htmlspecialchars($myName); ?></span>
         </div>
         <div class="video-box">
             <video id="remoteVideo" autoplay playsinline></video>
-            <span class="video-label">👨‍⚕️ <?php echo $isDoctor ? 'Patient' : 'Doctor'; ?></span>
+            <span class="video-label"><?php echo $isDoctor ? '👤 ' . htmlspecialchars($patientName) : '👨‍⚕️ ' . htmlspecialchars($doctorName); ?></span>
         </div>
     </div>
 
