@@ -392,17 +392,15 @@ function initPeer() {
     });
  
     peer.on('error', (err) => {
-        // PeerJS errors can indicate a critical connection failure
-        // Ignore errors if call is already ended
-        if (callEnded) {
-            console.log("Call ended, ignoring peer error:", err.type);
-            return;
+        if (callEnded) return;
+        console.error("Peer error:", err.type);
+        // Only end call on truly fatal errors, not peer-unavailable (normal during connect)
+        if (err.type === 'peer-unavailable') {
+            statusBox.innerText = "⏳ Waiting for other person...";
+            return; // Don't end — just wait
         }
-        statusBox.innerText = "❌ Error: " + err.type;
-        console.error("Peer error:", err);
-        if (!callEnded) {
-            endCallAuto(); // Trigger auto-disconnect on peer error
-        }
+        statusBox.innerText = "❌ Connection error: " + err.type;
+        endCallAuto();
     });
  
     peer.on('call', call => {
@@ -488,8 +486,7 @@ function startCallStatusMonitor() {
                 // Detect ended status
                 if (status === 'ended' && !callEnded) {
                     console.log("🔴 DETECTED: Call status is 'ended' - auto-disconnecting");
-                    callEnded = true;
-                    endCallAuto();
+                    endCallAuto(); // Don't set callEnded here — endCallAuto() handles it
                 }
             })
             .catch(err => {
@@ -501,19 +498,13 @@ function startCallStatusMonitor() {
     doPoll();
     callStatusCheckInterval = setInterval(doPoll, 500);
     
-    // Aggressive fallback: if no 'active' status for 10 seconds, something is wrong
-    setTimeout(() => {
-        if (!callEnded && (Date.now() - lastActiveTime) > 10000) {
-            console.warn("⚠️ No active status for 10s - forcing disconnect");
-            callEnded = true;
-            endCallAuto();
-        }
-    }, 10000);
+    // Fallback: only disconnect if status stays 'ended' for 30s (not active timer)
+    // Removed aggressive 10s timer — it was killing calls that haven't connected yet
 }
-
+ 
 // Start monitoring immediately on page load
 startCallStatusMonitor();
-
+ 
 function endCallAuto() {
     if (callEnded) {
         console.log("Call already marked as ended");
@@ -572,7 +563,7 @@ function endCallAuto() {
         window.location.replace(redirectUrl);
     }
 }
-
+ 
 function endCall() {
     if (callEnded) {
         console.log("Call already ended");
@@ -633,7 +624,7 @@ function endCall() {
     
     window.location.href = redirectUrl;
 }
-
+ 
 // Handle tab closing or refreshes
 window.addEventListener('beforeunload', function (e) {
     if (!callEnded) {
