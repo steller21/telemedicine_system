@@ -1,20 +1,20 @@
 <?php
 session_start();
 require_once("config/db.php");
-
+ 
 if (!isset($_SESSION['user_id'])) { echo "❌ Please login first!"; exit; }
 if (!isset($_GET['call_id'])) { echo "❌ No call ID!"; exit; }
-
+ 
 $call_id = intval($_GET['call_id']);
 $call = $conn->query("SELECT * FROM video_calls WHERE id='$call_id'");
 $data = $call->fetch_assoc();
-
+ 
 $user_id = $_SESSION['user_id'];
 $isDoctor  = ($user_id == $data['doctor_id']);
 $isPatient = ($user_id == $data['patient_id']);
-
+ 
 if (!$isDoctor && !$isPatient) { echo "❌ Unauthorized"; exit; }
-
+ 
 // Fetch current user name and gender
 $userQuery = $conn->query("SELECT name, gender, role FROM users WHERE id='".$user_id."'");
 $userData = $userQuery->fetch_assoc();
@@ -25,12 +25,12 @@ if ($userData && isset($userData['role']) && $userData['role'] === 'doctor') {
     $myPrefix = 'Mrs.';
 }
 $myName = $myPrefix . ' ' . ($userData ? $userData['name'] : 'User');
-
+ 
 // Fetch doctor and patient names with gender
 $doctorQuery = $conn->query("SELECT name, gender FROM users WHERE id='".$data['doctor_id']."'");
 $doctorData = $doctorQuery->fetch_assoc();
 $doctorName = 'Dr. ' . ($doctorData ? $doctorData['name'] : 'Doctor');
-
+ 
 $patientQuery = $conn->query("SELECT name, gender FROM users WHERE id='".$data['patient_id']."'");
 $patientData = $patientQuery->fetch_assoc();
 $patientPrefix = 'Mr.';
@@ -42,10 +42,10 @@ if ($patientData) {
 } else {
     $patientName = 'Mr. Patient';
 }
-
+ 
 $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
 ?>
-
+ 
 <!DOCTYPE html>
 <html>
 <head>
@@ -183,11 +183,11 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
     </style>
 </head>
 <body>
-
+ 
 <div class="container">
     <h2>🎥 Video Consultation</h2>
     <p id="status">Starting...</p>
-
+ 
     <div class="video-container">
         <div class="video-box">
             <video id="myVideo" autoplay muted playsinline></video>
@@ -198,56 +198,58 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
             <span class="video-label"><?php echo $isDoctor ? '👤 ' . htmlspecialchars($patientName) : '👨‍⚕️ ' . htmlspecialchars($doctorName); ?></span>
         </div>
     </div>
-
+ 
     <div class="controls">
         <div class="control-group">
             <label>📷 Camera:</label>
             <select id="cameraSelect" onchange="switchCamera()"><option>Loading cameras...</option></select>
         </div>
     </div>
-
+ 
     <div style="text-align: center;">
         <button class="btn-end" onclick="endCall()">📵 End Call</button>
     </div>
 </div>
-
+ 
 <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-
+ 
 <script>
 const myVideo = document.getElementById("myVideo");
 const remoteVideo = document.getElementById("remoteVideo");
 const statusBox = document.getElementById("status");
-
+ 
 const callId = "<?php echo $call_id; ?>";
 const isDoctor = <?php echo $isDoctor ? 'true' : 'false'; ?>;
-
+ 
 const myPeerId = (isDoctor ? "doc_" : "pat_") + callId;
 const otherPeerId = (isDoctor ? "pat_" : "doc_") + callId;
-
+ 
 let peer, localStream, activeCall;
 let callConnected = false;
 let currentDeviceId = null;
-
+let callEnded = false;
+let callStatusCheckInterval = null;
+ 
 // ================= CAMERA =================
 function startCamera(deviceId=null) {
     const constraints = deviceId 
         ? { video: { deviceId: { exact: deviceId } }, audio: true }
         : { video: { facingMode: 'user' }, audio: true };
-
+ 
     statusBox.innerText = "📷 Requesting camera...";
-
+ 
     navigator.mediaDevices.getUserMedia(constraints)
     .then(stream => {
         if (localStream) localStream.getTracks().forEach(t => t.stop());
-
+ 
         localStream = stream;
         myVideo.srcObject = stream;
-
+ 
         currentDeviceId = stream.getVideoTracks()[0].getSettings().deviceId;
         statusBox.innerText = "✅ Camera ready";
-
+ 
         loadCameras();
-
+ 
         if (!peer) initPeer();
     })
     .catch(err => {
@@ -268,19 +270,19 @@ function startCamera(deviceId=null) {
         console.error(err);
     });
 }
-
+ 
 function loadCameras() {
     navigator.mediaDevices.enumerateDevices().then(devices => {
         let select = document.getElementById("cameraSelect");
         select.innerHTML = "";
-
+ 
         let cameras = devices.filter(d => d.kind === "videoinput");
         
         if (cameras.length === 0) {
             select.innerHTML = "<option>No cameras found</option>";
             return;
         }
-
+ 
         cameras.forEach((cam, index) => {
             let opt = document.createElement("option");
             opt.value = cam.deviceId;
@@ -292,7 +294,7 @@ function loadCameras() {
         console.error("Error enumerating devices:", err);
     });
 }
-
+ 
 function switchCamera() {
     let selectedId = document.getElementById("cameraSelect").value;
     if (!selectedId) return;
@@ -355,7 +357,7 @@ function switchCamera() {
         alert("Could not switch camera: " + err.message);
     });
 }
-
+ 
 // ================= PEER =================
 function initPeer() {
     peer = new Peer(myPeerId, {
@@ -375,25 +377,38 @@ function initPeer() {
             ]
         }
     });
-
+ 
     peer.on('open', () => {
         statusBox.innerText = "📞 Connecting...";
+        console.log("Peer opened with ID: " + myPeerId);
         setTimeout(callOther, 2000);
     });
-
+ 
     peer.on('disconnected', () => {
-        statusBox.innerText = "⚠️ Server disconnected";
+        if (!callEnded) {
+            statusBox.innerText = "⚠️ Server disconnected, ending call...";
+            endCallAuto();
+        }
     });
-
+ 
     peer.on('error', (err) => {
+        // PeerJS errors can indicate a critical connection failure
+        // Ignore errors if call is already ended
+        if (callEnded) {
+            console.log("Call ended, ignoring peer error:", err.type);
+            return;
+        }
         statusBox.innerText = "❌ Error: " + err.type;
         console.error("Peer error:", err);
+        if (!callEnded) {
+            endCallAuto(); // Trigger auto-disconnect on peer error
+        }
     });
-
+ 
     peer.on('call', call => {
         activeCall = call;
         call.answer(localStream);
-
+ 
         call.on('stream', stream => {
             remoteVideo.srcObject = stream;
             remoteVideo.onloadedmetadata = () => remoteVideo.play();
@@ -403,17 +418,25 @@ function initPeer() {
         
         call.on('close', () => {
             callConnected = false;
-            statusBox.innerText = "Call ended";
+            endCallAuto(); // Always try to end call if PeerJS connection closes
+        });
+        
+        call.on('error', (err) => {
+            if (!callEnded) {
+                statusBox.innerText = "❌ Incoming call error, ending call...";
+                endCallAuto(); // Trigger auto-disconnect on incoming call error
+                console.error("Incoming call error:", err);
+            }
         });
     });
 }
-
+ 
 function callOther() {
     if (!localStream || callConnected) return;
-
+ 
     let call = peer.call(otherPeerId, localStream);
     activeCall = call;
-
+ 
     call.on('stream', stream => {
         remoteVideo.srcObject = stream;
         remoteVideo.onloadedmetadata = () => remoteVideo.play();
@@ -423,29 +446,209 @@ function callOther() {
     
     call.on('close', () => {
         callConnected = false;
-        statusBox.innerText = "Call ended";
+        endCallAuto(); // Always try to end call if PeerJS connection closes
+    });
+    
+    call.on('error', (err) => {
+        if (!callEnded) {
+            statusBox.innerText = "❌ Outgoing call error, ending call...";
+            endCallAuto(); // Trigger auto-disconnect on outgoing call error
+            console.error("Outgoing call error:", err);
+        }
     });
 }
-
+ 
 // ================= END =================
-function endCall() {
-    statusBox.innerText = "📵 Ending call...";
+function startCallStatusMonitor() {
+    clearInterval(callStatusCheckInterval);
+    console.log("🟢 Starting call status monitor - polling every 500ms");
     
-    if (activeCall) activeCall.close();
-    if (localStream) localStream.getTracks().forEach(t => t.stop());
-    if (peer) peer.destroy();
+    let pollCount = 0;
+    let lastActiveTime = Date.now();
+    
+    function doPoll() {
+        if (callEnded) return;
+        
+        pollCount++;
+        fetch('check_call_status.php?call_id=<?php echo $call_id; ?>&t=' + Date.now(), { cache: 'no-store' })
+            .then(res => res.text())
+            .then(status => {
+                status = status.trim();
+                
+                // Debug logs
+                if (pollCount % 4 === 0) {  // Log every 4th poll to reduce noise
+                    console.log("Poll #" + pollCount + ": status=" + status);
+                }
+                
+                // If status is active, update last active time
+                if (status === 'active') {
+                    lastActiveTime = Date.now();
+                }
+                
+                // Detect ended status
+                if (status === 'ended' && !callEnded) {
+                    console.log("🔴 DETECTED: Call status is 'ended' - auto-disconnecting");
+                    callEnded = true;
+                    endCallAuto();
+                }
+            })
+            .catch(err => {
+                console.log("⚠️ Poll error: " + err.message);
+            });
+    }
+    
+    // Poll frequently
+    doPoll();
+    callStatusCheckInterval = setInterval(doPoll, 500);
+    
+    // Aggressive fallback: if no 'active' status for 10 seconds, something is wrong
+    setTimeout(() => {
+        if (!callEnded && (Date.now() - lastActiveTime) > 10000) {
+            console.warn("⚠️ No active status for 10s - forcing disconnect");
+            callEnded = true;
+            endCallAuto();
+        }
+    }, 10000);
+}
+
+// Start monitoring immediately on page load
+startCallStatusMonitor();
+
+function endCallAuto() {
+    if (callEnded) {
+        console.log("Call already marked as ended");
+        return;
+    }
+    callEnded = true;
+    clearInterval(callStatusCheckInterval);
+    console.log("Auto-disconnecting call");
+    
+    statusBox.innerText = "📵 Call ended by other person";
+    
+    try {
+        if (activeCall) {
+            activeCall.close();
+            console.log("Active call closed");
+        }
+    } catch(e) {
+        console.warn("Error closing call:", e);
+    }
+    
+    try {
+        if (localStream) {
+            localStream.getTracks().forEach(t => {
+                try { t.stop(); } catch(e) { console.warn("Error stopping track:", e); }
+            });
+            console.log("Local stream stopped");
+        }
+    } catch(e) {
+        console.warn("Error stopping stream:", e);
+    }
+    
+    try {
+        if (peer) {
+            peer.destroy();
+            console.log("Peer destroyed");
+        }
+    } catch(e) {
+        console.warn("Error destroying peer:", e);
+    }
     
     myVideo.srcObject = null;
     remoteVideo.srcObject = null;
     
-    setTimeout(() => {
-        window.location.href = "dashboard.php";
-    }, 1500);
+    // Redirect immediately with fallback
+    console.log("Attempting redirect from auto-disconnect");
+    
+    const isDoctor = <?php echo $isDoctor ? 'true' : 'false'; ?>;
+    const redirectUrl = isDoctor ? "doctor/dashboard.php" : "patient/dashboard.php";
+    
+    console.log("Is Doctor:", isDoctor, "Redirect URL:", redirectUrl);
+    
+    try {
+        window.location.href = redirectUrl;
+    } catch(e) {
+        console.error("href redirect failed:", e);
+        window.location.replace(redirectUrl);
+    }
 }
 
+function endCall() {
+    if (callEnded) {
+        console.log("Call already ended");
+        return;
+    }
+    callEnded = true;
+    clearInterval(callStatusCheckInterval);
+    console.log("User ended call");
+    
+    statusBox.innerText = "📵 Ending call...";
+    
+    // Notify the other person
+    console.log("Notifying other side...");
+    fetch('end_call_notification.php?call_id=<?php echo $call_id; ?>')
+        .then(res => res.text())
+        .then(data => console.log("Notification response:", data))
+        .catch(err => console.error("Notification error:", err));
+    
+    try {
+        if (activeCall) {
+            activeCall.close();
+            console.log("Active call closed");
+        }
+    } catch(e) {
+        console.warn("Error closing call:", e);
+    }
+    
+    try {
+        if (localStream) {
+            localStream.getTracks().forEach(t => {
+                try { t.stop(); } catch(e) { console.warn("Error stopping track:", e); }
+            });
+            console.log("Local stream stopped");
+        }
+    } catch(e) {
+        console.warn("Error stopping stream:", e);
+    }
+    
+    try {
+        if (peer) {
+            peer.destroy();
+            console.log("Peer destroyed");
+        }
+    } catch(e) {
+        console.warn("Error destroying peer:", e);
+    }
+    
+    myVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+    
+    // Redirect immediately with fallback
+    console.log("Attempting redirect after user ended call");
+    
+    const isDoctor = <?php echo $isDoctor ? 'true' : 'false'; ?>;
+    const redirectUrl = isDoctor ? "doctor/dashboard.php" : "patient/dashboard.php";
+    
+    console.log("Is Doctor:", isDoctor, "Redirect URL:", redirectUrl);
+    
+    window.location.href = redirectUrl;
+}
+
+// Handle tab closing or refreshes
+window.addEventListener('beforeunload', function (e) {
+    if (!callEnded) {
+        // We use sendBeacon for reliable delivery during page unload
+        navigator.sendBeacon('end_call_notification.php?call_id=<?php echo $call_id; ?>');
+        
+        if (activeCall) activeCall.close();
+        if (localStream) localStream.getTracks().forEach(t => t.stop());
+        if (peer) peer.destroy();
+    }
+});
+ 
 // START
 startCamera();
 </script>
-
+ 
 </body>
 </html>
