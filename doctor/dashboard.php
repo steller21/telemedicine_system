@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 }
  
 $doctor_id = intval($_SESSION['user_id']);
- 
+
 // Get incoming calls
 $calls = $conn->query("SELECT vc.*, u.name as patient_name 
                        FROM video_calls vc
@@ -224,6 +224,7 @@ body {
         <div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
+        <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
     </div>
     <div class="sidebar-bottom">
         <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
@@ -255,13 +256,17 @@ body {
             <?php endif; ?>
         </div>
     </div>
- 
+
     <!-- Quick links -->
     <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:20px;">Quick Actions</h2>
     <div class="grid-3">
         <a href="appointments.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">📅</div>
             <div><div style="font-weight:600;margin-bottom:2px;color:white;">Appointments</div><div style="font-size:0.8rem;color:var(--muted);">View your schedule</div></div>
+        </a>
+        <a href="monitor_patients.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">👥</div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Monitor Patients</div><div style="font-size:0.8rem;color:var(--muted);">Track patient progress</div></div>
         </a>
         <a href="../logout.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">🚪</div>

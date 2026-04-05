@@ -2,12 +2,68 @@
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id']; $msg=""; $msg_type="";
+
+// Handle delete monitor
+if (isset($_GET['remove_monitor'])) {
+    $monitor_id = intval($_GET['remove_monitor']);
+    $delete = $conn->prepare("DELETE FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
+    $delete->bind_param("ii", $patient_id, $monitor_id);
+    $delete->execute();
+    header("Location: add_monitor.php?success=Monitor removed");
+    exit;
+}
+
+if (isset($_GET['success'])) {
+    $msg = htmlspecialchars($_GET['success']);
+    $msg_type = "success";
+}
+
+// Add monitor - Send request instead of direct add
 if (isset($_POST['add'])) {
     $monitor_email = $_POST['email'];
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?"); $stmt->bind_param("s", $monitor_email); $stmt->execute(); $user = $stmt->get_result();
-    if ($user->num_rows > 0) { $monitor_id = $user->fetch_assoc()['id']; $ins = $conn->prepare("INSERT INTO patient_monitors (patient_id, monitor_id) VALUES (?, ?)"); $ins->bind_param("ii", $patient_id, $monitor_id); $ins->execute(); $msg = "Monitor added successfully!"; $msg_type = "success"; }
+    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?"); 
+    $stmt->bind_param("s", $monitor_email); 
+    $stmt->execute(); 
+    $user = $stmt->get_result();
+    if ($user->num_rows > 0) { 
+        $monitor_id = $user->fetch_assoc()['id'];
+        if ($monitor_id == $patient_id) {
+            $msg = "You cannot add yourself as a monitor.";
+            $msg_type = "error";
+        } else {
+            // Check if already have active monitor or pending request
+            $check_active = $conn->prepare("SELECT id FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
+            $check_active->bind_param("ii", $patient_id, $monitor_id);
+            $check_active->execute();
+            
+            $check_pending = $conn->prepare("SELECT id FROM monitor_requests WHERE requester_id=? AND requested_user_id=? AND status='pending'");
+            $check_pending->bind_param("ii", $patient_id, $monitor_id);
+            $check_pending->execute();
+            
+            if ($check_active->get_result()->num_rows > 0) {
+                $msg = "This person is already monitoring you.";
+                $msg_type = "warning";
+            } else if ($check_pending->get_result()->num_rows > 0) {
+                $msg = "Request already sent. Waiting for their response.";
+                $msg_type = "warning";
+            } else {
+                // Send monitor request
+                $ins = $conn->prepare("INSERT INTO monitor_requests (requester_id, requested_user_id, status) VALUES (?, ?, 'pending')");
+                $ins->bind_param("ii", $patient_id, $monitor_id);
+                $ins->execute();
+                $msg = "✅ Monitor request sent! They need to accept it before they can monitor you.";
+                $msg_type = "success";
+            }
+        }
+    }
     else { $msg = "User not found with that email."; $msg_type = "error"; }
 }
+
+// Fetch current monitors (only accepted ones)
+$monitors = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM patient_monitors pm JOIN users u ON pm.monitor_id=u.id WHERE pm.patient_id='$patient_id' ORDER BY u.name ASC");
+
+// Fetch pending requests
+$pending_requests = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM monitor_requests mr JOIN users u ON mr.requested_user_id=u.id WHERE mr.requester_id='$patient_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -297,15 +353,138 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
-    <div class="page-header"><h1>👁️ Add Monitor</h1><p>Allow a trusted person to monitor your health activity.</p></div>
-    <div style="max-width:520px;">
-        <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':'❌';?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
+    <div class="page-header"><h1>👁️ Manage Monitors</h1><p>Add trusted people to monitor your health activity, or remove existing monitors.</p></div>
+    <div style="max-width:600px;">
+        <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':($msg_type=='warning'?'⚠️':'❌');?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
+        
+        <!-- PENDING REQUESTS -->
+        <div class="card" style="margin-bottom:24px;">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">⏳ Pending Requests</h2>
+            <?php if ($pending_requests && $pending_requests->num_rows > 0): ?>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead style="background:var(--navy-light);">
+                            <tr>
+                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Name</th>
+                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Email</th>
+                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while ($row = $pending_requests->fetch_assoc()): ?>
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:14px;font-weight:600;"><?php echo htmlspecialchars($row['name']); ?></td>
+                                <td style="padding:14px;color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
+                                <td style="padding:14px;"><span style="background:rgba(245,158,11,0.12);color:var(--warning);padding:4px 10px;border-radius:50px;font-size:0.8rem;font-weight:600;">⏳ Awaiting Response</span></td>
+                            </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="text-align:center;padding:16px;color:var(--muted);">
+                    <p style="font-size:0.9rem;">No pending requests.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- CURRENT MONITORS -->
+        <div class="card" style="margin-bottom:24px;">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">👥 Current Monitors</h2>
+            <?php if ($monitors && $monitors->num_rows > 0): ?>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead style="background:var(--navy-light);">
+                            <tr>
+                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Name</th>
+                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Email</th>
+                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php while ($row = $monitors->fetch_assoc()): ?>
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:14px;font-weight:600;"><?php echo htmlspecialchars($row['name']); ?></td>
+                                <td style="padding:14px;color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
+                                <td style="padding:14px;">
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="showConfirmModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['name']); ?>');">🗑️ Remove</button>
+                                </td>
+                            </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div style="text-align:center;padding:24px;color:var(--muted);">
+                    <p style="font-size:0.9rem;">No monitors added yet. Add someone below to get started.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- ADD MONITOR FORM -->
         <div class="card">
-            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the email address of the person you want to grant monitoring access to. They must already have a MediConnect account.</p>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">➕ Add New Monitor</h2>
+            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the email address of a trusted person (they must have a MediConnect account).</p>
             <form method="POST">
                 <div class="form-group"><label class="form-label">Monitor's Email</label><input class="form-input" type="email" name="email" placeholder="monitor@example.com" required></div>
-                <button class="btn btn-primary btn-full" type="submit" name="add">👁️ Add Monitor</button>
+                <button class="btn btn-primary btn-full" type="submit" name="add">➕ Add Monitor</button>
             </form>
         </div>
     </div>
-</main></div></body></html>
+</main></div>
+
+<!-- REMOVE MONITOR CONFIRMATION MODAL -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:modalSlideIn 0.3s ease-out;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:12px;color:var(--white);">Remove Monitor?</h2>
+        <p style="color:var(--muted);font-size:0.9rem;margin-bottom:28px;">Are you sure you want to remove "<span id="monitorName" style="font-weight:600;color:var(--teal);"></span>" from your monitors? They will no longer be able to see your health information.</p>
+        <div style="display:flex;gap:12px;justify-content:flex-end;">
+            <button type="button" onclick="hideConfirmModal()" style="padding:10px 24px;background:var(--navy-light);border:1px solid var(--border);border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)';">Cancel</button>
+            <button type="button" onclick="confirmRemove()" style="padding:10px 24px;background:#EF4444;border:none;border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#EF4444';">Remove</button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+</style>
+
+<script>
+let pendingRemoveUrl = null;
+
+function showConfirmModal(monitorId, monitorName) {
+    pendingRemoveUrl = 'add_monitor.php?remove_monitor=' + monitorId;
+    document.getElementById('monitorName').textContent = monitorName;
+    document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function hideConfirmModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    pendingRemoveUrl = null;
+}
+
+function confirmRemove() {
+    if (pendingRemoveUrl) {
+        window.location.href = pendingRemoveUrl;
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('confirmModal');
+    if (event.target === modal) {
+        hideConfirmModal();
+    }
+});
+</script>
+
+</body></html>
