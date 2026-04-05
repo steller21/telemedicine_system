@@ -10,6 +10,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') {
 $patient_id = $_SESSION['user_id'];
 $msg = ""; 
 $msg_type = "";
+
+// Show success message from redirect
+if (isset($_GET['success'])) {
+    $msg = "Report uploaded successfully!";
+    $msg_type = "success";
+}
  
 // ================= UPLOAD =================
 if (isset($_POST['upload'])) {
@@ -50,10 +56,9 @@ if (isset($_POST['upload'])) {
                 if ($stmt) {
                     $stmt->bind_param("isss", $patient_id, $report_name, $report_type, $db_path);
                     $stmt->execute();
+                    header("Location: upload_report.php?success=1");
+                    exit;
                 }
- 
-                $msg = "Report uploaded successfully!";
-                $msg_type = "success";
  
             } else {
                 $msg = "Upload failed.";
@@ -387,7 +392,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     </div>
     <div class="nav-section"><div class="nav-section-label">Health</div>
         <a href="checklist.php" class="nav-link"><span class="nav-icon">💊</span> My Medicines</a>
-        <a href="add_checklist.php" class="nav-link"><span class="nav-icon">➕</span> Add Medicine</a>
         <a href="upload_report.php" class="nav-link active"><span class="nav-icon">📄</span> Upload Report</a>
     </div>
     <div class="nav-section"><div class="nav-section-label">Monitoring</div>

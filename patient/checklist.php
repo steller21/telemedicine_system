@@ -300,7 +300,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     </div>
     <div class="nav-section"><div class="nav-section-label">Health</div>
         <a href="checklist.php" class="nav-link active"><span class="nav-icon">💊</span> My Medicines</a>
-        <a href="add_checklist.php" class="nav-link"><span class="nav-icon">➕</span> Add Medicine</a>
         <a href="upload_report.php" class="nav-link"><span class="nav-icon">📄</span> Upload Report</a>
     </div>
     <div class="nav-section"><div class="nav-section-label">Monitoring</div>

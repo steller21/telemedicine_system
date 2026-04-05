@@ -45,6 +45,18 @@ if ($stmt === false) {
     $reports_count = count($recent_reports);
     $recent_reports = array_slice($recent_reports, 0, 5);
 }
+
+// Handle success/error messages
+$msg = "";
+$msg_type = "";
+if (isset($_GET['success'])) {
+    $msg = htmlspecialchars($_GET['success']);
+    $msg_type = "success";
+}
+if (isset($_GET['error'])) {
+    $msg = htmlspecialchars($_GET['error']);
+    $msg_type = "error";
+}
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -328,11 +340,16 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <a href="../chatbot.php" class="nav-link"><span class="nav-icon">🤖</span> Health Assistant</a>
     </div>
     <div class="nav-section">
-        <div class="nav-section-label">Health</div>
-        <a href="checklist.php" class="nav-link"><span class="nav-icon">💊</span> My Medicines</a>
-        <a href="add_checklist.php" class="nav-link"><span class="nav-icon">➕</span> Add Medicine</a>
-        <a href="upload_report.php" class="nav-link"><span class="nav-icon">📄</span> Upload Report</a>
-    </div>
+    <div class="nav-section-label">Health</div>
+
+    <a href="checklist.php" class="nav-link">
+        <span class="nav-icon">💊</span> My Medicines
+    </a>
+
+    <a href="upload_report.php" class="nav-link">
+        <span class="nav-icon">📄</span> Upload Report
+    </a>
+</div>
     <div class="nav-section">
         <div class="nav-section-label">Monitoring</div>
         <a href="add_monitor.php" class="nav-link"><span class="nav-icon">👁️</span> Add Monitor</a>
@@ -348,6 +365,11 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <h1>Welcome back, <?php echo htmlspecialchars($_SESSION['name']); ?> 👋</h1>
         <p>Here's an overview of your health activity today.</p>
     </div>
+    <?php if ($msg): ?>
+    <div class="alert alert-<?php echo $msg_type; ?>" style="margin-bottom:20px;">
+        <?php echo $msg; ?>
+    </div>
+    <?php endif; ?>
     <!-- STATS -->
     <div class="grid-4" style="margin-bottom:28px;">
         <div class="stat-card"><div class="stat-card-icon">📅</div><div class="stat-card-value"><?php echo $total_appts; ?></div><div class="stat-card-label">Total Appointments</div></div>
@@ -404,7 +426,10 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                         <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['file_path']); ?> · <?php echo htmlspecialchars($row['created_at']); ?></div>
                     </div>
                 </div>
-                <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="showConfirmModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['report_name']); ?>');">🗑️ Delete</button>
+                </div>
             </div>
             <?php endforeach; ?>
         <?php else: ?>
@@ -433,4 +458,62 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     </div>
 </main>
 </div>
+
+<!-- CUSTOM CONFIRMATION MODAL -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:modalSlideIn 0.3s ease-out;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:12px;color:var(--white);">Delete Report?</h2>
+        <p style="color:var(--muted);font-size:0.9rem;margin-bottom:28px;">Are you sure you want to delete "<span id="reportName" style="font-weight:600;color:var(--teal);"></span>"? This action cannot be undone.</p>
+        <div style="display:flex;gap:12px;justify-content:flex-end;">
+            <button type="button" onclick="hideConfirmModal()" style="padding:10px 24px;background:var(--navy-light);border:1px solid var(--border);border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)';">Cancel</button>
+            <button type="button" onclick="confirmDelete()" style="padding:10px 24px;background:#EF4444;border:none;border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#EF4444';">Delete</button>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+</style>
+
+<script>
+let pendingDeleteId = null;
+let pendingDeleteUrl = null;
+
+function showConfirmModal(reportId, reportName) {
+    pendingDeleteId = reportId;
+    pendingDeleteUrl = 'delete_report.php?id=' + reportId;
+    document.getElementById('reportName').textContent = reportName;
+    document.getElementById('confirmModal').style.display = 'flex';
+}
+
+function hideConfirmModal() {
+    document.getElementById('confirmModal').style.display = 'none';
+    pendingDeleteId = null;
+    pendingDeleteUrl = null;
+}
+
+function confirmDelete() {
+    if (pendingDeleteUrl) {
+        window.location.href = pendingDeleteUrl;
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('confirmModal');
+    if (event.target === modal) {
+        hideConfirmModal();
+    }
+});
+</script>
+
 </body></html>

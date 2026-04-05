@@ -225,10 +225,6 @@ body {
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
     </div>
-    <div class="nav-section">
-        <div class="nav-section-label">Monitoring</div>
-        <a href="../patient/monitor_view.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
-    </div>
     <div class="sidebar-bottom">
         <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
     </div>
@@ -266,10 +262,6 @@ body {
         <a href="appointments.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">📅</div>
             <div><div style="font-weight:600;margin-bottom:2px;color:white;">Appointments</div><div style="font-size:0.8rem;color:var(--muted);">View your schedule</div></div>
-        </a>
-        <a href="../patient/monitor_view.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
-            <div style="font-size:1.8rem;">👥</div>
-            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Monitor Patients</div><div style="font-size:0.8rem;color:var(--muted);">Remote care activity</div></div>
         </a>
         <a href="../logout.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">🚪</div>

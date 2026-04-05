@@ -280,6 +280,11 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="nav-section"><div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>
+        <a href="../chatbot.php" class="nav-link"><span class="nav-icon">🤖</span> Health Assistant</a>
+    </div>
+    <div class="nav-section"><div class="nav-section-label">Health</div>
+        <a href="checklist.php" class="nav-link"><span class="nav-icon">💊</span> My Medicines</a>
+        <a href="upload_report.php" class="nav-link"><span class="nav-icon">📄</span> Upload Report</a>
     </div>
     <div class="nav-section"><div class="nav-section-label">Monitoring</div>
         <a href="add_monitor.php" class="nav-link"><span class="nav-icon">👁️</span> Add Monitor</a>
