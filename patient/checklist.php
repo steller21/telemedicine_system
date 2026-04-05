@@ -10,7 +10,7 @@ if ($check->num_rows > 0) { $checklist_id = $check->fetch_assoc()['id']; }
 else { $error = "No checklist found. Add medicines first."; }
 if (isset($_POST['mark_done']) && $checklist_id) {
     $item_id = intval($_POST['item_id']);
-    $u = $conn->prepare("UPDATE checklist_items SET status='completed' WHERE id=?");
+    $u = $conn->prepare("UPDATE checklist_items SET status='completed', completed_at=NOW() WHERE id=?");
     $u->bind_param("i", $item_id); $u->execute();
     header("Location: checklist.php"); exit;
 }
@@ -329,7 +329,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <td style="color:var(--muted);font-size:0.85rem;"><?php echo htmlspecialchars($row['dosage']); ?></td>
             <td><?php echo htmlspecialchars($row['due_time']); ?></td>
             <td><?php if($row['status']=='completed'): ?><span class="badge badge-success">Taken</span><?php else: ?><span class="badge badge-warning">Pending</span><?php endif; ?></td>
-            <td><?php if($row['status']=='pending'): ?><form method="POST" style="margin:0;"><input type="hidden" name="item_id" value="<?php echo $row['id']; ?>"><button class="btn btn-primary btn-sm" type="submit" name="mark_done">✔ Mark Taken</button></form><?php else: ?><span style="color:var(--muted);font-size:0.85rem;">✔ Done</span><?php endif; ?></td>
+            <td>
+                <?php if($row['status']=='pending'): ?>
+                    <form method="POST" style="margin:0;"><input type="hidden" name="item_id" value="<?php echo $row['id']; ?>"><button class="btn btn-primary btn-sm" type="submit" name="mark_done">✔ Mark Taken</button></form>
+                <?php else: ?>
+                    <span style="color:var(--muted);font-size:0.85rem;">✔ Done <?php echo !empty($row['completed_at']) ? 'at ' . date('h:i A', strtotime($row['completed_at'])) : ''; ?></span>
+                <?php endif; ?>
+            </td>
         </tr>
         <?php endwhile; ?>
         </tbody>

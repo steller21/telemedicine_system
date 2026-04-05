@@ -9,6 +9,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 
 $doctor_id = intval($_SESSION['user_id']);
 
+// Ensure checklist_items has completed_at column
+$conn->query("ALTER TABLE checklist_items ADD COLUMN completed_at TIMESTAMP NULL DEFAULT NULL");
+
 // Ensure monitor_requests table exists
 $conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -66,13 +69,15 @@ $pending_requests = $conn->query("SELECT mr.id, u.id as patient_id, u.name, u.ge
 
 // Get patients' medicines for this doctor (only patients who added doctor as monitor)
 $patients_medicines = $conn->query("SELECT DISTINCT u.id, u.name, u.gender, ci.id as medicine_id, 
-                                    ci.medicine_name, ci.dosage, ci.due_time, ci.status, ci.medicine_image
+                                    ci.medicine_name, ci.dosage, ci.due_time, ci.status, ci.medicine_image, ci.completed_at
                                     FROM users u
                                     JOIN patient_monitors pm ON u.id = pm.patient_id
                                     LEFT JOIN checklists cl ON u.id = cl.patient_id
                                     LEFT JOIN checklist_items ci ON cl.id = ci.checklist_id
                                     WHERE pm.monitor_id='$doctor_id'
-                                    ORDER BY u.name ASC, ci.due_time ASC");
+                                    ORDER BY u.name ASC, CAST(SUBSTRING_INDEX(ci.due_time, ',', 1) AS TIME) ASC");
+
+require_once("../includes/helpers.php");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -272,7 +277,7 @@ tbody td { padding: 14px; }
 
     <!-- MONITORED PATIENTS MEDICINES -->
     <div class="card" style="margin-bottom: 24px;">
-        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">✅ Approved Patients' Medicines</h2>
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">😷 Patient's medicine</h2>
         <?php if ($patients_medicines && $patients_medicines->num_rows > 0): 
             // Fetch all data into array for grouping
             $medicines_by_patient = [];
@@ -287,9 +292,11 @@ tbody td { padding: 14px; }
                 if ($row['medicine_name']) {
                     $medicines_by_patient[$row['id']]['medicines'][] = [
                         'medicine_name' => $row['medicine_name'],
+                        'medicine_image' => $row['medicine_image'],
                         'dosage' => $row['dosage'],
                         'due_time' => $row['due_time'],
-                        'status' => $row['status']
+                        'status' => $row['status'],
+                        'completed_at' => $row['completed_at']
                     ];
                 }
             }
@@ -299,9 +306,11 @@ tbody td { padding: 14px; }
                     <thead>
                         <tr>
                             <th>Patient Name</th>
+                            <th>Image</th>
                             <th>Medicine Name</th>
                             <th>Dosage</th>
-                            <th>Due Time</th>
+                            <th>When to Take</th>
+                            <th>Marked as Taken</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -315,12 +324,27 @@ tbody td { padding: 14px; }
                                 <?php foreach ($patient_data['medicines'] as $med): 
                                     $status_badge = ($med['status'] === 'completed') ? '✅ Taken' : '⏳ Pending';
                                     $status_color = ($med['status'] === 'completed') ? 'var(--success)' : 'var(--warning)';
+                                    $completed_time = ($med['completed_at']) ? date('M d, h:i A', strtotime($med['completed_at'])) : '—';
                                 ?>
                                 <tr>
                                     <td style="font-weight:600;"><?php echo ($first_medicine) ? $patient_name : ''; ?></td>
+                                    <td style="cursor:pointer;" <?php if(!empty($med['medicine_image']) && imageExists($med['medicine_image'])): ?>onclick="openImageModal('<?php echo htmlspecialchars($med['medicine_image'], ENT_QUOTES); ?>')" title="Click to view"<?php endif; ?>>
+                                        <?php if(!empty($med['medicine_image']) && imageExists($med['medicine_image'])): ?>
+                                            <img src="<?php echo htmlspecialchars($med['medicine_image']); ?>" style="width:48px;height:48px;object-fit:cover;border-radius:8px;">
+                                        <?php else: ?>
+                                            <div style="width:48px;height:48px;background:var(--navy-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💊</div>
+                                        <?php endif; ?>
+                                    </td>
                                     <td style="color:var(--muted);"><?php echo htmlspecialchars($med['medicine_name'] ?? '—'); ?></td>
                                     <td style="color:var(--muted);"><?php echo htmlspecialchars($med['dosage'] ?? '—'); ?></td>
-                                    <td style="color:var(--muted);"><?php echo htmlspecialchars($med['due_time'] ?? '—'); ?></td>
+                                    <td><?php echo getTimeInWords($med['due_time']); ?></td>
+                                    <td>
+                                        <?php if($med['completed_at']): ?>
+                                            <div style="font-size:0.85rem;font-weight:600;"><?php echo date('M d, h:i A', strtotime($med['completed_at'])); ?></div>
+                                        <?php else: ?>
+                                            <span style="color:var(--muted);">—</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td style="color:<?php echo $status_color; ?>;font-weight:600;"><?php echo $status_badge; ?></td>
                                 </tr>
                                 <?php $first_medicine = false; ?>
@@ -328,7 +352,7 @@ tbody td { padding: 14px; }
                             <?php else: ?>
                                 <tr>
                                     <td style="font-weight:600;"><?php echo $patient_name; ?></td>
-                                    <td colspan="4" style="color:var(--muted);font-style:italic;">No medicines added</td>
+                                    <td colspan="6" style="color:var(--muted);font-style:italic;">No medicines added</td>
                                 </tr>
                             <?php endif; ?>
                         <?php endforeach; ?>
@@ -382,5 +406,34 @@ tbody td { padding: 14px; }
     </div>
 </main>
 </div>
+
+<!-- IMAGE MODAL -->
+<div id="imageModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;padding:20px;align-items:center;justify-content:center;">
+    <div style="position:relative;max-width:90vw;max-height:90vh;background:var(--navy-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);">
+        <button onclick="closeImageModal()" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--white);font-size:1.5rem;cursor:pointer;z-index:1001;transition:all 0.2s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--white)'">✕</button>
+        <img id="modalImage" src="" alt="Medicine" style="max-width:100%;max-height:80vh;border-radius:10px;object-fit:contain;">
+    </div>
+</div>
+
+<script>
+function openImageModal(imagePath) {
+    const modal = document.getElementById('imageModal');
+    const img = document.getElementById('modalImage');
+    img.src = imagePath;
+    modal.style.display = 'flex';
+}
+
+function closeImageModal() {
+    document.getElementById('imageModal').style.display = 'none';
+}
+
+document.getElementById('imageModal').onclick = function(e) {
+    if (e.target === this) closeImageModal();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeImageModal();
+});
+</script>
+
 </body>
-</html>
