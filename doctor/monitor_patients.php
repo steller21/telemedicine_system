@@ -9,6 +9,61 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 
 $doctor_id = intval($_SESSION['user_id']);
 
+// Ensure monitor_requests table exists
+$conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    requester_id INT NOT NULL,
+    requested_user_id INT NOT NULL,
+    status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_request (requester_id, requested_user_id),
+    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+)");
+
+// Handle accept request
+if (isset($_GET['accept'])) {
+    $request_id = intval($_GET['accept']);
+    $req = $conn->prepare("SELECT requester_id FROM monitor_requests WHERE id=? AND requested_user_id=? AND status='pending'");
+    if ($req) {
+        $req->bind_param("ii", $request_id, $doctor_id);
+        $req->execute();
+        $result = $req->get_result();
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $patient_id = $row['requester_id'];
+            $ins = $conn->prepare("INSERT INTO patient_monitors (patient_id, monitor_id) VALUES (?, ?)");
+            if ($ins) {
+                $ins->bind_param("ii", $patient_id, $doctor_id);
+                $ins->execute();
+                $upd = $conn->prepare("UPDATE monitor_requests SET status='accepted' WHERE id=?");
+                if ($upd) {
+                    $upd->bind_param("i", $request_id);
+                    $upd->execute();
+                }
+            }
+        }
+    }
+    header("Location: monitor_patients.php");
+    exit;
+}
+
+// Handle reject request
+if (isset($_GET['reject'])) {
+    $request_id = intval($_GET['reject']);
+    $del = $conn->prepare("DELETE FROM monitor_requests WHERE id=? AND requested_user_id=?");
+    if ($del) {
+        $del->bind_param("ii", $request_id, $doctor_id);
+        $del->execute();
+    }
+    header("Location: monitor_patients.php");
+    exit;
+}
+
+// Fetch pending monitor requests
+$pending_requests = $conn->query("SELECT mr.id, u.id as patient_id, u.name, u.gender, mr.created_at FROM monitor_requests mr JOIN users u ON mr.requester_id=u.id WHERE mr.requested_user_id='$doctor_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
+
 // Get patients' medicines for this doctor (only patients who added doctor as monitor)
 $patients_medicines = $conn->query("SELECT DISTINCT u.id, u.name, u.gender, ci.id as medicine_id, 
                                     ci.medicine_name, ci.dosage, ci.due_time, ci.status, ci.medicine_image
@@ -215,7 +270,9 @@ tbody td { padding: 14px; }
         <p>Track your patients' health checklists and medicine progress.</p>
     </div>
 
-    <div class="card">
+    <!-- MONITORED PATIENTS MEDICINES -->
+    <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">✅ Approved Patients' Medicines</h2>
         <?php if ($patients_medicines && $patients_medicines->num_rows > 0): 
             // Fetch all data into array for grouping
             $medicines_by_patient = [];
@@ -282,7 +339,44 @@ tbody td { padding: 14px; }
             <div class="empty-state">
                 <div class="empty-icon">📋</div>
                 <h3>No medicines found</h3>
-                <p style="font-size:0.9rem;">Medicine data from patients who added you as a monitor will appear here.</p>
+                <p style="font-size:0.9rem;">Once patients accept your monitoring requests, their medicine data will appear here.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- PENDING REQUESTS SECTION -->
+    <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📬 Pending Monitor Requests</h2>
+        <?php if ($pending_requests && $pending_requests->num_rows > 0): ?>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Patient Name</th>
+                            <th>Requested Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php while ($row = $pending_requests->fetch_assoc()): 
+                            $title = ($row['gender'] === 'male') ? 'Mr.' : (($row['gender'] === 'female') ? 'Mrs.' : 'Mx.');
+                            $created = date('M d, Y', strtotime($row['created_at']));
+                        ?>
+                        <tr>
+                            <td style="font-weight:600;"><?php echo htmlspecialchars($title . ' ' . $row['name']); ?></td>
+                            <td style="color:var(--muted);"><?php echo $created; ?></td>
+                            <td>
+                                <a href="monitor_patients.php?accept=<?php echo $row['id']; ?>" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);border-radius:50px;font-size:0.8rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all 0.2s;margin-right:8px;" onmouseover="this.style.background='rgba(34,197,94,0.3)'" onmouseout="this.style.background='rgba(34,197,94,0.2)'">✅ Accept</a>
+                                <a href="monitor_patients.php?reject=<?php echo $row['id']; ?>" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);border-radius:50px;font-size:0.8rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.3)'" onmouseout="this.style.background='rgba(239,68,68,0.2)'">❌ Reject</a>
+                            </td>
+                        </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div style="text-align:center;padding:24px;color:var(--muted);">
+                <p style="font-size:0.9rem;">No pending requests. Patients who request monitoring will appear here.</p>
             </div>
         <?php endif; ?>
     </div>

@@ -3,12 +3,27 @@ session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id']; $msg=""; $msg_type="";
 
+// Ensure monitor_requests table exists
+$conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    requester_id INT NOT NULL,
+    requested_user_id INT NOT NULL,
+    status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_request (requester_id, requested_user_id),
+    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+)");
+
 // Handle delete monitor
 if (isset($_GET['remove_monitor'])) {
     $monitor_id = intval($_GET['remove_monitor']);
     $delete = $conn->prepare("DELETE FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
-    $delete->bind_param("ii", $patient_id, $monitor_id);
-    $delete->execute();
+    if ($delete) {
+        $delete->bind_param("ii", $patient_id, $monitor_id);
+        $delete->execute();
+    }
     header("Location: add_monitor.php?success=Monitor removed");
     exit;
 }
@@ -33,26 +48,41 @@ if (isset($_POST['add'])) {
         } else {
             // Check if already have active monitor or pending request
             $check_active = $conn->prepare("SELECT id FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
-            $check_active->bind_param("ii", $patient_id, $monitor_id);
-            $check_active->execute();
+            if ($check_active) {
+                $check_active->bind_param("ii", $patient_id, $monitor_id);
+                $check_active->execute();
+                $active_result = $check_active->get_result();
+            } else {
+                $active_result = null;
+            }
             
             $check_pending = $conn->prepare("SELECT id FROM monitor_requests WHERE requester_id=? AND requested_user_id=? AND status='pending'");
-            $check_pending->bind_param("ii", $patient_id, $monitor_id);
-            $check_pending->execute();
+            if ($check_pending) {
+                $check_pending->bind_param("ii", $patient_id, $monitor_id);
+                $check_pending->execute();
+                $pending_result = $check_pending->get_result();
+            } else {
+                $pending_result = null;
+            }
             
-            if ($check_active->get_result()->num_rows > 0) {
+            if ($active_result && $active_result->num_rows > 0) {
                 $msg = "This person is already monitoring you.";
                 $msg_type = "warning";
-            } else if ($check_pending->get_result()->num_rows > 0) {
+            } else if ($pending_result && $pending_result->num_rows > 0) {
                 $msg = "Request already sent. Waiting for their response.";
                 $msg_type = "warning";
             } else {
                 // Send monitor request
                 $ins = $conn->prepare("INSERT INTO monitor_requests (requester_id, requested_user_id, status) VALUES (?, ?, 'pending')");
-                $ins->bind_param("ii", $patient_id, $monitor_id);
-                $ins->execute();
-                $msg = "✅ Monitor request sent! They need to accept it before they can monitor you.";
-                $msg_type = "success";
+                if ($ins) {
+                    $ins->bind_param("ii", $patient_id, $monitor_id);
+                    $ins->execute();
+                    $msg = "✅ Monitor request sent! They need to accept it before they can monitor you.";
+                    $msg_type = "success";
+                } else {
+                    $msg = "Error sending request. Please try again.";
+                    $msg_type = "error";
+                }
             }
         }
     }
