@@ -3,13 +3,13 @@ session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id']; $msg=""; $msg_type="";
 if (isset($_POST['add'])) {
-    $medicine_name = $_POST['medicine_name']; $dosage = $_POST['dosage']; $time = $_POST['time'];
+    $medicine_name = $_POST['medicine_name']; $dosage = $_POST['dosage']; $times = isset($_POST['medicine_time']) ? $_POST['medicine_time'] : [];
     $target = null;
     if (!empty($_FILES['image']['name'])) { $target = "../uploads/medicines/" . time() . "_" . basename($_FILES['image']['name']); move_uploaded_file($_FILES['image']['tmp_name'], $target); }
     $stmt = $conn->prepare("SELECT id FROM checklists WHERE patient_id = ? LIMIT 1"); $stmt->bind_param("i", $patient_id); $stmt->execute(); $check = $stmt->get_result();
     if ($check->num_rows > 0) { $checklist_id = $check->fetch_assoc()['id']; }
     else { $cs = $conn->prepare("INSERT INTO checklists (patient_id, created_by, title) VALUES (?, ?, 'Daily Medicines')"); $cs->bind_param("ii", $patient_id, $patient_id); $cs->execute(); $checklist_id = $cs->insert_id; }
-    $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, medicine_image, dosage, due_time, status) VALUES (?, ?, ?, ?, ?, 'pending')"); $is->bind_param("issss", $checklist_id, $medicine_name, $target, $dosage, $time);
+    $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, medicine_image, dosage, due_time, status) VALUES (?, ?, ?, ?, ?, 'pending')"); $time_str = implode(",", $times); $is->bind_param("issss", $checklist_id, $medicine_name, $target, $dosage, $time_str);
     if ($is->execute()) { $msg = "Medicine added successfully!"; $msg_type = "success"; } else { $msg = "Could not add medicine."; $msg_type = "error"; }
 }
 ?>
@@ -309,7 +309,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <form method="POST" enctype="multipart/form-data">
                 <div class="form-group"><label class="form-label">Medicine Name</label><input class="form-input" type="text" name="medicine_name" placeholder="e.g. Paracetamol 500mg" required></div>
                 <div class="form-group"><label class="form-label">Dosage Instructions</label><input class="form-input" type="text" name="dosage" placeholder="e.g. 1 tablet after food" required></div>
-                <div class="form-group"><label class="form-label">Time to Take</label><input class="form-input" type="time" name="time" required></div>
+                <div class="form-group"><label class="form-label">When to Take (Select all that apply)</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="morning" name="medicine_time[]" value="morning" style="width:18px;height:18px;cursor:pointer;"><label for="morning" style="cursor:pointer;margin:0;font-size:0.9rem;color:var(--white);">🌅 Morning (6-12 AM)</label></div><div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="afternoon" name="medicine_time[]" value="afternoon" style="width:18px;height:18px;cursor:pointer;"><label for="afternoon" style="cursor:pointer;margin:0;font-size:0.9rem;color:var(--white);">☀️ Afternoon (12-5 PM)</label></div><div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="evening" name="medicine_time[]" value="evening" style="width:18px;height:18px;cursor:pointer;"><label for="evening" style="cursor:pointer;margin:0;font-size:0.9rem;color:var(--white);">🌆 Evening (5-8 PM)</label></div><div style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="night" name="medicine_time[]" value="night" style="width:18px;height:18px;cursor:pointer;"><label for="night" style="cursor:pointer;margin:0;font-size:0.9rem;color:var(--white);">🌙 Night (8-11 PM)</label></div></div></div>
                 <div class="form-group"><label class="form-label">Medicine Image (optional)</label><input class="form-input" type="file" name="image" accept="image/*" style="padding:10px;"></div>
                 <button class="btn btn-primary btn-full" type="submit" name="add">💊 Add Medicine</button>
             </form>
