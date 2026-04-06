@@ -92,8 +92,11 @@ if (isset($_POST['add'])) {
 // Fetch current monitors (only accepted ones)
 $monitors = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM patient_monitors pm JOIN users u ON pm.monitor_id=u.id WHERE pm.patient_id='$patient_id' ORDER BY u.name ASC");
 
-// Fetch pending requests
+// Fetch pending requests sent by this user
 $pending_requests = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM monitor_requests mr JOIN users u ON mr.requested_user_id=u.id WHERE mr.requester_id='$patient_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
+
+// Fetch incoming requests for this user to accept/reject
+$incoming_requests = $conn->query("SELECT mr.id, u.id as requester_id, u.name, u.email, u.gender, mr.created_at FROM monitor_requests mr JOIN users u ON mr.requester_id=u.id WHERE mr.requested_user_id='$patient_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -387,9 +390,35 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div style="max-width:600px;">
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':($msg_type=='warning'?'⚠️':'❌');?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
         
-        <!-- PENDING REQUESTS -->
+        <!-- INCOMING REQUESTS -->
         <div class="card" style="margin-bottom:24px;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">⏳ Pending Requests</h2>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📬 Incoming Monitor Requests</h2>
+            <?php if ($incoming_requests && $incoming_requests->num_rows > 0): ?>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                    <?php while ($row = $incoming_requests->fetch_assoc()): ?>
+                        <div style="background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+                            <div>
+                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($row['name']); ?></div>
+                                <div style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></div>
+                                <div style="color:var(--muted-dim);font-size:0.8rem;margin-top:6px;">Requested on <?php echo date('M d, Y', strtotime($row['created_at'])); ?></div>
+                            </div>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                <a href="monitor_requests.php?accept=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">✅ Accept</a>
+                                <a href="monitor_requests.php?reject=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm">❌ Reject</a>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div style="text-align:center;padding:16px;color:var(--muted);">
+                    <p style="font-size:0.9rem;">No incoming monitor requests.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- PENDING REQUESTS SENT -->
+        <div class="card" style="margin-bottom:24px;">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">⏳ Pending Requests Sent</h2>
             <?php if ($pending_requests && $pending_requests->num_rows > 0): ?>
                 <div style="overflow-x:auto;">
                     <table style="width:100%;border-collapse:collapse;">

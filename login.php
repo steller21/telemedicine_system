@@ -19,7 +19,7 @@ if (isset($_POST['login'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['role']    = $user['role'];
                 $_SESSION['name']    = $user['name'];
-                header("Location: " . ($user['role'] == 'patient' ? "patient/dashboard.php" : "doctor/dashboard.php"));
+                header("Location: " . ($user['role'] == 'doctor' ? "doctor/dashboard.php" : "patient/dashboard.php"));
                 exit;
             } else { $error = "Invalid email or password."; }
         } else { $error = "Invalid email or password."; }
