@@ -378,6 +378,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="nav-section"><div class="nav-section-label">Health</div>
         <a href="checklist.php" class="nav-link"><span class="nav-icon">💊</span> My Medicines</a>
         <a href="upload_report.php" class="nav-link"><span class="nav-icon">📄</span> Upload Report</a>
+        <a href="share_reports.php" class="nav-link"><span class="nav-icon">📤</span> Share Requests</a>
     </div>
     <div class="nav-section"><div class="nav-section-label">Monitoring</div>
         <a href="add_monitor.php" class="nav-link active"><span class="nav-icon">👁️</span> Add Monitor</a>
@@ -386,7 +387,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
-    <div class="page-header"><h1>👁️ Manage Monitors</h1><p>Add trusted people to monitor your health activity, or remove existing monitors.</p></div>
+    <div class="page-header">
+        <h1>👁️ Manage Monitors</h1>
+        <p>Add trusted people to monitor your health activity, or remove existing monitors.</p>
+        <div style="margin-top:16px;">
+            <a href="share_reports.php" class="btn btn-secondary btn-sm">✅ Accept / Reject Report Requests</a>
+        </div>
+    </div>
     <div style="max-width:600px;">
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':($msg_type=='warning'?'⚠️':'❌');?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
         
@@ -547,3 +554,4 @@ document.addEventListener('click', function(event) {
 </script>
 
 </body></html>
+<?php ?>

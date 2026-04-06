@@ -2,7 +2,7 @@
 session_start();
 require_once("../config/db.php");
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') {
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit;
 }
@@ -40,11 +40,11 @@ if (isset($_GET['patient_id'])) {
     // Get all reports from this patient with access status
     $rstmt = $conn->prepare("
         SELECT r.*,
-               CASE WHEN rar.id IS NOT NULL AND rar.status='accepted' THEN 1 ELSE 0 END as has_access,
-               CASE WHEN rar.id IS NOT NULL AND rar.status='pending' THEN 1 ELSE 0 END as pending_request,
-               rar.id as request_id
+               CASE WHEN rsr.id IS NOT NULL AND rsr.status='accepted' THEN 1 ELSE 0 END as has_access,
+               CASE WHEN rsr.id IS NOT NULL AND rsr.status='pending' THEN 1 ELSE 0 END as pending_request,
+               rsr.id as request_id
         FROM reports r
-        LEFT JOIN report_access_requests rar ON r.id=rar.report_id AND rar.monitor_id=?
+        LEFT JOIN report_share_requests rsr ON r.id=rsr.report_id AND rsr.requester_id=? AND rsr.requester_role='monitor'
         WHERE r.patient_id=?
         ORDER BY r.created_at DESC
     ");
@@ -60,7 +60,7 @@ if (isset($_POST['request_access'])) {
     $report_id = intval($_POST['report_id']);
     $patient_id = intval($_POST['patient_id']);
     
-    $insert = $conn->prepare("INSERT INTO report_access_requests (report_id, patient_id, monitor_id, status) VALUES (?, ?, ?, 'pending')");
+    $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, 'monitor', 'pending')");
     if ($insert) {
         $insert->bind_param("iii", $report_id, $patient_id, $monitor_id);
         $insert->execute();

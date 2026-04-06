@@ -297,12 +297,17 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="card">
     <?php if($result && $result->num_rows > 0): ?>
     <div class="table-wrap"><table>
-        <thead><tr><th>Patient Name</th><th>Action</th></tr></thead>
+        <thead><tr><th>Patient Name</th><th>Actions</th></tr></thead>
         <tbody>
         <?php while($row=$result->fetch_assoc()): ?>
         <tr>
             <td><div style="display:flex;align-items:center;gap:12px;"><div style="width:38px;height:38px;background:var(--teal-glow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;">🙋</div><strong><?php echo htmlspecialchars($row['name']); ?></strong></div></td>
-            <td><a href="view_patient_checklist.php?patient_id=<?php echo $row['id']; ?>" class="btn btn-secondary btn-sm">📋 View Checklist</a></td>
+            <td>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="view_patient_checklist.php?patient_id=<?php echo $row['id']; ?>" class="btn btn-secondary btn-sm">📋 View Checklist</a>
+                    <a href="view_monitor_reports.php?patient_id=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">📄 View Reports</a>
+                </div>
+            </td>
         </tr>
         <?php endwhile; ?>
         </tbody>
