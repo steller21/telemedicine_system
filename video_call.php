@@ -283,7 +283,25 @@ function loadCameras() {
             return;
         }
  
-        cameras.forEach((cam, index) => {
+        let filtered = [];
+        let seenFront = false;
+        let seenBack = false;
+
+        cameras.forEach(cam => {
+            let label = cam.label.toLowerCase();
+            let isFront = label.includes('front') || label.includes('user');
+            let isBack = label.includes('back') || label.includes('rear') || label.includes('environment');
+
+            if (isFront && !seenFront) {
+                filtered.push(cam); seenFront = true;
+            } else if (isBack && !seenBack) {
+                filtered.push(cam); seenBack = true;
+            } else if (!isFront && !isBack) {
+                filtered.push(cam);
+            }
+        });
+
+        filtered.forEach((cam, index) => {
             let opt = document.createElement("option");
             opt.value = cam.deviceId;
             opt.text = cam.label || ("Camera " + (index + 1));
