@@ -1,90 +1,18 @@
 <?php
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') { header("Location: ../login.php"); exit; }
+require_once("../patient/monitor_core.php");
 $doctor_id = $_SESSION['user_id'];
 $msg=""; $msg_type="";
-
-// Ensure monitor_requests table exists
-$conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    requester_id INT NOT NULL,
-    requested_user_id INT NOT NULL,
-    status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_request (requester_id, requested_user_id),
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
-)");
-
-// Remove patient from monitoring
-if (isset($_GET['remove_patient'])) {
-    $patient_id = intval($_GET['remove_patient']);
-    $delete = $conn->prepare("DELETE FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
-    if ($delete) {
-        $delete->bind_param("ii", $patient_id, $doctor_id);
-        $delete->execute();
-    }
-    header("Location: add_patient_monitor.php?success=Patient removed from monitoring");
-    exit;
-}
 
 if (isset($_GET['success'])) {
     $msg = htmlspecialchars($_GET['success']);
     $msg_type = "success";
 }
 
-// Add patient to monitor (send request)
 if (isset($_POST['add'])) {
-    $patient_email = $_POST['email'];
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ? AND role='patient'"); 
-    $stmt->bind_param("s", $patient_email); 
-    $stmt->execute(); 
-    $user = $stmt->get_result();
-    if ($user->num_rows > 0) { 
-        $patient_id = $user->fetch_assoc()['id'];
-        
-        // Check if already monitoring
-        $check_active = $conn->prepare("SELECT id FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
-        if ($check_active) {
-            $check_active->bind_param("ii", $patient_id, $doctor_id);
-            $check_active->execute();
-            $active_result = $check_active->get_result();
-        } else {
-            $active_result = null;
-        }
-        
-        // Check for pending request
-        $check_pending = $conn->prepare("SELECT id FROM monitor_requests WHERE requester_id=? AND requested_user_id=? AND status='pending'");
-        if ($check_pending) {
-            $check_pending->bind_param("ii", $doctor_id, $patient_id);
-            $check_pending->execute();
-            $pending_result = $check_pending->get_result();
-        } else {
-            $pending_result = null;
-        }
-        
-        if ($active_result && $active_result->num_rows > 0) {
-            $msg = "You are already monitoring this patient.";
-            $msg_type = "warning";
-        } else if ($pending_result && $pending_result->num_rows > 0) {
-            $msg = "Request already sent. Waiting for patient response.";
-            $msg_type = "warning";
-        } else {
-            // Send monitoring request
-            $ins = $conn->prepare("INSERT INTO monitor_requests (requester_id, requested_user_id, status) VALUES (?, ?, 'pending')");
-            if ($ins) {
-                $ins->bind_param("ii", $doctor_id, $patient_id);
-                $ins->execute();
-                $msg = "✅ Request sent to patient! They need to accept before you can monitor.";
-                $msg_type = "success";
-            } else {
-                $msg = "Error sending request. Please try again.";
-                $msg_type = "error";
-            }
-        }
-    }
-    else { $msg = "Patient not found with that email."; $msg_type = "error"; }
+    $res = sendMonitorRequest($conn, $doctor_id, $_POST['email'], 'patient');
+    $msg = $res['msg']; $msg_type = $res['type'];
 }
 
 // Fetch patients this doctor is monitoring

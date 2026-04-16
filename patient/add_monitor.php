@@ -1,92 +1,17 @@
 <?php
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
+require_once("monitor_core.php");
 $patient_id = $_SESSION['user_id']; $msg=""; $msg_type="";
-
-// Ensure monitor_requests table exists
-$conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    requester_id INT NOT NULL,
-    requested_user_id INT NOT NULL,
-    status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_request (requester_id, requested_user_id),
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
-)");
-
-// Handle delete monitor
-if (isset($_GET['remove_monitor'])) {
-    $monitor_id = intval($_GET['remove_monitor']);
-    $delete = $conn->prepare("DELETE FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
-    if ($delete) {
-        $delete->bind_param("ii", $patient_id, $monitor_id);
-        $delete->execute();
-    }
-    header("Location: add_monitor.php?success=Monitor removed");
-    exit;
-}
 
 if (isset($_GET['success'])) {
     $msg = htmlspecialchars($_GET['success']);
     $msg_type = "success";
 }
 
-// Add monitor - Send request instead of direct add
 if (isset($_POST['add'])) {
-    $monitor_email = $_POST['email'];
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?"); 
-    $stmt->bind_param("s", $monitor_email); 
-    $stmt->execute(); 
-    $user = $stmt->get_result();
-    if ($user->num_rows > 0) { 
-        $monitor_id = $user->fetch_assoc()['id'];
-        if ($monitor_id == $patient_id) {
-            $msg = "You cannot add yourself as a monitor.";
-            $msg_type = "error";
-        } else {
-            // Check if already have active monitor or pending request
-            $check_active = $conn->prepare("SELECT id FROM patient_monitors WHERE patient_id=? AND monitor_id=?");
-            if ($check_active) {
-                $check_active->bind_param("ii", $patient_id, $monitor_id);
-                $check_active->execute();
-                $active_result = $check_active->get_result();
-            } else {
-                $active_result = null;
-            }
-            
-            $check_pending = $conn->prepare("SELECT id FROM monitor_requests WHERE requester_id=? AND requested_user_id=? AND status='pending'");
-            if ($check_pending) {
-                $check_pending->bind_param("ii", $patient_id, $monitor_id);
-                $check_pending->execute();
-                $pending_result = $check_pending->get_result();
-            } else {
-                $pending_result = null;
-            }
-            
-            if ($active_result && $active_result->num_rows > 0) {
-                $msg = "This person is already monitoring you.";
-                $msg_type = "warning";
-            } else if ($pending_result && $pending_result->num_rows > 0) {
-                $msg = "Request already sent. Waiting for their response.";
-                $msg_type = "warning";
-            } else {
-                // Send monitor request
-                $ins = $conn->prepare("INSERT INTO monitor_requests (requester_id, requested_user_id, status) VALUES (?, ?, 'pending')");
-                if ($ins) {
-                    $ins->bind_param("ii", $patient_id, $monitor_id);
-                    $ins->execute();
-                    $msg = "✅ Monitor request sent! They need to accept it before they can monitor you.";
-                    $msg_type = "success";
-                } else {
-                    $msg = "Error sending request. Please try again.";
-                    $msg_type = "error";
-                }
-            }
-        }
-    }
-    else { $msg = "User not found with that email."; $msg_type = "error"; }
+    $res = sendMonitorRequest($conn, $patient_id, $_POST['email']);
+    $msg = $res['msg']; $msg_type = $res['type'];
 }
 
 // Fetch current monitors (only accepted ones)
@@ -97,6 +22,15 @@ $pending_requests = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM mo
 
 // Fetch incoming requests for this user to accept/reject
 $incoming_requests = $conn->query("SELECT mr.id, u.id as requester_id, u.name, u.email, u.gender, mr.created_at FROM monitor_requests mr JOIN users u ON mr.requester_id=u.id WHERE mr.requested_user_id='$patient_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
+
+// Fetch incoming report share requests
+$report_requests = $conn->query("
+    SELECT rsr.id, r.report_name, u.name as requester_name, rsr.requester_role, rsr.created_at 
+    FROM report_share_requests rsr 
+    JOIN reports r ON rsr.report_id = r.id 
+    JOIN users u ON rsr.requester_id = u.id 
+    WHERE rsr.patient_id = '$patient_id' AND rsr.status = 'pending' 
+    ORDER BY rsr.created_at DESC");
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -390,13 +324,35 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="page-header">
         <h1>👁️ Manage Monitors</h1>
         <p>Add trusted people to monitor your health activity, or remove existing monitors.</p>
-        <div style="margin-top:16px;">
-            <a href="share_reports.php" class="btn btn-secondary btn-sm">✅ Accept / Reject Report Requests</a>
-        </div>
     </div>
     <div style="max-width:600px;">
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':($msg_type=='warning'?'⚠️':'❌');?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
         
+        <!-- INCOMING REPORT REQUESTS -->
+        <div class="card" style="margin-bottom:24px; border-left: 4px solid var(--teal);">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📑 Incoming Report Access Requests</h2>
+            <?php if ($report_requests && $report_requests->num_rows > 0): ?>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                    <?php while ($row = $report_requests->fetch_assoc()): 
+                        $role_label = ($row['requester_role'] == 'doctor') ? 'Dr.' : 'Monitor';
+                    ?>
+                        <div style="background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+                            <div>
+                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($role_label . ' ' . $row['requester_name']); ?></div>
+                                <div style="color:var(--muted);font-size:0.85rem;">Wants to view: <strong><?php echo htmlspecialchars($row['report_name']); ?></strong></div>
+                            </div>
+                            <div style="display:flex;gap:10px;">
+                                <a href="add_monitor.php?accept_report=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">✅ Grant</a>
+                                <a href="add_monitor.php?reject_report=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm">❌ Deny</a>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div style="text-align:center;padding:16px;color:var(--muted);"><p style="font-size:0.9rem;">No pending report requests.</p></div>
+            <?php endif; ?>
+        </div>
+
         <!-- INCOMING REQUESTS -->
         <div class="card" style="margin-bottom:24px;">
             <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📬 Incoming Monitor Requests</h2>
@@ -410,8 +366,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                                 <div style="color:var(--muted-dim);font-size:0.8rem;margin-top:6px;">Requested on <?php echo date('M d, Y', strtotime($row['created_at'])); ?></div>
                             </div>
                             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                                <a href="monitor_requests.php?accept=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">✅ Accept</a>
-                                <a href="monitor_requests.php?reject=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm">❌ Reject</a>
+                                <a href="add_monitor.php?accept=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">✅ Accept</a>
+                                <a href="add_monitor.php?reject=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm">❌ Reject</a>
                             </div>
                         </div>
                     <?php endwhile; ?>
