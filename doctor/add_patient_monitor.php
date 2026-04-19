@@ -1,25 +1,65 @@
 <?php
-session_start(); require_once("../config/db.php");
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') { header("Location: ../login.php"); exit; }
-require_once("../patient/monitor_core.php");
+session_start(); 
+require_once("../config/db.php");
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') { 
+    header("Location: ../login.php"); 
+    exit; 
+}
+
+require_once("monitor_core.php");
 $doctor_id = $_SESSION['user_id'];
-$msg=""; $msg_type="";
+$msg = ""; 
+$msg_type = "";
 
 if (isset($_GET['success'])) {
     $msg = htmlspecialchars($_GET['success']);
     $msg_type = "success";
 }
 
-if (isset($_POST['add'])) {
-    $res = sendMonitorRequest($conn, $doctor_id, $_POST['email'], 'patient');
-    $msg = $res['msg']; $msg_type = $res['type'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
+    if (isset($_POST['email']) && !empty(trim($_POST['email']))) {
+        $email = trim($_POST['email']);
+        $res = sendMonitorRequest($conn, $doctor_id, $email, 'patient');
+        $msg = $res['msg']; 
+        $msg_type = $res['type'];
+    } else {
+        $msg = "Please enter a valid email address.";
+        $msg_type = "error";
+    }
 }
 
 // Fetch patients this doctor is monitoring
-$monitoring = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM patient_monitors pm JOIN users u ON pm.patient_id=u.id WHERE pm.monitor_id='$doctor_id' ORDER BY u.name ASC");
+$monitoring_query = $conn->prepare("
+    SELECT u.id, u.name, u.email, u.gender 
+    FROM patient_monitors pm 
+    JOIN users u ON pm.patient_id=u.id 
+    WHERE pm.monitor_id=? 
+    ORDER BY u.name ASC
+");
+$monitoring = null;
+if ($monitoring_query) {
+    $monitoring_query->bind_param("i", $doctor_id);
+    if ($monitoring_query->execute()) {
+        $monitoring = $monitoring_query->get_result();
+    }
+}
 
 // Fetch pending requests sent by this doctor
-$pending_requests = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM monitor_requests mr JOIN users u ON mr.requested_user_id=u.id WHERE mr.requester_id='$doctor_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
+$pending_query = $conn->prepare("
+    SELECT u.id, u.name, u.email, u.gender, mr.created_at
+    FROM monitor_requests mr 
+    JOIN users u ON mr.requested_user_id=u.id 
+    WHERE mr.requester_id=? AND mr.status='pending' 
+    ORDER BY mr.created_at DESC
+");
+$pending_requests = null;
+if ($pending_query) {
+    $pending_query->bind_param("i", $doctor_id);
+    if ($pending_query->execute()) {
+        $pending_requests = $pending_query->get_result();
+    }
+}
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -242,7 +282,14 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 <main class="main">
     <div class="page-header"><h1>👁️ Add Patient Monitor</h1><p>Search for patients and request to monitor their health activities.</p></div>
     <div style="max-width:600px;">
-        <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':($msg_type=='warning'?'⚠️':'❌');?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
+        <?php if($msg): ?>
+            <div class="alert alert-<?php echo htmlspecialchars($msg_type); ?>">
+                <?php 
+                $icon = ($msg_type === 'success') ? '✅' : (($msg_type === 'warning') ? '⚠️' : '❌');
+                echo $icon . ' ' . htmlspecialchars($msg);
+                ?>
+            </div>
+        <?php endif; ?>
         
         <!-- PENDING REQUESTS -->
         <div class="card" style="margin-bottom:24px;">
@@ -295,7 +342,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                             <tr>
                                 <td style="font-weight:600;"><?php echo htmlspecialchars($title . ' ' . $row['name']); ?></td>
                                 <td style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
-                                <td><a href="add_patient_monitor.php?remove_patient=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Remove this patient from monitoring?');">🗑️ Remove</a></td>
+                                <td><a href="add_patient_monitor.php?remove_patient=<?php echo htmlspecialchars($row['id']); ?>" class="btn btn-danger btn-sm" onclick="return confirm('Remove this patient from monitoring?');">🗑️ Remove</a></td>
                             </tr>
                             <?php endwhile; ?>
                         </tbody>
@@ -311,9 +358,12 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <!-- ADD PATIENT FORM -->
         <div class="card">
             <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">➕ Request to Monitor Patient</h2>
-            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the patient's email address. They must approve your request before you can monitor.</p>
-            <form method="POST">
-                <div class="form-group"><label class="form-label">Patient Email</label><input class="form-input" type="email" name="email" placeholder="patient@example.com" required></div>
+            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the patient's email address. They must approve your request before monitoring begins.</p>
+            <form method="POST" action="">
+                <div class="form-group">
+                    <label class="form-label">Patient Email</label>
+                    <input class="form-input" type="email" name="email" placeholder="patient@example.com" required>
+                </div>
                 <button class="btn btn-primary btn-full" type="submit" name="add">➕ Send Request</button>
             </form>
         </div>

@@ -1,36 +1,105 @@
 <?php
-session_start(); require_once("../config/db.php");
-if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
-require_once("monitor_core.php");
-$patient_id = $_SESSION['user_id']; $msg=""; $msg_type="";
+session_start(); 
+require_once("../config/db.php");
 
+if (!isset($_SESSION['user_id'])) { 
+    header("Location: ../login.php"); 
+    exit; 
+}
+
+require_once("monitor_core.php");
+$patient_id = $_SESSION['user_id']; 
+$msg = ""; 
+$msg_type = "";
+
+// Handle success/error messages
 if (isset($_GET['success'])) {
     $msg = htmlspecialchars($_GET['success']);
     $msg_type = "success";
 }
 
-if (isset($_POST['add'])) {
-    $res = sendMonitorRequest($conn, $patient_id, $_POST['email']);
-    $msg = $res['msg']; $msg_type = $res['type'];
+if (isset($_GET['error'])) {
+    $msg = htmlspecialchars($_GET['error']);
+    $msg_type = "error";
 }
 
-// Fetch current monitors (only accepted ones)
-$monitors = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM patient_monitors pm JOIN users u ON pm.monitor_id=u.id WHERE pm.patient_id='$patient_id' ORDER BY u.name ASC");
+// Process form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
+    if (isset($_POST['email']) && !empty(trim($_POST['email']))) {
+        $email = trim($_POST['email']);
+        $res = sendMonitorRequest($conn, $patient_id, $email);
+        $msg = $res['msg']; 
+        $msg_type = $res['type'];
+    } else {
+        $msg = "Please enter a valid email address.";
+        $msg_type = "error";
+    }
+}
+
+// Fetch current monitors (only accepted ones) - Use prepared statement
+$monitors_query = $conn->prepare("
+    SELECT u.id, u.name, u.email, u.gender 
+    FROM patient_monitors pm 
+    JOIN users u ON pm.monitor_id=u.id 
+    WHERE pm.patient_id=? 
+    ORDER BY u.name ASC
+");
+$monitors = null;
+if ($monitors_query) {
+    $monitors_query->bind_param("i", $patient_id);
+    if ($monitors_query->execute()) {
+        $monitors = $monitors_query->get_result();
+    }
+}
 
 // Fetch pending requests sent by this user
-$pending_requests = $conn->query("SELECT u.id, u.name, u.email, u.gender FROM monitor_requests mr JOIN users u ON mr.requested_user_id=u.id WHERE mr.requester_id='$patient_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
+$pending_query = $conn->prepare("
+    SELECT u.id, u.name, u.email, u.gender, mr.created_at
+    FROM monitor_requests mr 
+    JOIN users u ON mr.requested_user_id=u.id 
+    WHERE mr.requester_id=? AND mr.status='pending' 
+    ORDER BY mr.created_at DESC
+");
+$pending_requests = null;
+if ($pending_query) {
+    $pending_query->bind_param("i", $patient_id);
+    if ($pending_query->execute()) {
+        $pending_requests = $pending_query->get_result();
+    }
+}
 
 // Fetch incoming requests for this user to accept/reject
-$incoming_requests = $conn->query("SELECT mr.id, u.id as requester_id, u.name, u.email, u.gender, mr.created_at FROM monitor_requests mr JOIN users u ON mr.requester_id=u.id WHERE mr.requested_user_id='$patient_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
+$incoming_query = $conn->prepare("
+    SELECT mr.id, u.id as requester_id, u.name, u.email, u.gender, mr.created_at 
+    FROM monitor_requests mr 
+    JOIN users u ON mr.requester_id=u.id 
+    WHERE mr.requested_user_id=? AND mr.status='pending' 
+    ORDER BY mr.created_at DESC
+");
+$incoming_requests = null;
+if ($incoming_query) {
+    $incoming_query->bind_param("i", $patient_id);
+    if ($incoming_query->execute()) {
+        $incoming_requests = $incoming_query->get_result();
+    }
+}
 
 // Fetch incoming report share requests
-$report_requests = $conn->query("
+$report_query = $conn->prepare("
     SELECT rsr.id, r.report_name, u.name as requester_name, rsr.requester_role, rsr.created_at 
     FROM report_share_requests rsr 
     JOIN reports r ON rsr.report_id = r.id 
     JOIN users u ON rsr.requester_id = u.id 
-    WHERE rsr.patient_id = '$patient_id' AND rsr.status = 'pending' 
-    ORDER BY rsr.created_at DESC");
+    WHERE rsr.patient_id = ? AND rsr.status = 'pending' 
+    ORDER BY rsr.created_at DESC
+");
+$report_requests = null;
+if ($report_query) {
+    $report_query->bind_param("i", $patient_id);
+    if ($report_query->execute()) {
+        $report_requests = $report_query->get_result();
+    }
+}
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -72,7 +141,6 @@ body {
     line-height: 1.6;
 }
  
-/* BG */
 .page-bg {
     position: fixed; inset: 0; z-index: -1;
     background:
@@ -81,9 +149,7 @@ body {
         var(--navy);
 }
  
-/* SIDEBAR NAV */
 .layout { display: flex; min-height: 100vh; }
- 
 .sidebar {
     width: 240px;
     background: var(--navy-card);
@@ -140,7 +206,6 @@ body {
     border-top: 1px solid var(--border);
 }
  
-/* MAIN CONTENT */
 .main {
     margin-left: 240px;
     flex: 1;
@@ -148,7 +213,6 @@ body {
     max-width: calc(100% - 240px);
 }
  
-/* PAGE HEADER */
 .page-header { margin-bottom: 32px; }
 .page-header h1 {
     font-family: 'Clash Display', sans-serif;
@@ -157,7 +221,6 @@ body {
 }
 .page-header p { color: var(--muted); font-size: 0.9rem; }
  
-/* CARDS */
 .card {
     background: var(--navy-card);
     border: 1px solid var(--border);
@@ -165,36 +228,16 @@ body {
     padding: 28px;
     box-shadow: var(--shadow);
 }
-.card-sm { padding: 20px; border-radius: var(--radius); }
- 
-/* GRID */
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
- 
-/* STAT CARD */
-.stat-card {
-    background: var(--navy-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 20px 24px;
+
+.alert {
+    padding: 14px 18px; border-radius: var(--radius);
+    font-size: 0.875rem; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
 }
-.stat-card-icon {
-    width: 40px; height: 40px;
-    background: var(--teal-glow);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem; margin-bottom: 14px;
-}
-.stat-card-value {
-    font-family: 'Clash Display', sans-serif;
-    font-size: 1.8rem; font-weight: 700;
-    color: var(--white); line-height: 1;
-    margin-bottom: 4px;
-}
-.stat-card-label { font-size: 0.78rem; color: var(--muted); font-weight: 500; }
- 
-/* FORMS */
+.alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--success); }
+.alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--danger); }
+.alert-warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: var(--warning); }
+
 .form-group { margin-bottom: 20px; }
 .form-label {
     display: block; font-size: 0.8rem;
@@ -202,7 +245,7 @@ body {
     text-transform: uppercase; letter-spacing: 0.05em;
     margin-bottom: 8px;
 }
-.form-input, .form-select {
+.form-input {
     width: 100%; padding: 12px 16px;
     background: var(--navy-light);
     border: 1px solid var(--border);
@@ -212,14 +255,12 @@ body {
     transition: border-color 0.2s, box-shadow 0.2s;
     outline: none;
 }
-.form-input:focus, .form-select:focus {
+.form-input:focus {
     border-color: rgba(14,184,160,0.5);
     box-shadow: 0 0 0 3px rgba(14,184,160,0.1);
 }
 .form-input::placeholder { color: var(--muted-dim); }
-.form-select option { background: var(--navy-mid); }
- 
-/* BUTTONS */
+
 .btn {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 11px 24px; border-radius: 50px;
@@ -235,20 +276,12 @@ body {
 .btn-primary:hover {
     background: var(--teal-dark); color: var(--white);
     transform: translateY(-1px);
-    box-shadow: 0 0 30px rgba(14,184,160,0.35);
 }
-.btn-secondary {
-    background: var(--navy-light); color: var(--white);
-    border: 1px solid var(--border);
-}
-.btn-secondary:hover { background: var(--navy-mid); transform: translateY(-1px); }
 .btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
 .btn-danger:hover { background: rgba(239,68,68,0.25); }
 .btn-sm { padding: 7px 16px; font-size: 0.8rem; }
 .btn-full { width: 100%; justify-content: center; }
- 
-/* TABLE */
-.table-wrap { overflow-x: auto; border-radius: var(--radius); }
+
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 thead th {
     text-align: left; padding: 12px 16px;
@@ -257,62 +290,27 @@ thead th {
     color: var(--muted); border-bottom: 1px solid var(--border);
 }
 tbody td { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(255,255,255,0.02); }
- 
-/* BADGES */
-.badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 10px; border-radius: 50px;
-    font-size: 0.72rem; font-weight: 600;
-}
-.badge::before { content:''; width:5px; height:5px; border-radius:50%; background:currentColor; }
-.badge-success { background: rgba(34,197,94,0.12); color: var(--success); }
-.badge-warning { background: rgba(245,158,11,0.12); color: var(--warning); }
-.badge-danger  { background: rgba(239,68,68,0.12);  color: var(--danger); }
-.badge-info    { background: var(--teal-glow); color: var(--teal); }
- 
-/* ALERT */
-.alert {
-    padding: 14px 18px; border-radius: var(--radius);
-    font-size: 0.875rem; margin-bottom: 20px;
-    display: flex; align-items: center; gap: 10px;
-}
-.alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--success); }
-.alert-error   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.2);  color: var(--danger); }
-.alert-warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: var(--warning); }
- 
-/* DIVIDER */
-.divider { height: 1px; background: var(--border); margin: 24px 0; }
- 
-/* EMPTY STATE */
+
 .empty-state {
-    text-align: center; padding: 60px 20px;
+    text-align: center; padding: 40px 20px;
     color: var(--muted);
 }
-.empty-state .empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
-.empty-state h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; color: var(--white); }
-.empty-state p { font-size: 0.85rem; }
- 
-/* RESPONSIVE */
+.empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+
 @media (max-width: 768px) {
-    .sidebar { transform: translateX(-100%); }
-    .main { margin-left: 0; max-width: 100%; padding: 20px; }
-    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .sidebar { width: 200px; }
+    .main { margin-left: 200px; max-width: calc(100% - 200px); padding: 20px; }
 }
 </style>
-</head><body><div class="page-bg"></div><div class="layout">
+</head><body>
+<div class="page-bg"></div>
+<div class="layout">
 <aside class="sidebar">
     <a href="../index.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">MediConnect</span></a>
     <div class="nav-section"><div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>
-        <a href="../chatbot.php" class="nav-link"><span class="nav-icon">🤖</span> Health Assistant</a>
-    </div>
-    <div class="nav-section"><div class="nav-section-label">Health</div>
-        <a href="checklist.php" class="nav-link"><span class="nav-icon">💊</span> My Medicines</a>
-        <a href="upload_report.php" class="nav-link"><span class="nav-icon">📄</span> Upload Report</a>
-        <a href="share_reports.php" class="nav-link"><span class="nav-icon">📤</span> Share Requests</a>
     </div>
     <div class="nav-section"><div class="nav-section-label">Monitoring</div>
         <a href="add_monitor.php" class="nav-link active"><span class="nav-icon">👁️</span> Add Monitor</a>
@@ -321,29 +319,32 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
-    <div class="page-header">
-        <h1>👁️ Manage Monitors</h1>
-        <p>Add trusted people to monitor your health activity, or remove existing monitors.</p>
-    </div>
-    <div style="max-width:600px;">
-        <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':($msg_type=='warning'?'⚠️':'❌');?> <?php echo htmlspecialchars($msg);?></div><?php endif;?>
+    <div class="page-header"><h1>👁️ Manage Monitors & Requests</h1><p>Add monitors to view your health information and manage incoming requests.</p></div>
+    <div style="max-width:700px;">
+        <?php if($msg): ?>
+            <div class="alert alert-<?php echo htmlspecialchars($msg_type); ?>">
+                <?php 
+                $icon = ($msg_type === 'success') ? '✅' : (($msg_type === 'warning') ? '⚠️' : '❌');
+                echo $icon . ' ' . htmlspecialchars($msg);
+                ?>
+            </div>
+        <?php endif; ?>
         
         <!-- INCOMING REPORT REQUESTS -->
-        <div class="card" style="margin-bottom:24px; border-left: 4px solid var(--teal);">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📑 Incoming Report Access Requests</h2>
+        <div class="card" style="margin-bottom:24px;">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📄 Incoming Report Requests</h2>
             <?php if ($report_requests && $report_requests->num_rows > 0): ?>
                 <div style="display:flex;flex-direction:column;gap:14px;">
-                    <?php while ($row = $report_requests->fetch_assoc()): 
-                        $role_label = ($row['requester_role'] == 'doctor') ? 'Dr.' : 'Monitor';
-                    ?>
-                        <div style="background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+                    <?php while ($row = $report_requests->fetch_assoc()): ?>
+                        <div style="background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
                             <div>
-                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($role_label . ' ' . $row['requester_name']); ?></div>
-                                <div style="color:var(--muted);font-size:0.85rem;">Wants to view: <strong><?php echo htmlspecialchars($row['report_name']); ?></strong></div>
+                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($row['requester_name']); ?> requested your report</div>
+                                <div style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['report_name']); ?></div>
+                                <div style="color:var(--muted-dim);font-size:0.8rem;margin-top:6px;">Requested on <?php echo date('M d, Y', strtotime($row['created_at'])); ?></div>
                             </div>
-                            <div style="display:flex;gap:10px;">
-                                <a href="add_monitor.php?accept_report=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">✅ Grant</a>
-                                <a href="add_monitor.php?reject_report=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm">❌ Deny</a>
+                            <div style="display:flex;gap:8px;">
+                                <a href="?accept_report=<?php echo htmlspecialchars($row['id']); ?>" class="btn btn-primary btn-sm">✅ Share</a>
+                                <a href="?reject_report=<?php echo htmlspecialchars($row['id']); ?>" class="btn btn-danger btn-sm">❌ Deny</a>
                             </div>
                         </div>
                     <?php endwhile; ?>
@@ -353,7 +354,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <?php endif; ?>
         </div>
 
-        <!-- INCOMING REQUESTS -->
+        <!-- INCOMING MONITOR REQUESTS -->
         <div class="card" style="margin-bottom:24px;">
             <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📬 Incoming Monitor Requests</h2>
             <?php if ($incoming_requests && $incoming_requests->num_rows > 0): ?>
@@ -361,13 +362,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                     <?php while ($row = $incoming_requests->fetch_assoc()): ?>
                         <div style="background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
                             <div>
-                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($row['name']); ?></div>
+                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($row['name']); ?> wants to monitor you</div>
                                 <div style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></div>
                                 <div style="color:var(--muted-dim);font-size:0.8rem;margin-top:6px;">Requested on <?php echo date('M d, Y', strtotime($row['created_at'])); ?></div>
                             </div>
                             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                                <a href="add_monitor.php?accept=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">✅ Accept</a>
-                                <a href="add_monitor.php?reject=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm">❌ Reject</a>
+                                <a href="?accept=<?php echo htmlspecialchars($row['id']); ?>" class="btn btn-primary btn-sm">✅ Accept</a>
+                                <a href="?reject=<?php echo htmlspecialchars($row['id']); ?>" class="btn btn-danger btn-sm">❌ Reject</a>
                             </div>
                         </div>
                     <?php endwhile; ?>
@@ -381,23 +382,23 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 
         <!-- PENDING REQUESTS SENT -->
         <div class="card" style="margin-bottom:24px;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">⏳ Pending Requests Sent</h2>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">⏳ Your Pending Requests</h2>
             <?php if ($pending_requests && $pending_requests->num_rows > 0): ?>
                 <div style="overflow-x:auto;">
-                    <table style="width:100%;border-collapse:collapse;">
-                        <thead style="background:var(--navy-light);">
+                    <table>
+                        <thead>
                             <tr>
-                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Name</th>
-                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Email</th>
-                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Status</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php while ($row = $pending_requests->fetch_assoc()): ?>
-                            <tr style="border-bottom:1px solid var(--border);">
-                                <td style="padding:14px;font-weight:600;"><?php echo htmlspecialchars($row['name']); ?></td>
-                                <td style="padding:14px;color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
-                                <td style="padding:14px;"><span style="background:rgba(245,158,11,0.12);color:var(--warning);padding:4px 10px;border-radius:50px;font-size:0.8rem;font-weight:600;">⏳ Awaiting Response</span></td>
+                            <tr>
+                                <td style="font-weight:600;"><?php echo htmlspecialchars($row['name']); ?></td>
+                                <td style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
+                                <td><span style="background:rgba(245,158,11,0.12);color:var(--warning);padding:4px 10px;border-radius:50px;font-size:0.8rem;font-weight:600;">⏳ Awaiting</span></td>
                             </tr>
                             <?php endwhile; ?>
                         </tbody>
@@ -412,24 +413,24 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         
         <!-- CURRENT MONITORS -->
         <div class="card" style="margin-bottom:24px;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">👥 Current Monitors</h2>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">👥 Your Current Monitors</h2>
             <?php if ($monitors && $monitors->num_rows > 0): ?>
                 <div style="overflow-x:auto;">
-                    <table style="width:100%;border-collapse:collapse;">
-                        <thead style="background:var(--navy-light);">
+                    <table>
+                        <thead>
                             <tr>
-                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Name</th>
-                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Email</th>
-                                <th style="padding:12px;text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);font-size:0.85rem;">Action</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php while ($row = $monitors->fetch_assoc()): ?>
-                            <tr style="border-bottom:1px solid var(--border);">
-                                <td style="padding:14px;font-weight:600;"><?php echo htmlspecialchars($row['name']); ?></td>
-                                <td style="padding:14px;color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
-                                <td style="padding:14px;">
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="showConfirmModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['name']); ?>');">🗑️ Remove</button>
+                            <tr>
+                                <td style="font-weight:600;"><?php echo htmlspecialchars($row['name']); ?></td>
+                                <td style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></td>
+                                <td>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="showConfirmModal('<?php echo htmlspecialchars($row['id']); ?>', '<?php echo htmlspecialchars($row['name']); ?>');">🗑️ Remove</button>
                                 </td>
                             </tr>
                             <?php endwhile; ?>
@@ -446,20 +447,24 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <!-- ADD MONITOR FORM -->
         <div class="card">
             <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">➕ Add New Monitor</h2>
-            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the email address of a trusted person (they must have a MediConnect account).</p>
-            <form method="POST">
-                <div class="form-group"><label class="form-label">Monitor's Email</label><input class="form-input" type="email" name="email" placeholder="monitor@example.com" required></div>
-                <button class="btn btn-primary btn-full" type="submit" name="add">➕ Add Monitor</button>
+            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the email address of a trusted person (they must have a MediConnect account). They'll receive a request to monitor your health.</p>
+            <form method="POST" action="">
+                <div class="form-group">
+                    <label class="form-label">Monitor's Email Address</label>
+                    <input class="form-input" type="email" name="email" placeholder="monitor@example.com" required>
+                </div>
+                <button class="btn btn-primary btn-full" type="submit" name="add">➕ Send Request</button>
             </form>
         </div>
     </div>
-</main></div>
+</main>
+</div>
 
 <!-- REMOVE MONITOR CONFIRMATION MODAL -->
 <div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
     <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:modalSlideIn 0.3s ease-out;">
         <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:12px;color:var(--white);">Remove Monitor?</h2>
-        <p style="color:var(--muted);font-size:0.9rem;margin-bottom:28px;">Are you sure you want to remove "<span id="monitorName" style="font-weight:600;color:var(--teal);"></span>" from your monitors? They will no longer be able to see your health information.</p>
+        <p style="color:var(--muted);font-size:0.9rem;margin-bottom:28px;">Are you sure you want to remove "<span id="monitorName" style="font-weight:600;color:var(--teal);"></span>" from your monitors? They will no longer see your health information.</p>
         <div style="display:flex;gap:12px;justify-content:flex-end;">
             <button type="button" onclick="hideConfirmModal()" style="padding:10px 24px;background:var(--navy-light);border:1px solid var(--border);border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)';">Cancel</button>
             <button type="button" onclick="confirmRemove()" style="padding:10px 24px;background:#EF4444;border:none;border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#EF4444';">Remove</button>
@@ -469,14 +474,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 
 <style>
 @keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
 }
 </style>
 
@@ -500,7 +499,6 @@ function confirmRemove() {
     }
 }
 
-// Close modal when clicking outside
 document.addEventListener('click', function(event) {
     const modal = document.getElementById('confirmModal');
     if (event.target === modal) {
@@ -510,4 +508,3 @@ document.addEventListener('click', function(event) {
 </script>
 
 </body></html>
-<?php ?>
