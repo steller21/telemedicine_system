@@ -338,6 +338,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>
         <a href="../chatbot.php" class="nav-link"><span class="nav-icon">🤖</span> Health Assistant</a>
+        <a href="friends.php" class="nav-link"><span class="nav-icon">👥</span> Friends & Chat</a>
     </div>
     <div class="nav-section">
     <div class="nav-section-label">Health</div>
@@ -454,6 +455,10 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <a href="upload_report.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">📄</div>
             <div><div style="font-weight:600;margin-bottom:2px;">Upload Report</div><div style="font-size:0.8rem;color:var(--muted);">Share with doctor</div></div>
+        </a>
+        <a href="friends.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">💬</div>
+            <div><div style="font-weight:600;margin-bottom:2px;">Messages</div><div style="font-size:0.8rem;color:var(--muted);">Chat with friends</div></div>
         </a>
     </div>
 </main>
