@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("../patient/monitor_core.php");
  
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -233,6 +234,28 @@ body {
  
 <!-- MAIN -->
 <main class="main">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
+        <?php 
+        $notifCount = getPendingNotificationCount($conn, $doctor_id);
+        $notifications = getPendingNotifications($conn, $doctor_id);
+        ?>
+        <div class="notif-container">
+            <div class="notif-btn" onclick="toggleNotif()">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-dropdown" id="notifDropdown">
+                <div class="notif-header">Pending Requests</div>
+                <div class="notif-list">
+                    <?php if(empty($notifications)): ?>
+                        <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--muted);">No pending requests</div>
+                    <?php else: foreach($notifications as $n): ?>
+                        <a href="monitor_requests.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-item">
+                            <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                            <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                        </a>
+                    <?php endforeach; endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="page-header">
         <h1>Welcome back, Dr. <?php echo htmlspecialchars($_SESSION['name']); ?> 👨‍⚕️</h1>
         <p>Your practice is online. Manage your incoming calls and appointments here.</p>
@@ -367,6 +390,11 @@ document.getElementById('declineLink').addEventListener('click', function(e) {
 // Poll every 4 seconds
 setInterval(checkCalls, 4000);
 </script>
- 
+
+<script>
+function toggleNotif(){document.getElementById('notifDropdown').classList.toggle('show');}
+window.onclick=function(e){if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}}
+</script>
+
 </body>
 </html>

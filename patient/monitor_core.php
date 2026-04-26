@@ -140,10 +140,19 @@ if (isset($_SESSION['user_id'])) {
 
         if (isset($_GET['remove_monitor']) || isset($_GET['remove_patient'])) {
             $target_id = intval($_GET['remove_monitor'] ?? $_GET['remove_patient']);
-            $del = $conn->prepare("DELETE FROM patient_monitors WHERE (patient_id=? AND monitor_id=?) OR (patient_id=? AND monitor_id=?)");
-            if ($del) {
-                $del->bind_param("iiii", $current_user_id, $target_id, $target_id, $current_user_id);
-                $del->execute();
+            
+            // Remove the relationship
+            $del_link = $conn->prepare("DELETE FROM patient_monitors WHERE (patient_id=? AND monitor_id=?) OR (patient_id=? AND monitor_id=?)");
+            if ($del_link) {
+                $del_link->bind_param("iiii", $current_user_id, $target_id, $target_id, $current_user_id);
+                $del_link->execute();
+            }
+            
+            // Also clear the request record to allow re-requesting in the future and cleanup both accounts
+            $del_req = $conn->prepare("DELETE FROM monitor_requests WHERE (requester_id=? AND requested_user_id=?) OR (requester_id=? AND requested_user_id=?)");
+            if ($del_req) {
+                $del_req->bind_param("iiii", $current_user_id, $target_id, $target_id, $current_user_id);
+                $del_req->execute();
             }
             header("Location: $current_page?success=Monitoring link removed"); 
             exit;
@@ -234,17 +243,20 @@ function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = 
         }
     }
 
-    // Check for existing pending request
-    $pending = $conn->prepare("SELECT id FROM monitor_requests WHERE requester_id=? AND requested_user_id=? AND status='pending'");
-    if ($pending) {
-        $pending->bind_param("ii", $requester_id, $target_id);
-        if ($pending->execute()) {
-            if ($pending->get_result()->num_rows > 0) {
-                error_log("sendMonitorRequest: Pending request already exists");
+    // Check for existing request (any status)
+    $existing = $conn->prepare("SELECT id, status FROM monitor_requests WHERE requester_id=? AND requested_user_id=?");
+    if ($existing) {
+        $existing->bind_param("ii", $requester_id, $target_id);
+        $existing->execute();
+        $res = $existing->get_result();
+        if ($row = $res->fetch_assoc()) {
+            if ($row['status'] === 'pending') {
                 return ["type" => "warning", "msg" => "Request already sent. Waiting for their response."];
             }
-        } else {
-            error_log("sendMonitorRequest: Failed to check pending request: " . $pending->error);
+            // If status is 'accepted' but reached here, or 'rejected', remove it to allow a new request
+            $del = $conn->prepare("DELETE FROM monitor_requests WHERE id=?");
+            $del->bind_param("i", $row['id']);
+            $del->execute();
         }
     }
 
@@ -265,5 +277,73 @@ function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = 
     
     error_log("sendMonitorRequest: FAILED to insert request: " . $ins->error);
     return ["type" => "error", "msg" => "Error sending request. " . $ins->error];
+}
+
+/**
+ * Get total count of pending notifications (requests) for a user
+ */
+function getPendingNotificationCount($conn, $user_id) {
+    $count = 0;
+    
+    // Monitor requests received
+    $stmt1 = $conn->prepare("SELECT COUNT(*) FROM monitor_requests WHERE requested_user_id = ? AND status = 'pending'");
+    if ($stmt1) {
+        $stmt1->bind_param("i", $user_id);
+        $stmt1->execute();
+        $count += $stmt1->get_result()->fetch_row()[0];
+    }
+
+    // Report share requests received
+    $stmt2 = $conn->prepare("SELECT COUNT(*) FROM report_share_requests WHERE patient_id = ? AND status = 'pending'");
+    if ($stmt2) {
+        $stmt2->bind_param("i", $user_id);
+        $stmt2->execute();
+        $count += $stmt2->get_result()->fetch_row()[0];
+    }
+
+    return $count;
+}
+
+/**
+ * Get a combined list of all pending requests as notifications
+ */
+function getPendingNotifications($conn, $user_id) {
+    $notifications = [];
+
+    // Monitor requests
+    $stmt1 = $conn->prepare("
+        SELECT mr.id, u.name as sender_name, 'monitor' as type, mr.created_at 
+        FROM monitor_requests mr 
+        JOIN users u ON mr.requester_id = u.id 
+        WHERE mr.requested_user_id = ? AND mr.status = 'pending'
+        ORDER BY mr.created_at DESC
+    ");
+    if ($stmt1) {
+        $stmt1->bind_param("i", $user_id);
+        $stmt1->execute();
+        $res1 = $stmt1->get_result();
+        while ($row = $res1->fetch_assoc()) {
+            $notifications[] = ['id' => $row['id'], 'title' => 'Monitor Request', 'desc' => $row['sender_name'] . ' wants to link with you', 'type' => 'monitor', 'time' => $row['created_at'], 'param' => 'accept'];
+        }
+    }
+
+    // Report share requests
+    $stmt2 = $conn->prepare("
+        SELECT rsr.id, u.name as sender_name, r.report_name, rsr.created_at 
+        FROM report_share_requests rsr 
+        JOIN users u ON rsr.requester_id = u.id 
+        JOIN reports r ON rsr.report_id = r.id
+        WHERE rsr.patient_id = ? AND rsr.status = 'pending'
+        ORDER BY rsr.created_at DESC
+    ");
+    if ($stmt2) {
+        $stmt2->bind_param("i", $user_id);
+        $stmt2->execute();
+        $res2 = $stmt2->get_result();
+        while ($row = $res2->fetch_assoc()) {
+            $notifications[] = ['id' => $row['id'], 'title' => 'Report Request', 'desc' => $row['sender_name'] . ' requested access to ' . $row['report_name'], 'type' => 'report', 'time' => $row['created_at'], 'param' => 'accept_report'];
+        }
+    }
+    return $notifications;
 }
 ?>
