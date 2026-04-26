@@ -1,4 +1,9 @@
 <?php
+/**
+ * SECTION 1: INITIALIZATION & SECURITY
+ * Start the session, include database configuration, and verify user authentication.
+ * monitor_core.php is required for shared monitoring and notification logic.
+ */
 session_start();
 require_once("../config/db.php");
 require_once("monitor_core.php");
@@ -7,7 +12,13 @@ if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $user_id = $_SESSION['user_id'];
 $msg = ""; $msg_type = "";
 
-// Initialize Tables
+/**
+ * SECTION 2: DATABASE TABLE SETUP
+ * Automates the creation of messaging and friendship tables if they aren't already present.
+ * - friend_requests: Stores pending/rejected requests.
+ * - friends: Stores bidirectional accepted friendships.
+ * - messages: Stores individual chat history.
+ */
 $conn->query("CREATE TABLE IF NOT EXISTS friend_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sender_id INT NOT NULL,
@@ -34,18 +45,24 @@ $conn->query("CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
 
-// Handle Sending Request
+/**
+ * SECTION 3: FRIEND REQUEST HANDLERS (POST & GET)
+ * Processes all user interactions for adding, accepting, or rejecting friends.
+ */
 if (isset($_POST['send_request'])) {
     $email = trim($_POST['email']);
+    // Find the user ID associated with the provided email
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $res = $stmt->get_result();
     if ($row = $res->fetch_assoc()) {
         $target_id = $row['id'];
+        // Prevent users from adding themselves
         if ($target_id == $user_id) {
             $msg = "You cannot add yourself."; $msg_type = "error";
         } else {
+            // Check if a request or friendship already exists between the two users
             $check = $conn->prepare("SELECT id FROM friend_requests WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?)");
             $check->bind_param("iiii", $user_id, $target_id, $target_id, $user_id);
             $check->execute();
@@ -61,16 +78,18 @@ if (isset($_POST['send_request'])) {
     } else { $msg = "User with email $email not found."; $msg_type = "error"; }
 }
 
-// Handle Accept/Reject
 if (isset($_GET['accept'])) {
     $req_id = intval($_GET['accept']);
+    // Verify the request exists and is pending for the current user
     $stmt = $conn->prepare("SELECT sender_id FROM friend_requests WHERE id=? AND receiver_id=? AND status='pending'");
     $stmt->bind_param("ii", $req_id, $user_id);
     $stmt->execute();
     $res = $stmt->get_result();
     if ($row = $res->fetch_assoc()) {
         $sender_id = $row['sender_id'];
+        // Update request status to accepted
         $conn->query("UPDATE friend_requests SET status='accepted' WHERE id=$req_id");
+        // Create a bidirectional friendship record
         $u1 = min($user_id, $sender_id); $u2 = max($user_id, $sender_id);
         $conn->query("INSERT IGNORE INTO friends (user_id1, user_id2) VALUES ($u1, $u2)");
         header("Location: friends.php?msg=Accepted"); exit;
@@ -79,6 +98,7 @@ if (isset($_GET['accept'])) {
 
 if (isset($_GET['reject'])) {
     $req_id = intval($_GET['reject']);
+    // Fetch requester info before deletion to send a rejection notification
     $stmt = $conn->prepare("SELECT fr.sender_id, u.name as responder_name FROM friend_requests fr JOIN users u ON fr.receiver_id = u.id WHERE fr.id=? AND fr.receiver_id=?");
     $stmt->bind_param("ii", $req_id, $user_id);
     $stmt->execute();
@@ -88,6 +108,7 @@ if (isset($_GET['reject'])) {
         $target_id = $row['sender_id'];
         $responder = $row['responder_name'];
         
+        // Remove the request and add an info notification for the sender
         $conn->query("DELETE FROM friend_requests WHERE id = $req_id");
         addUserNotification($conn, $target_id, "Friend Request Rejected", "$responder rejected your friend request.");
     }
@@ -95,7 +116,10 @@ if (isset($_GET['reject'])) {
     exit;
 }
 
-// Fetch Data
+/**
+ * SECTION 4: DATA FETCHING
+ * Retrieves active friends and pending requests from the database for display in the UI.
+ */
 $friends = $conn->query("SELECT u.id, u.name, u.email, u.role FROM friends f JOIN users u ON (f.user_id1=u.id OR f.user_id2=u.id) WHERE (f.user_id1='$user_id' OR f.user_id2='$user_id') AND u.id != '$user_id'");
 $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr JOIN users u ON fr.sender_id=u.id WHERE fr.receiver_id='$user_id' AND fr.status='pending'");
 ?>
@@ -104,6 +128,10 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
 <meta charset="UTF-8"><title>Friends & Messages — MediConnect</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+    /**
+     * SECTION 5: CSS STYLES
+     * Custom theme variables and component styling for the messaging dashboard.
+     */
     :root { --teal: #0EB8A0; --navy: #0B1526; --navy-mid: #112035; --white: #fff; --muted: #7A8EA8; --border: rgba(255,255,255,0.07); }
     body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); margin: 0; display: flex; min-height: 100vh; }
     .sidebar { width: 240px; background: #0F1E36; border-right: 1px solid var(--border); padding: 24px; }
@@ -125,7 +153,6 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
     .nav-link { color: var(--muted); text-decoration: none; display: block; padding: 10px 0; font-size: 0.9rem; }
     .nav-link:hover { color: var(--teal); }
 
-    /* Notification styles */
     .notif-container{position:fixed;top:25px;right:40px;display:inline-block;z-index:9999;}
     .notif-btn{background:var(--navy-mid);border:1px solid var(--border);color:var(--white);padding:10px 16px;border-radius:12px;cursor:pointer;display:flex;align-items:center;font-size:1.2rem;transition:0.2s;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
     .notif-btn:hover{background:var(--navy-light);border-color:var(--teal);}
@@ -144,6 +171,8 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
     .notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
 </style>
 </head><body>
+    
+    <!-- SECTION 6: SIDEBAR COMPONENT -->
     <aside class="sidebar">
         <h2 style="color:var(--teal)">MediConnect</h2>
         <nav>
@@ -154,7 +183,11 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
             <a href="../logout.php" class="nav-link">🚪 Logout</a>
         </nav>
     </aside>
+
     <main class="main">
+        <!-- SECTION 7: NOTIFICATION COMPONENT
+             Fetches combined request counts (Friends, Monitors, Reports) and unread messages.
+        -->
         <?php 
         $notifCount = getPendingNotificationCount($conn, $user_id);
         $notifications = getPendingNotifications($conn, $user_id);
@@ -182,12 +215,15 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
                 </div>
             </div>
         </div>
+
+        <!-- SECTION 8: MAIN DASHBOARD HEADER -->
         <h1>👥 Friends & Messages</h1>
         
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type; ?>"><?php echo $msg; ?></div><?php endif; ?>
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 24px;">
             <div>
+                <!-- Add Friend Search Form -->
                 <div class="card">
                     <h2>🔍 Add Friend</h2>
                     <p style="color:var(--muted); font-size: 0.85rem;">Search for a doctor or patient by their email address.</p>
@@ -197,6 +233,7 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
                     </form>
                 </div>
 
+                <!-- Incoming Requests Inbox -->
                 <div class="card">
                     <h2>📬 Pending Requests</h2>
                     <?php if($received->num_rows > 0): ?>
@@ -213,6 +250,7 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
                 </div>
             </div>
 
+            <!-- Friends List & Conversation Launchers -->
             <div class="card">
                 <h2>💬 Your Conversations</h2>
                 <?php if($friends->num_rows > 0): ?>
@@ -231,7 +269,12 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
             </div>
         </div>
     </main>
+
 <script>
+/**
+ * SECTION 9: INTERACTIVE LOGIC
+ * Toggles the visibility of the notification window and closes it on external clicks.
+ */
 document.getElementById('notifBtn').addEventListener('click', function(e){
     document.getElementById('notifDropdown').classList.toggle('show');
 });
