@@ -213,6 +213,22 @@ body {
 #callBox p { color: var(--muted); margin-bottom: 24px; }
 .ring { font-size: 3rem; margin-bottom: 10px; animation: ring 0.6s infinite alternate; }
 @keyframes ring { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+    .notif-container{position:fixed;top:25px;right:40px;display:inline-block;z-index:9999;}
+    .notif-btn{background:var(--navy-mid);border:1px solid var(--border);color:var(--white);padding:10px 16px;border-radius:12px;cursor:pointer;display:flex;align-items:center;font-size:1.2rem;transition:0.2s;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
+    .notif-btn:hover{background:var(--navy-light);border-color:var(--teal);}
+    .notif-badge{background:var(--danger);color:white;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:50px;position:absolute;top:-5px;right:-5px;border:2px solid var(--navy-card);}
+    .notif-dropdown{position:absolute;top:100%;right:0;width:300px;max-height:500px;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;margin-top:12px;display:none;z-index:10000;box-shadow:0 25px 60px rgba(0,0,0,0.5);overflow:hidden;backdrop-filter:blur(20px);}
+    .notif-dropdown.show{display:block;}
+    .notif-list{max-height:400px;overflow-y:auto;}.notif-item{padding:16px;border-bottom:1px solid var(--border);transition:0.2s;text-decoration:none;color:inherit;display:block;text-align:left;}
+    .notif-item:hover{background:rgba(255,255,255,0.04);}
+    .notif-item-title{font-size:0.85rem;font-weight:600;color:var(--teal);margin-bottom:2px;}
+    .notif-item-desc{font-size:0.75rem;color:var(--muted);line-height:1.4;}
+    .notif-actions{display:flex;gap:8px;margin-top:10px;}
+    .notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;flex:1;text-align:center;}
+    .notif-btn-accept{background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);}
+    .notif-btn-accept:hover{background:rgba(34,197,94,0.3);}
+    .notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
+    .notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
 </style>
 </head>
 <body>
@@ -236,42 +252,32 @@ body {
 <!-- MAIN -->
 <main class="main">
     <?php 
-    $notifCount = getPendingNotificationCount($conn, $doctor_id);
-    $notifications = getPendingNotifications($conn, $doctor_id);
-    ?>
-    <div class="notif-container">
-        <!-- 🔔 Bell Button -->
-        <div class="notif-btn" id="notifBtn">
-            🔔
-            <?php if ($notifCount > 0): ?>
-                <span class="notif-badge"><?php echo $notifCount; ?></span>
-            <?php endif; ?>
-        </div>
-
-        <!-- 🔔 Dropdown -->
-        <div class="notif-dropdown" id="notifDropdown">
-            <?php if (!empty($notifications)): ?>
-                <?php foreach ($notifications as $n): ?>
-                    <div class="notif-item">
-                        <div class="notif-title"><?php echo htmlspecialchars($n['title']); ?></div>
-                        <div class="notif-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
-                        <div class="notif-actions">
-                            <?php if($n['type'] === 'info'): ?>
-                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>">Dismiss</a>
-                            <?php elseif($n['type'] === 'chat'): ?>
-                                <a href="friends.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>">💬 Open Chat</a>
-                            <?php else: ?>
-                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>">✅ Accept</a>
-                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>">❌ Reject</a>
-                            <?php endif; ?>
+        $notifCount = getPendingNotificationCount($conn, $doctor_id);
+        $notifications = getPendingNotifications($conn, $doctor_id);
+        ?>
+        <div class="notif-container">
+            <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-dropdown" id="notifDropdown">
+                <div class="notif-list">
+                    <?php if(!empty($notifications)): foreach($notifications as $n): ?>
+                        <div class="notif-item">
+                            <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                            <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                            <div class="notif-actions">
+                                <?php if($n['type'] === 'info'): ?>
+                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                                <?php elseif($n['type'] === 'chat'): ?>
+                                    <a href="chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
+                                <?php else: ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div class="notif-item">No notifications</div>
-            <?php endif; ?>
+                    <?php endforeach; endif; ?>
+                </div>
+            </div>
         </div>
-    </div>
 
     <div class="page-header">
         <h1>Welcome back, Dr. <?php echo htmlspecialchars($_SESSION['name']); ?> 👨‍⚕️</h1>
@@ -410,6 +416,12 @@ document.getElementById('declineLink').addEventListener('click', function(e) {
  
 // Poll every 4 seconds
 setInterval(checkCalls, 4000);
+document.getElementById('notifBtn').addEventListener('click', function(e){
+    document.getElementById('notifDropdown').classList.toggle('show');
+});
+window.addEventListener('click', function(e){
+    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
+});
 </script>
 </body>
 </html>

@@ -288,33 +288,33 @@ tbody td { padding: 14px; }
 
 <!-- MAIN -->
 <main class="main">
-    <?php 
-    $notifCount = getPendingNotificationCount($conn, $doctor_id);
-    $notifications = getPendingNotifications($conn, $doctor_id);
-    ?>
-    <div class="notif-container">
-        <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
-        <div class="notif-dropdown" id="notifDropdown">
-            <div class="notif-list">
-                <?php if(!empty($notifications)): foreach($notifications as $n): ?>
-                    <div class="notif-item">
-                        <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
-                        <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
-                        <div class="notif-actions">
-                            <?php if($n['type'] === 'info'): ?>
-                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
-                            <?php elseif($n['type'] === 'chat'): ?>
-                                <a href="../patient/chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
-                            <?php else: ?>
-                            <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
-                            <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
-                            <?php endif; ?>
+     <?php 
+        $notifCount = getPendingNotificationCount($conn, $doctor_id);
+        $notifications = getPendingNotifications($conn, $doctor_id);
+        ?>
+        <div class="notif-container">
+            <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-dropdown" id="notifDropdown">
+                <div class="notif-list">
+                    <?php if(!empty($notifications)): foreach($notifications as $n): ?>
+                        <div class="notif-item">
+                            <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                            <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                            <div class="notif-actions">
+                                <?php if($n['type'] === 'info'): ?>
+                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                                <?php elseif($n['type'] === 'chat'): ?>
+                                    <a href="chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
+                                <?php else: ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                    </div>
-                <?php endforeach; endif; ?>
+                    <?php endforeach; endif; ?>
+                </div>
             </div>
         </div>
-    </div>
     <div class="page-header">
         <h1>👥 Monitor Patients</h1>
         <p>Track your patients' health checklists and medicine progress.</p>
@@ -478,6 +478,12 @@ document.getElementById('imageModal').onclick = function(e) {
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeImageModal();
+});
+document.getElementById('notifBtn').addEventListener('click', function(e){
+    document.getElementById('notifDropdown').classList.toggle('show');
+});
+window.addEventListener('click', function(e){
+    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
 });
 </script>
 
