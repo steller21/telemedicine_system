@@ -362,7 +362,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                     <?php while ($row = $incoming_requests->fetch_assoc()): ?>
                         <div style="background:var(--navy-light);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
                             <div>
-                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($row['name']); ?> wants to monitor you</div>
+                                <?php $pronoun = ($row['gender'] === 'male') ? 'him' : (($row['gender'] === 'female') ? 'her' : 'them'); ?>
+                                <div style="font-weight:600;margin-bottom:4px;"><?php echo htmlspecialchars($row['name']); ?> wants you to monitor <?php echo $pronoun; ?></div>
                                 <div style="color:var(--muted);font-size:0.9rem;"><?php echo htmlspecialchars($row['email']); ?></div>
                                 <div style="color:var(--muted-dim);font-size:0.8rem;margin-top:6px;">Requested on <?php echo date('M d, Y', strtotime($row['created_at'])); ?></div>
                             </div>
@@ -505,6 +506,22 @@ document.addEventListener('click', function(event) {
         hideConfirmModal();
     }
 });
+
+// Auto-hide alerts after 7 seconds
+setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(a => {
+        a.style.transition = 'opacity 0.5s ease';
+        a.style.opacity = '0';
+        setTimeout(() => a.style.display = 'none', 500);
+    });
+}, 7000);
+
+// Clear URL parameters so they don't reappear on refresh
+if (window.history.replaceState) {
+    const url = new URL(window.location);
+    url.searchParams.delete('success'); url.searchParams.delete('error');
+    window.history.replaceState({}, document.title, url);
+}
 </script>
 
 </body></html>

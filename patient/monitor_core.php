@@ -48,33 +48,9 @@ function initMonitorTables($conn) {
     if (!$conn->query($sql2)) {
         error_log("Error creating report_share_requests table: " . $conn->error);
     }
-
-    // Create user_notifications table for non-request alerts
-    $sql3 = "CREATE TABLE IF NOT EXISTS user_notifications (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        title VARCHAR(255) NOT NULL,
-        message TEXT NOT NULL,
-        is_read TINYINT(1) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )";
-    
-    if (!$conn->query($sql3)) {
-        error_log("Error creating user_notifications table: " . $conn->error);
-    }
 }
 
 initMonitorTables($conn);
-
-/**
- * Helper to add a persistent notification for a user
- */
-function addUserNotification($conn, $user_id, $title, $message) {
-    $stmt = $conn->prepare("INSERT INTO user_notifications (user_id, title, message) VALUES (?, ?, ?)");
-    $stmt->bind_param("iss", $user_id, $title, $message);
-    return $stmt->execute();
-}
 
 // Handle Global Actions (Accept/Reject for both Monitors and Reports)
 if (isset($_SESSION['user_id'])) {
@@ -85,8 +61,7 @@ if (isset($_SESSION['user_id'])) {
     // Handle Accept/Reject/Remove via GET
     if (isset($_GET['accept']) || isset($_GET['reject']) || isset($_GET['remove_monitor']) || isset($_GET['remove_patient']) || 
         isset($_GET['accept_report']) || isset($_GET['reject_report']) || 
-        isset($_GET['accept_friend']) || isset($_GET['reject_friend']) ||
-        isset($_GET['clear_notif'])) {
+        isset($_GET['accept_friend']) || isset($_GET['reject_friend'])) {
         
         if (isset($_GET['accept'])) {
             $request_id = intval($_GET['accept']);
@@ -156,22 +131,10 @@ if (isset($_SESSION['user_id'])) {
 
         if (isset($_GET['reject'])) {
             $request_id = intval($_GET['reject']);
-            
-            // Get requester info before deleting to notify them
-            $stmt = $conn->prepare("SELECT mr.requester_id, u.name as responder_name FROM monitor_requests mr JOIN users u ON mr.requested_user_id = u.id WHERE mr.id=? AND mr.requested_user_id=?");
-            $stmt->bind_param("ii", $request_id, $current_user_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            
-            if ($row = $res->fetch_assoc()) {
-                $target_id = $row['requester_id'];
-                $responder = $row['responder_name'];
-                
-                // Delete the request record completely
-                $conn->query("DELETE FROM monitor_requests WHERE id = $request_id");
-                
-                // Send notification to the original requester
-                addUserNotification($conn, $target_id, "Monitor Request Rejected", "$responder has rejected your monitoring request.");
+            $del = $conn->prepare("DELETE FROM monitor_requests WHERE id=? AND requested_user_id=?");
+            if ($del) {
+                $del->bind_param("ii", $request_id, $current_user_id);
+                $del->execute();
             }
             header("Location: $current_page?success=Request rejected"); 
             exit;
@@ -211,20 +174,10 @@ if (isset($_SESSION['user_id'])) {
 
         if (isset($_GET['reject_report'])) {
             $request_id = intval($_GET['reject_report']);
-            
-            // Get requester info
-            $stmt = $conn->prepare("SELECT rsr.requester_id, u.name as responder_name, r.report_name FROM report_share_requests rsr JOIN users u ON rsr.patient_id = u.id JOIN reports r ON rsr.report_id = r.id WHERE rsr.id=? AND rsr.patient_id=?");
-            $stmt->bind_param("ii", $request_id, $current_user_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            
-            if ($row = $res->fetch_assoc()) {
-                $target_id = $row['requester_id'];
-                $responder = $row['responder_name'];
-                $report = $row['report_name'];
-                
-                $conn->query("DELETE FROM report_share_requests WHERE id = $request_id");
-                addUserNotification($conn, $target_id, "Report Access Denied", "$responder rejected your request to view the report: $report.");
+            $del = $conn->prepare("DELETE FROM report_share_requests WHERE id=? AND patient_id=?");
+            if ($del) {
+                $del->bind_param("ii", $request_id, $current_user_id);
+                $del->execute();
             }
             header("Location: $current_page?success=Report request rejected"); 
             exit;
@@ -250,18 +203,10 @@ if (isset($_SESSION['user_id'])) {
 
         if (isset($_GET['reject_friend'])) {
             $req_id = intval($_GET['reject_friend']);
-            
-            $stmt = $conn->prepare("SELECT fr.sender_id, u.name as responder_name FROM friend_requests fr JOIN users u ON fr.receiver_id = u.id WHERE fr.id=? AND fr.receiver_id=?");
-            $stmt->bind_param("ii", $req_id, $current_user_id);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            
-            if ($row = $res->fetch_assoc()) {
-                $target_id = $row['sender_id'];
-                $responder = $row['responder_name'];
-                
-                $conn->query("DELETE FROM friend_requests WHERE id = $req_id");
-                addUserNotification($conn, $target_id, "Friend Request Rejected", "$responder rejected your friend request.");
+            $del = $conn->prepare("DELETE FROM friend_requests WHERE id=? AND receiver_id=?");
+            if ($del) {
+                $del->bind_param("ii", $req_id, $current_user_id);
+                $del->execute();
             }
             header("Location: $current_page?success=Friend request rejected"); exit;
         }
@@ -402,6 +347,14 @@ function getPendingNotificationCount($conn, $user_id) {
         $count += $stmt3->get_result()->fetch_row()[0];
     }
 
+    // Unread messages count
+    $stmt5 = $conn->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0");
+    if ($stmt5) {
+        $stmt5->bind_param("i", $user_id);
+        $stmt5->execute();
+        $count += $stmt5->get_result()->fetch_row()[0];
+    }
+
     // General notifications count
     $stmt4 = $conn->prepare("SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0");
     if ($stmt4) {
@@ -421,7 +374,7 @@ function getPendingNotifications($conn, $user_id) {
 
     // Monitor requests
     $stmt1 = $conn->prepare("
-        SELECT mr.id, u.name as sender_name, 'monitor' as type, mr.created_at 
+        SELECT mr.id, u.name as sender_name, u.gender, 'monitor' as type, mr.created_at 
         FROM monitor_requests mr 
         JOIN users u ON mr.requester_id = u.id 
         WHERE mr.requested_user_id = ? AND mr.status = 'pending'
@@ -432,10 +385,11 @@ function getPendingNotifications($conn, $user_id) {
         $stmt1->execute();
         $res1 = $stmt1->get_result();
         while ($row = $res1->fetch_assoc()) {
+            $pronoun = ($row['gender'] === 'male') ? 'him' : (($row['gender'] === 'female') ? 'her' : 'them');
             $notifications[] = [
                 'id' => $row['id'], 
                 'title' => 'Monitor Request', 
-                'desc' => $row['sender_name'] . ' wants to link with you', 
+                'desc' => $row['sender_name'] . ' wants you to monitor ' . $pronoun, 
                 'type' => 'monitor', 
                 'time' => $row['created_at'], 
                 'param' => 'accept',
@@ -491,6 +445,30 @@ function getPendingNotifications($conn, $user_id) {
                 'time' => $row['created_at'], 
                 'param' => 'accept_friend',
                 'reject_param' => 'reject_friend'
+            ];
+        }
+    }
+
+    // Fetch Unread Messages as notifications
+    $stmt5 = $conn->prepare("
+        SELECT m.sender_id, u.name as sender_name, COUNT(*) as msg_count 
+        FROM messages m 
+        JOIN users u ON m.sender_id = u.id 
+        WHERE m.receiver_id = ? AND m.is_read = 0 
+        GROUP BY m.sender_id
+    ");
+    if ($stmt5) {
+        $stmt5->bind_param("i", $user_id);
+        $stmt5->execute();
+        $res5 = $stmt5->get_result();
+        while ($row = $res5->fetch_assoc()) {
+            $notifications[] = [
+                'id' => $row['sender_id'], 
+                'title' => 'New Message', 
+                'desc' => 'You have ' . $row['msg_count'] . ' unread message(s) from ' . $row['sender_name'], 
+                'type' => 'chat', 
+                'time' => date('Y-m-d H:i:s'), 
+                'param' => 'friend_id'
             ];
         }
     }
