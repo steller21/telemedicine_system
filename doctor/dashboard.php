@@ -226,6 +226,7 @@ body {
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
         <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
+        <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Friends & Chat</a>
     </div>
     <div class="sidebar-bottom">
         <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
@@ -234,6 +235,44 @@ body {
  
 <!-- MAIN -->
 <main class="main">
+    <?php 
+    $notifCount = getPendingNotificationCount($conn, $doctor_id);
+    $notifications = getPendingNotifications($conn, $doctor_id);
+    ?>
+    <div class="notif-container">
+        <!-- 🔔 Bell Button -->
+        <div class="notif-btn" id="notifBtn">
+            🔔
+            <?php if ($notifCount > 0): ?>
+                <span class="notif-badge"><?php echo $notifCount; ?></span>
+            <?php endif; ?>
+        </div>
+
+        <!-- 🔔 Dropdown -->
+        <div class="notif-dropdown" id="notifDropdown">
+            <?php if (!empty($notifications)): ?>
+                <?php foreach ($notifications as $n): ?>
+                    <div class="notif-item">
+                        <div class="notif-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                        <div class="notif-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                        <div class="notif-actions">
+                            <?php if($n['type'] === 'info'): ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>">Dismiss</a>
+                            <?php elseif($n['type'] === 'chat'): ?>
+                                <a href="friends.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>">💬 Open Chat</a>
+                            <?php else: ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>">❌ Reject</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="notif-item">No notifications</div>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <div class="page-header">
         <h1>Welcome back, Dr. <?php echo htmlspecialchars($_SESSION['name']); ?> 👨‍⚕️</h1>
         <p>Your practice is online. Manage your incoming calls and appointments here.</p>
@@ -260,7 +299,7 @@ body {
 
     <!-- Quick links -->
     <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:20px;">Quick Actions</h2>
-    <div class="grid-3">
+    <div class="grid-4">
         <a href="appointments.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">📅</div>
             <div><div style="font-weight:600;margin-bottom:2px;color:white;">Appointments</div><div style="font-size:0.8rem;color:var(--muted);">View your schedule</div></div>
@@ -268,6 +307,10 @@ body {
         <a href="monitor_patients.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">👥</div>
             <div><div style="font-weight:600;margin-bottom:2px;color:white;">Monitor Patients</div><div style="font-size:0.8rem;color:var(--muted);">Track patient progress</div></div>
+        </a>
+        <a href="friends.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">💬</div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Messages</div><div style="font-size:0.8rem;color:var(--muted);">Chat with patients</div></div>
         </a>
         <a href="../logout.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">🚪</div>

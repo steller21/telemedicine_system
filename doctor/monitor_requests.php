@@ -1,6 +1,7 @@
 <?php
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') { header("Location: ../login.php"); exit; }
+require_once("../patient/monitor_core.php");
 $doctor_id = $_SESSION['user_id'];
 
 // Ensure monitor_requests table exists
@@ -125,6 +126,23 @@ body {
     padding: 24px 0;
 }
 .sidebar-logo {
+
+.notif-container{position:fixed;top:25px;right:40px;display:inline-block;z-index:9999;}
+.notif-btn{background:var(--navy-mid);border:1px solid var(--border);color:var(--white);padding:10px 16px;border-radius:12px;cursor:pointer;display:flex;align-items:center;font-size:1.2rem;transition:0.2s;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
+.notif-btn:hover{background:var(--navy-light);border-color:var(--teal);}
+.notif-badge{background:var(--danger);color:white;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:50px;position:absolute;top:-5px;right:-5px;border:2px solid var(--navy-card);}
+.notif-dropdown{position:absolute;top:100%;right:0;width:300px;max-height:500px;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;margin-top:12px;display:none;z-index:10000;box-shadow:0 25px 60px rgba(0,0,0,0.5);overflow:hidden;backdrop-filter:blur(20px);}
+.notif-dropdown.show{display:block;}
+.notif-list{max-height:400px;overflow-y:auto;}.notif-item{padding:16px;border-bottom:1px solid var(--border);transition:0.2s;text-decoration:none;color:inherit;display:block;text-align:left;}
+.notif-item:hover{background:rgba(255,255,255,0.04);}
+.notif-item-title{font-size:0.85rem;font-weight:600;color:var(--teal);margin-bottom:2px;}
+.notif-item-desc{font-size:0.75rem;color:var(--muted);line-height:1.4;}
+.notif-actions{display:flex;gap:8px;margin-top:10px;}
+.notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;flex:1;text-align:center;}
+.notif-btn-accept{background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);}
+.notif-btn-accept:hover{background:rgba(34,197,94,0.3);}
+.notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
+.notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
     display: flex; align-items: center; gap: 10px;
     padding: 0 24px 28px;
     border-bottom: 1px solid var(--border);
@@ -308,6 +326,14 @@ if (window.history.replaceState) {
     url.searchParams.delete('success'); url.searchParams.delete('error');
     window.history.replaceState({}, document.title, url);
 }
+</script>
+<script>
+document.getElementById('notifBtn').addEventListener('click', function(e){
+    document.getElementById('notifDropdown').classList.toggle('show');
+});
+window.addEventListener('click', function(e){
+    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
+});
 </script>
 </body>
 </html>

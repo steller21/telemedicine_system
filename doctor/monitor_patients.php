@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("../patient/monitor_core.php");
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -145,6 +146,22 @@ body {
     padding: 24px 0;
 }
 
+.notif-container{position:fixed;top:25px;right:40px;display:inline-block;z-index:9999;}
+.notif-btn{background:var(--navy-mid);border:1px solid var(--border);color:var(--white);padding:10px 16px;border-radius:12px;cursor:pointer;display:flex;align-items:center;font-size:1.2rem;transition:0.2s;box-shadow:0 4px 15px rgba(0,0,0,0.2);}
+.notif-btn:hover{background:var(--navy-light);border-color:var(--teal);}
+.notif-badge{background:var(--danger);color:white;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:50px;position:absolute;top:-5px;right:-5px;border:2px solid var(--navy-card);}
+.notif-dropdown{position:absolute;top:100%;right:0;width:300px;max-height:500px;background:var(--navy-card);border:1px solid var(--border);border-radius:16px;margin-top:12px;display:none;z-index:10000;box-shadow:0 25px 60px rgba(0,0,0,0.5);overflow:hidden;backdrop-filter:blur(20px);}
+.notif-dropdown.show{display:block;}
+.notif-list{max-height:400px;overflow-y:auto;}.notif-item{padding:16px;border-bottom:1px solid var(--border);transition:0.2s;text-decoration:none;color:inherit;display:block;text-align:left;}
+.notif-item:hover{background:rgba(255,255,255,0.04);}
+.notif-item-title{font-size:0.85rem;font-weight:600;color:var(--teal);margin-bottom:2px;}
+.notif-item-desc{font-size:0.75rem;color:var(--muted);line-height:1.4;}
+.notif-actions{display:flex;gap:8px;margin-top:10px;}
+.notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;flex:1;text-align:center;}
+.notif-btn-accept{background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);}
+.notif-btn-accept:hover{background:rgba(34,197,94,0.3);}
+.notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
+.notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
 .sidebar-logo {
     display: flex; align-items: center; gap: 10px;
     padding: 0 24px 28px;
@@ -262,6 +279,7 @@ tbody td { padding: 14px; }
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
         <a href="monitor_patients.php" class="nav-link active"><span class="nav-icon">👥</span> Monitor Patients</a>
+        <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Friends & Chat</a>
     </div>
     <div class="sidebar-bottom">
         <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
@@ -270,6 +288,33 @@ tbody td { padding: 14px; }
 
 <!-- MAIN -->
 <main class="main">
+    <?php 
+    $notifCount = getPendingNotificationCount($conn, $doctor_id);
+    $notifications = getPendingNotifications($conn, $doctor_id);
+    ?>
+    <div class="notif-container">
+        <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+        <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-list">
+                <?php if(!empty($notifications)): foreach($notifications as $n): ?>
+                    <div class="notif-item">
+                        <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                        <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                        <div class="notif-actions">
+                            <?php if($n['type'] === 'info'): ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                            <?php elseif($n['type'] === 'chat'): ?>
+                                <a href="../patient/chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
+                            <?php else: ?>
+                            <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                            <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; endif; ?>
+            </div>
+        </div>
+    </div>
     <div class="page-header">
         <h1>👥 Monitor Patients</h1>
         <p>Track your patients' health checklists and medicine progress.</p>
