@@ -87,7 +87,7 @@ if (isset($_GET['error'])) {
     --radius-lg:  22px;
     --shadow:     0 8px 32px rgba(0,0,0,0.25);
 }
-.notif-container{position:relative;display:inline-block;}
+.notif-container{position:fixed;top:25px;right:40px;display:inline-block;z-index:9990;}
 .notif-btn{background:var(--navy-mid);border:1px solid var(--border);color:var(--white);padding:8px 14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;font-size:1.1rem;transition:0.2s;}
 .notif-btn:hover{background:var(--navy-light);border-color:var(--teal);}
 .notif-badge{background:var(--danger);color:white;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:50px;position:absolute;top:-5px;right:-5px;border:2px solid var(--navy-card);}
@@ -98,6 +98,12 @@ if (isset($_GET['error'])) {
 .notif-item:hover{background:rgba(255,255,255,0.04);}
 .notif-item-title{font-size:0.85rem;font-weight:600;color:var(--teal);margin-bottom:2px;}
 .notif-item-desc{font-size:0.75rem;color:var(--muted);line-height:1.4;}
+.notif-actions{display:flex;gap:8px;margin-top:10px;}
+.notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;}
+.notif-btn-accept{background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);}
+.notif-btn-accept:hover{background:rgba(34,197,94,0.3);}
+.notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
+.notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
  
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -374,23 +380,31 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 </aside>
 <!-- MAIN -->
 <main class="main">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
+    <div>
         <?php 
         $notifCount = getPendingNotificationCount($conn, $patient_id);
         $notifications = getPendingNotifications($conn, $patient_id);
         ?>
         <div class="notif-container">
-            <div class="notif-btn" onclick="toggleNotif()">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
             <div class="notif-dropdown" id="notifDropdown">
                 <div class="notif-header">Pending Requests</div>
                 <div class="notif-list">
                     <?php if(empty($notifications)): ?>
                         <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--muted);">No pending requests</div>
                     <?php else: foreach($notifications as $n): ?>
-                        <a href="add_monitor.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-item">
+                        <div class="notif-item">
                             <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
                             <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
-                        </a>
+                            <div class="notif-actions">
+                                <?php if($n['type'] === 'info'): ?>
+                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                                <?php else: ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                     <?php endforeach; endif; ?>
                 </div>
             </div>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("monitor_core.php");
 
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $user_id = $_SESSION['user_id'];
@@ -91,6 +92,21 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
     :root { --teal: #0EB8A0; --navy: #0B1526; --navy-mid: #112035; --white: #fff; --muted: #7A8EA8; --border: rgba(255,255,255,0.07); }
+    .notif-container{position:fixed;top:25px;right:40px;display:inline-block;z-index:9990;}
+    .notif-btn{background:var(--navy-mid);border:1px solid var(--border);color:var(--white);padding:8px 14px;border-radius:12px;cursor:pointer;display:flex;align-items:center;font-size:1.1rem;transition:0.2s;}
+    .notif-btn:hover{background:var(--navy-mid);border-color:var(--teal);}
+    .notif-badge{background:#EF4444;color:white;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:50px;position:absolute;top:-5px;right:-5px;border:2px solid #0F1E36;}
+    .notif-dropdown{position:absolute;top:100%;right:0;width:300px;background:#0F1E36;border:1px solid var(--border);border-radius:12px;margin-top:12px;display:none;z-index:1000;box-shadow:0 20px 50px rgba(0,0,0,0.4);overflow:hidden;}
+    .notif-dropdown.show{display:block;}
+    .notif-header{padding:12px 16px;border-bottom:1px solid var(--border);font-family:'Clash Display',sans-serif;font-size:0.85rem;font-weight:600;background:rgba(255,255,255,0.02);text-align:left;}
+    .notif-item{padding:12px 16px;border-bottom:1px solid var(--border);transition:0.2s;text-decoration:none;color:inherit;display:block;text-align:left;}
+    .notif-item:hover{background:rgba(255,255,255,0.04);}
+    .notif-item-title{font-size:0.85rem;font-weight:600;color:var(--teal);margin-bottom:2px;}
+    .notif-item-desc{font-size:0.75rem;color:var(--muted);line-height:1.4;}
+    .notif-actions{display:flex;gap:8px;margin-top:10px;}
+    .notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;}
+    .notif-btn-accept{background:rgba(34,197,94,0.2);color:#22C55E;border:1px solid rgba(34,197,94,0.3);}
+    .notif-btn-reject{background:rgba(239,68,68,0.2);color:#EF4444;border:1px solid rgba(239,68,68,0.3);}
     body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); margin: 0; display: flex; min-height: 100vh; }
     .sidebar { width: 240px; background: #0F1E36; border-right: 1px solid var(--border); padding: 24px; }
     .main { flex: 1; padding: 40px; }
@@ -117,6 +133,34 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
         </nav>
     </aside>
     <main class="main">
+        <div class="notif-container">
+            <?php 
+            $notifCount = getPendingNotificationCount($conn, $user_id);
+            $notifications = getPendingNotifications($conn, $user_id);
+            ?>
+            <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-dropdown" id="notifDropdown">
+                <div class="notif-header">Pending Requests</div>
+                <div class="notif-list">
+                    <?php if(empty($notifications)): ?>
+                        <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--muted);">No pending requests</div>
+                    <?php else: foreach($notifications as $n): ?>
+                        <div class="notif-item">
+                            <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                            <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                            <div class="notif-actions">
+                                <?php if($n['type'] === 'info'): ?>
+                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                                <?php else: ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; endif; ?>
+                </div>
+            </div>
+        </div>
         <h1>👥 Friends & Messages</h1>
         
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type; ?>"><?php echo $msg; ?></div><?php endif; ?>
@@ -166,4 +210,12 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
             </div>
         </div>
     </main>
+<script>
+document.getElementById('notifBtn').addEventListener('click', function(e){
+    document.getElementById('notifDropdown').classList.toggle('show');
+});
+window.addEventListener('click', function(e){
+    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
+});
+</script>
 </body></html>

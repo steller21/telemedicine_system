@@ -127,6 +127,12 @@ if ($stmt) {
 .notif-item:hover{background:rgba(255,255,255,0.04);}
 .notif-item-title{font-size:0.85rem;font-weight:600;color:var(--teal);margin-bottom:2px;}
 .notif-item-desc{font-size:0.75rem;color:var(--muted);line-height:1.4;}
+.notif-actions{display:flex;gap:8px;margin-top:10px;}
+.notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;}
+.notif-btn-accept{background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);}
+.notif-btn-accept:hover{background:rgba(34,197,94,0.3);}
+.notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
+.notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
 *{box-sizing:border-box;margin:0;padding:0;}body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);min-height:100vh;line-height:1.6;}
 .page-bg{position:fixed;inset:0;z-index:-1;background:radial-gradient(ellipse 60% 50% at 15% 0%, rgba(14,184,160,0.1) 0%, transparent 60%),radial-gradient(ellipse 40% 40% at 85% 90%, rgba(14,184,160,0.07) 0%, transparent 50%),var(--navy);}
 .layout{display:flex;min-height:100vh;}.sidebar{width:240px;background:var(--navy-card);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;padding:24px 0;}
@@ -184,10 +190,14 @@ if ($stmt) {
                     <?php if(empty($notifications)): ?>
                         <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--muted);">No pending requests</div>
                     <?php else: foreach($notifications as $n): ?>
-                        <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-item">
+                        <div class="notif-item">
                             <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
                             <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
-                        </a>
+                            <div class="notif-actions">
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                            </div>
+                        </div>
                     <?php endforeach; endif; ?>
                 </div>
             </div>

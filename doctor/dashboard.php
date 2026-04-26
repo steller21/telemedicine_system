@@ -234,23 +234,31 @@ body {
  
 <!-- MAIN -->
 <main class="main">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
+    <div>
         <?php 
         $notifCount = getPendingNotificationCount($conn, $doctor_id);
         $notifications = getPendingNotifications($conn, $doctor_id);
         ?>
         <div class="notif-container">
-            <div class="notif-btn" onclick="toggleNotif()">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
             <div class="notif-dropdown" id="notifDropdown">
                 <div class="notif-header">Pending Requests</div>
                 <div class="notif-list">
                     <?php if(empty($notifications)): ?>
                         <div style="padding:20px;text-align:center;font-size:0.8rem;color:var(--muted);">No pending requests</div>
                     <?php else: foreach($notifications as $n): ?>
-                        <a href="monitor_requests.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-item">
+                        <div class="notif-item">
                             <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
                             <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
-                        </a>
+                            <div class="notif-actions">
+                                <?php if($n['type'] === 'info'): ?>
+                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                                <?php else: ?>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
                     <?php endforeach; endif; ?>
                 </div>
             </div>
@@ -392,8 +400,12 @@ setInterval(checkCalls, 4000);
 </script>
 
 <script>
-function toggleNotif(){document.getElementById('notifDropdown').classList.toggle('show');}
-window.onclick=function(e){if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}}
+document.getElementById('notifBtn').addEventListener('click', function(e){
+    document.getElementById('notifDropdown').classList.toggle('show');
+});
+window.addEventListener('click', function(e){
+    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
+});
 </script>
 
 </body>
