@@ -924,7 +924,7 @@
 
         <div class="hero-visual">
             <div class="hero-image">
-                <img src="uploads/images/hero_doctor.png" alt="Doctor illustration - MediConnect telemedicine platform">
+                <img src="images/hero_doctor.png" alt="Doctor illustration - MediConnect telemedicine platform">
             </div>
 
             <div class="hero-float-card card-1">
