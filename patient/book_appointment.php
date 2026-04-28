@@ -9,7 +9,10 @@ if (isset($_POST['book'])) {
     $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date) VALUES (?, ?, ?)");
     if ($stmt !== false) {
         $stmt->bind_param("iis", $patient_id, $doctor_id, $date);
-        if ($stmt->execute()) { $msg = "Appointment booked successfully!"; $msg_type = "success"; }
+        if ($stmt->execute()) { 
+            header("Location: dashboard.php?success=Appointment booked successfully!");
+            exit; 
+        }
         else { $msg = "Could not book appointment. Please try again."; $msg_type = "error"; }
     } else {
         $msg = "Database error. Please try again."; $msg_type = "error";

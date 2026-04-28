@@ -13,10 +13,10 @@ $patient_id = intval($_SESSION['user_id']);
 $appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name 
 FROM appointments a 
 JOIN users u ON a.doctor_id = u.id 
-WHERE a.patient_id = '$patient_id' AND a.appointment_date >= NOW() 
+WHERE a.patient_id = '$patient_id' AND DATE_ADD(a.appointment_date, INTERVAL 2 HOUR) >= NOW() 
 ORDER BY a.appointment_date ASC");
  
-$total_appts  = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
+$upcoming_appts_count = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id='$patient_id' AND DATE_ADD(appointment_date, INTERVAL 2 HOUR) >= NOW()")->fetch_assoc()['c'];
  
 $pending_meds = $conn->query("SELECT COUNT(*) as c FROM checklist_items ci 
 JOIN checklists cl ON ci.checklist_id=cl.id 
@@ -438,7 +438,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 
     <!-- STATS -->
     <div class="grid-4" style="margin-bottom:28px;">
-        <div class="stat-card"><div class="stat-card-icon">📅</div><div class="stat-card-value"><?php echo $total_appts; ?></div><div class="stat-card-label">Total Appointments</div></div>
+        <div class="stat-card"><div class="stat-card-icon">📅</div><div class="stat-card-value"><?php echo $upcoming_appts_count; ?></div><div class="stat-card-label">Upcoming Appointments</div></div>
         <div class="stat-card"><div class="stat-card-icon">💊</div><div class="stat-card-value"><?php echo $pending_meds; ?></div><div class="stat-card-label">Pending Medicines</div></div>
         <div class="stat-card"><div class="stat-card-icon">👁️</div><div class="stat-card-value"><?php echo $monitors; ?></div><div class="stat-card-label">Monitors</div></div>
         <div class="stat-card"><div class="stat-card-icon">📄</div><div class="stat-card-value"><?php echo $reports_count; ?></div><div class="stat-card-label">Reports Uploaded</div></div>
