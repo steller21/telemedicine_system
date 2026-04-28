@@ -13,21 +13,39 @@
             --teal:      #0EB8A0;
             --teal-dark: #0A8A78;
             --teal-light:#14D9BD;
-            --navy:      #0B1526;
-            --navy-mid:  #112035;
-            --navy-light:#1A3050;
-            --navy-card: #0F1E36;
+            --navy:      #f8fafc;
+            --navy-mid:  #ffffff;
+            --navy-light:#f1f5f9;
+            --navy-card: #ffffff;
             --cream:     #F5F0E8;
-            --white:     #FFFFFF;
-            --muted:     #7A8EA8;
-            --muted-dim: #4A5E78;
+            --white:     #1e293b;
+            --muted:     #64748b;
+            --muted-dim: #94a3b8;
             --accent:    #FF6B4A;
-            --border:    rgba(255,255,255,0.07);
-            --border-light: rgba(255,255,255,0.12);
+            --border:    rgba(0,0,0,0.08);
+            --border-light: rgba(0,0,0,0.1);
             --font-display: 'Clash Display', sans-serif;
             --font-body:    'DM Sans', sans-serif;
             --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
         }
+
+        body.dark-mode {
+            --navy:      #0B1526;
+            --navy-mid:  #112035;
+            --navy-light:#1A3050;
+            --navy-card: #0F1E36;
+            --white:     #FFFFFF;
+            --muted:     #7A8EA8;
+            --muted-dim: #4A5E78;
+            --border:    rgba(255,255,255,0.07);
+            --border-light: rgba(255,255,255,0.12);
+        }
+        body.dark-mode .bg-gradient { 
+            background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(14,184,160,0.12) 0%, transparent 60%),
+                        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(14,184,160,0.08) 0%, transparent 50%),
+                        var(--navy);
+        }
+        body:not(.dark-mode)::before { opacity: 0.01; }
  
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
@@ -96,6 +114,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            margin-right: 15px;
         }
         .logo-dot {
             width: 10px; height: 10px;
@@ -869,10 +888,13 @@
  
 <!-- NAV -->
 <nav>
-    <a href="index.php" class="logo">
-        <div class="logo-dot"></div>
-        MediConnect
-    </a>
+    <div style="display:flex; align-items:center;">
+        <a href="index.php" class="logo">
+            <div class="logo-dot"></div>
+            MediConnect
+        </a>
+        <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.2rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
+    </div>
     <ul class="nav-links">
         <li><a href="#features">Features</a></li>
         <li><a href="#how">How It Works</a></li>
@@ -1211,6 +1233,16 @@ window.addEventListener('scroll', () => {
         nav.style.background = 'rgba(11,21,38,0.75)';
         nav.style.borderBottomColor = 'rgba(255,255,255,0.06)';
     }
+});
+
+// Theme Toggle
+const themeToggle = document.getElementById('themeToggle');
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
 });
 </script>
  

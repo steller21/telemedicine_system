@@ -132,11 +132,18 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
      * SECTION 5: CSS STYLES
      * Custom theme variables and component styling for the messaging dashboard.
      */
-    :root { --teal: #0EB8A0; --navy: #0B1526; --navy-mid: #112035; --white: #fff; --muted: #7A8EA8; --border: rgba(255,255,255,0.07); }
+    :root { --teal: #0EB8A0; --navy: #f8fafc; --navy-mid: #ffffff; --white: #1e293b; --muted: #64748b; --border: rgba(0,0,0,0.08); }
+    body.dark-mode {
+        --navy: #0B1526;
+        --navy-mid: #112035;
+        --white: #fff;
+        --muted: #7A8EA8;
+        --border: rgba(255,255,255,0.07);
+    }
     body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); margin: 0; display: flex; min-height: 100vh; }
-    .sidebar { width: 240px; background: #0F1E36; border-right: 1px solid var(--border); padding: 24px; }
+    .sidebar { width: 240px; background: var(--navy-mid); border-right: 1px solid var(--border); padding: 24px; }
     .main { flex: 1; padding: 40px; }
-    .card { background: #0F1E36; border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-bottom: 24px; }
+    .card { background: var(--navy-mid); border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-bottom: 24px; }
     h1, h2 { font-family: 'Clash Display', sans-serif; margin-top: 0; }
     .form-input { width: 100%; padding: 12px; background: var(--navy-mid); border: 1px solid var(--border); border-radius: 10px; color: #fff; margin-bottom: 12px; }
     .btn { padding: 10px 20px; border-radius: 50px; border: none; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
@@ -174,7 +181,10 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
     
     <!-- SECTION 6: SIDEBAR COMPONENT -->
     <aside class="sidebar">
-        <h2 style="color:var(--teal)">MediConnect</h2>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;">
+            <h2 style="color:var(--teal); margin:0; font-size:1.4rem;">MediConnect</h2>
+            <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
+        </div>
         <nav>
             <a href="dashboard.php" class="nav-link">🏠 Dashboard</a>
             <a href="book_appointment.php" class="nav-link">📅 Book Appointment</a>
@@ -297,5 +307,15 @@ if (window.history.replaceState) {
     url.searchParams.delete('msg');
     window.history.replaceState({}, document.title, url);
 }
+
+// Theme Toggle Logic
+const themeToggle = document.getElementById('themeToggle');
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+});
 </script>
 </body></html>
