@@ -30,21 +30,33 @@ ORDER BY u.name ASC");
     --teal:       #0EB8A0;
     --teal-dark:  #0A8A78;
     --teal-glow:  rgba(14,184,160,0.15);
+    --navy:       #f8fafc;
+    --navy-mid:   #ffffff;
+    --navy-light: #f1f5f9;
+    --navy-card:  #ffffff;
+    --white:      #1e293b;
+    --cream:      #F5F0E8;
+    --muted:      #64748b;
+    --muted-dim:  #94a3b8;
+    --accent:     #FF6B4A;
+    --success:    #22C55E;
+    --warning:    #F59E0B;
+    --danger:     #EF4444;
+    --border:     rgba(0,0,0,0.08);
+    --radius:     14px;
+    --radius-lg:  22px;
+    --shadow:     0 4px 20px rgba(0,0,0,0.05);
+}
+
+body.dark-mode {
     --navy:       #0B1526;
     --navy-mid:   #112035;
     --navy-light: #1A3050;
     --navy-card:  #0F1E36;
     --white:      #FFFFFF;
-    --cream:      #F5F0E8;
     --muted:      #7A8EA8;
     --muted-dim:  #4A5E78;
-    --accent:     #FF6B4A;
-    --success:    #22C55E;
-    --warning:    #F59E0B;
-    --danger:     #EF4444;
     --border:     rgba(255,255,255,0.07);
-    --radius:     14px;
-    --radius-lg:  22px;
     --shadow:     0 8px 32px rgba(0,0,0,0.25);
 }
 
@@ -234,7 +246,13 @@ tbody tr:hover { background: rgba(14,184,160,0.05); }
 <div class="layout">
 <!-- SIDEBAR -->
 <aside class="sidebar">
-    <a href="dashboard.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">MediConnect</span></a>
+    <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
+        <a href="dashboard.php" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
+            <div class="logo-dot"></div>
+            <span class="logo-text">MediConnect</span>
+        </a>
+        <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
+    </div>
     <div class="nav-section">
         <div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
@@ -297,5 +315,25 @@ tbody tr:hover { background: rgba(14,184,160,0.05); }
     </div>
 </main>
 </div>
+<script>
+// Theme Toggle Logic
+const themeToggle = document.getElementById('themeToggle');
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+themeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+});
+
+// Auto-hide alerts after 7 seconds
+setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(a => {
+        a.style.transition = 'opacity 0.5s ease';
+        a.style.opacity = '0';
+        setTimeout(() => a.style.display = 'none', 500);
+    });
+}, 7000);
+</script>
 </body>
 </html>
