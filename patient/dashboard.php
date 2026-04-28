@@ -575,6 +575,22 @@ window.addEventListener('click', function(e){
     if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
 });
 
+// Auto-hide alerts after 7 seconds
+setTimeout(() => {
+    document.querySelectorAll('.alert').forEach(a => {
+        a.style.transition = 'opacity 0.5s ease';
+        a.style.opacity = '0';
+        setTimeout(() => a.style.display = 'none', 500);
+    });
+}, 7000);
+
+// Clear URL parameters so they don't reappear on refresh
+if (window.history.replaceState) {
+    const url = new URL(window.location);
+    url.searchParams.delete('success'); 
+    url.searchParams.delete('error');
+    window.history.replaceState({}, document.title, url);
+}
 
 </script>
 
