@@ -178,7 +178,9 @@ if ($stmt) {
                                 <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
                             </div>
                         </div>
-                    <?php endforeach; endif; ?>
+                    <?php endforeach; else: ?>
+                        <div style="padding:20px; text-align:center; color:var(--muted); font-size:0.85rem;">No new notifications</div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
