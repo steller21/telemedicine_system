@@ -4,66 +4,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Health Assistant - Telemedicine India</title>
-
+    <title>Chatbot Widget</title>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; }
-        .container { width: 100%; max-width: 600px; }
-        #chatbox { background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; display: flex; flex-direction: column; height: 85vh; max-height: 720px; }
-        .chat-header { padding: 15px 18px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .header-icon { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; }
-        .header-content { color: white; }
-        .header-title { font-size: 16px; font-weight: 600; }
-        .header-sub { font-size: 11px; opacity: 0.9; }
-        .emergency-bar { display: flex; gap: 6px; padding: 10px 14px; background: #FCEBEB; border-bottom: 1px solid #F7C1C1; flex-wrap: wrap; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #791F1F; }
-        .em-btn { background: #fff; border: 1px solid #F09595; border-radius: 16px; padding: 3px 10px; color: #791F1F; cursor: pointer; transition: background 0.2s; }
-        .em-btn:hover { background: #FCEBEB; }
-        #messages { flex: 1; overflow-y: auto; padding: 20px 14px; background: #f8f9fa; display: flex; flex-direction: column; gap: 12px; }
-        .msg { display: flex; gap: 8px; max-width: 90%; }
+        html { height: 100%; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background: #f8f9fa; color: #333; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+        #messages { flex: 1; overflow-y: auto; padding: 10px; background: #f8f9fa; display: flex; flex-direction: column; gap: 8px; }
+        .msg { display: flex; gap: 6px; max-width: 90%; }
         .msg.user { align-self: flex-end; flex-direction: row-reverse; }
-        .msg-content { padding: 9px 13px; border-radius: 10px; font-size: 14px; line-height: 1.55; }
+        .msg-content { padding: 8px 12px; border-radius: 10px; font-size: 13px; line-height: 1.4; }
         .msg.bot .msg-content { background: #e9ecef; color: #333; border-radius: 4px 10px 10px 10px; }
         .msg.user .msg-content { background: #667eea; color: white; border-radius: 10px 4px 10px 10px; }
         .msg-content.emergency { background: #ff4757; color: white; font-weight: bold; }
         .msg-content.warning { background: #ffa502; color: white; }
-        .input-area { display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid #e5e7eb; background: white; flex-shrink: 0; }
-        input { flex: 1; font-size: 14px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #f9fafb; color: #111827; outline: none; }
+        .input-area { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid #e5e7eb; background: white; flex-shrink: 0; }
+        input { flex: 1; font-size: 13px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb; color: #111827; outline: none; }
         input:focus { border-color: #667eea; background: white; }
-        button { padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: 600; }
+        button { padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
         button:hover { background: #555bd8; }
-        @media (max-width: 600px) { #chatbox { height: 100vh; max-height: none; border-radius: 0; } }
     </style>
 </head>
-
 <body>
 
-<div class="container">
-    <div id="chatbox">
-        <div class="chat-header">
-            <div class="header-icon">🚑</div>
-            <div class="header-content">
-                <div class="header-title">Smart Health Assistant</div>
-                <div class="header-sub">India medical guidance & emergency help</div>
-            </div>
-        </div>
+    <div id="messages" class="scrollbar"></div>
 
-        <div class="emergency-bar">
-            <span>🚨 Emergency:</span>
-            <button class="em-btn" onclick="callEmergency('108')">🚑 108 Ambulance</button>
-            <button class="em-btn" onclick="callEmergency('112')">📞 112 All</button>
-            <button class="em-btn" onclick="callEmergency('100')">👮 100 Police</button>
-            <button class="em-btn" onclick="callEmergency('101')">🚒 101 Fire</button>
-        </div>
-
-        <div id="messages" class="scrollbar"></div>
-
-        <div class="input-area">
-            <input type="text" id="userInput" placeholder="Type symptom: bleeding, fever, asthma, fracture..." autocomplete="off" onkeypress="if(event.key==='Enter')sendMessage()">
-            <button onclick="sendMessage()">Send</button>
-        </div>
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Type symptom..." autocomplete="off" onkeypress="if(event.key==='Enter')sendMessage()">
+        <button onclick="sendMessage()">Send</button>
     </div>
-</div>
 
 <script>
 // Comprehensive merged knowledge base
@@ -100,7 +67,7 @@ const KB = [
   
   { keys: /sore throat|throat pain|gala dard|pain.*swallow|swallowing.*pain|painful.*swallow|throat.*sore/i, title: "Sore Throat", emergency: false, steps: ["Gargle warm salt water 4-6 times daily.", "Drink warm tea with honey.", "Suck on lozenges.", "Avoid hot/cold foods.", "Rest voice.", "Stay hydrated."], medicines: ["Paracetamol 500mg every 4-6 hours", "Ibuprofen 200-400mg every 6-8 hours", "Throat lozenges: Strepsils, Halls", "Throat spray for numbing relief", "Antibiotics only if bacterial (prescribed)"], note: "Natural remedies: honey-lemon tea, ginger tea, apple cider vinegar gargle. See doctor if fever > 3 days, difficulty swallowing, or rash." },
   
-  { keys: /skin rash|itching|itch|rash|khujli|skin.*red|laal nishan|skin.*irritat/i, title: "Skin Rash", emergency: false, steps: ["Do not scratch — prevents infection.", "Keep skin clean and dry.", "Wear loose clothing.", "Apply cool compress.", "Use fragrance-free moisturizer.", "Wash with mild soap."], medicines: ["Calamine lotion — apply to rash", "Hydrocortisone cream 1% for inflammation", "Antihistamine: Cetirizine 10mg or Diphenhydramine", "Moisturizer for dry skin"], note: "See doctor if: rash spreads rapidly, signs of infection (pus), facial/respiratory rash, or rash with fever/joint pain." },
+  { keys: /skin rash|itching|itch|khujli|skin.*red|laal nishan|skin.*irritat/i, title: "Skin Rash", emergency: false, steps: ["Do not scratch — prevents infection.", "Keep skin clean and dry.", "Wear loose clothing.", "Apply cool compress.", "Use fragrance-free moisturizer.", "Wash with mild soap."], medicines: ["Calamine lotion — apply to rash", "Hydrocortisone cream 1% for inflammation", "Antihistamine: Cetirizine 10mg or Diphenhydramine", "Moisturizer for dry skin"], note: "See doctor if: rash spreads rapidly, signs of infection (pus), facial/respiratory rash, or rash with fever/joint pain." },
   
   { keys: /wound|cut|minor bleeding|ghaav|chot|chhil/i, title: "Wound or Cut", emergency: false, steps: ["Wash hands with soap.", "Apply pressure to stop bleeding (5-10 min).", "Rinse wound with clean water.", "Wash with soap.", "Remove debris with sterilized tweezers.", "Apply Betadine or Dettol solution.", "Apply antibiotic ointment and sterile bandage.", "Change bandage daily.", "Keep dry.", "Watch for infection signs."], medicines: ["Betadine antiseptic for cleaning", "Antibiotic ointment (Neosporin)", "Paracetamol 500mg for pain", "Tetanus shot if > 5 years since last"], note: "For deep cuts needing stitches, heavy bleeding, or infection signs — see doctor." },
   
@@ -156,13 +123,7 @@ function formatResponse(data) {
 
 function initChat() {
   let msgs = document.getElementById("messages");
-  msgs.innerHTML = '<div class="msg bot"><div class="msg-content">👋 Hello! I am your Smart Health Assistant.<br><br>Type any symptom or condition:<br>• Bleeding, chest pain, poisoning<br>• Fracture, burns, snake bite<br>• Fever, cough, diabetes, BP<br>• Diarrhea, headache, anxiety<br><br>I provide Indian medical guidance.<br><br>🚨 For life-threatening emergencies → Call <b>108</b> (Ambulance)</div></div>';
-}
-
-function callEmergency(num) {
-  if (confirm('Call ' + num + ' ?')) {
-    window.location.href = 'tel:' + num;
-  }
+  msgs.innerHTML = '<div class="msg bot"><div class="msg-content">👋 Hello! I am your Smart Health Assistant.<br><br>Type any symptom or condition:<br>• Bleeding, chest pain, poisoning<br>• Fracture, burns, snake bite<br>• Fever, cough, diabetes, BP<br>• Diarrhea, headache, anxiety<br><br>I provide Indian medical guidance.</div></div>';
 }
 
 function sendMessage() {

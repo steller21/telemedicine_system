@@ -373,7 +373,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>
-        <a href="../chatbot.php" class="nav-link"><span class="nav-icon">🤖</span> Health Assistant</a>
         <a href="friends.php" class="nav-link"><span class="nav-icon">👥</span> Friends & Chat</a>
     </div>
     <div class="nav-section">
@@ -392,9 +391,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <a href="add_monitor.php" class="nav-link"><span class="nav-icon">👁️</span> Add Monitor</a>
         <a href="monitor_view.php" class="nav-link"><span class="nav-icon">👥</span> Monitored Patients</a>
     </div>
-    <div class="sidebar-bottom">
-        <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
-    </div>
+    <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <!-- MAIN -->
 <main class="main">
@@ -528,6 +525,88 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <div><div style="font-weight:600;margin-bottom:2px;">Messages</div><div style="font-size:0.8rem;color:var(--muted);">Chat with friends</div></div>
         </a>
     </div>
+
+    <!-- Floating Chatbot Widget -->
+    <div class="chatbot-fab" id="chatbotFab">
+        <span>🤖</span>
+    </div>
+
+    <div class="chatbot-modal" id="chatbotModal">
+        <div class="chatbot-header">
+            <span>AI Health Assistant</span>
+            <button class="chatbot-close" id="chatbotClose">✕</button>
+        </div>
+        <iframe id="chatbotIframe" src="../chatbot_widget_content.php" frameborder="0"></iframe>
+    </div>
+
+    <style>
+    /* Floating Action Button for Chatbot */
+    .chatbot-fab {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--teal);
+        color: var(--navy);
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
+    .chatbot-fab:hover { background: var(--teal-dark); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+
+    /* Chatbot Modal/Panel */
+    .chatbot-modal {
+        position: fixed;
+        bottom: 90px; /* Above the FAB */
+        right: 20px;
+        width: 350px;
+        height: 500px;
+        background: var(--navy-card);
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s ease;
+    }
+    .chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+    .chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
+    .chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
+    .chatbot-close:hover { opacity: 1; }
+    .chatbot-modal iframe { flex: 1; width: 100%; height: 100%; border: none; }
+
+    @media (max-width: 600px) {
+        .chatbot-fab { bottom: 15px; right: 15px; width: 50px; height: 50px; font-size: 1.5rem; }
+        .chatbot-modal { bottom: 75px; right: 15px; width: calc(100% - 30px); height: 70vh; max-height: 500px; }
+    }
+    </style>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const chatbotFab = document.getElementById('chatbotFab');
+        const chatbotModal = document.getElementById('chatbotModal');
+        const chatbotClose = document.getElementById('chatbotClose');
+        if (chatbotFab && chatbotModal && chatbotClose) {
+            chatbotFab.addEventListener('click', () => chatbotModal.classList.toggle('show'));
+            chatbotClose.addEventListener('click', () => chatbotModal.classList.remove('show'));
+            document.addEventListener('click', (e) => {
+                if (!chatbotModal.contains(e.target) && !chatbotFab.contains(e.target) && chatbotModal.classList.contains('show')) chatbotModal.classList.remove('show');
+            });
+        }
+    });
+    </script>
 </main>
 
 </div>

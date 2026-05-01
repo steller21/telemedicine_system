@@ -1,4 +1,4 @@
-<?php
+<!-- <?php
 
 if (!function_exists('mediconnect_render_assistant')) {
     function mediconnect_render_assistant(string $chatbotPath): void
@@ -209,4 +209,4 @@ if (!function_exists('mediconnect_render_assistant')) {
 </script>
 <?php
     }
-}
+} -->

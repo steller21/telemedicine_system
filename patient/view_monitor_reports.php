@@ -135,6 +135,7 @@ thead th{text-align:left;padding:12px 16px;font-size:0.72rem;font-weight:600;tex
 tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badge{background:var(--teal-glow);color:var(--teal);display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:50px;font-size:0.72rem;font-weight:600;}
 .badge-success{background:rgba(34,197,94,0.12);color:var(--success);}.badge-warning{background:rgba(245,158,11,0.12);color:var(--warning);}.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}.empty-state h3{font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--white);}
 @media(max-width:768px){.sidebar{transform:translateX(-100%);}.main{margin-left:0;max-width:100%;}}
+.chatbot-widget { background: var(--teal-glow) !important; color: var(--teal) !important; border: 1px dashed var(--teal) !important; margin: 0 12px 10px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 10px; padding: 12px 16px; text-decoration: none; font-size: 0.875rem; transition: all 0.3s; animation: pulse 2s infinite; }
 </style>
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">    
@@ -152,6 +153,98 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
     <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span style="font-size:1.1rem;">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
+
+<!-- Floating Chatbot Widget -->
+<div class="chatbot-fab" id="chatbotFab">
+    <span>🤖</span>
+</div>
+
+<div class="chatbot-modal" id="chatbotModal">
+    <div class="chatbot-header">
+        <span>AI Health Assistant</span>
+        <button class="chatbot-close" id="chatbotClose">✕</button>
+    </div>
+    <iframe id="chatbotIframe" src="../chatbot_widget_content.php" frameborder="0"></iframe>
+</div>
+
+<style>
+/* Floating Action Button for Chatbot */
+.chatbot-fab {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--teal);
+    color: var(--navy);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+.chatbot-fab:hover { background: var(--teal-dark); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+
+/* Chatbot Modal/Panel */
+.chatbot-modal {
+    position: fixed;
+    bottom: 90px; /* Above the FAB */
+    right: 20px;
+    width: 350px;
+    height: 500px;
+    background: var(--navy-card);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+.chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
+.chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
+.chatbot-close:hover { opacity: 1; }
+.chatbot-modal iframe { flex: 1; width: 100%; height: 100%; border: none; }
+
+@media (max-width: 600px) {
+    .chatbot-fab { bottom: 15px; right: 15px; width: 50px; height: 50px; font-size: 1.5rem; }
+    .chatbot-modal { bottom: 75px; right: 15px; width: calc(100% - 30px); height: 70vh; max-height: 500px; }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const chatbotFab = document.getElementById('chatbotFab');
+    const chatbotModal = document.getElementById('chatbotModal');
+    const chatbotClose = document.getElementById('chatbotClose');
+
+    if (chatbotFab && chatbotModal && chatbotClose) {
+        chatbotFab.addEventListener('click', () => {
+            chatbotModal.classList.toggle('show');
+        });
+
+        chatbotClose.addEventListener('click', () => {
+            chatbotModal.classList.remove('show');
+        });
+
+        // Close if clicked outside modal
+        document.addEventListener('click', (event) => {
+            if (!chatbotModal.contains(event.target) && !chatbotFab.contains(event.target) && chatbotModal.classList.contains('show')) {
+                chatbotModal.classList.remove('show');
+            }
+        });
+    }
+});
+</script>
     <?php if (!isset($_GET['patient_id'])): ?>
         <div class="page-header"><h1>📄 Patient Reports</h1><p>Request and view reports from your patients.</p></div>
         <div class="card">
