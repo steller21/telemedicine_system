@@ -9,13 +9,28 @@ if (isset($_POST['register'])) {
     $role     = $_POST['role'];
     $gender   = $_POST['gender'];
     $address  = trim($_POST['address']);
+    $profile_pic_path = null;
+
+    // Handle profile picture upload
+    if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = "images/profiles/";
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+        $file_ext = strtolower(pathinfo($_FILES['profile_pic']['name'], PATHINFO_EXTENSION));
+        if (in_array($file_ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+            $new_file_name = uniqid('profile_') . '.' . $file_ext;
+            if (move_uploaded_file($_FILES['profile_pic']['tmp_name'], $upload_dir . $new_file_name)) {
+                $profile_pic_path = $upload_dir . $new_file_name;
+            }
+        }
+    }
+
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->bind_param("s", $email); $stmt->execute();
     if ($stmt->get_result()->num_rows > 0) {
         $msg = "Email already exists!"; $msg_type = "error";
     } else {
-        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, gender, address) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssssss", $name, $email, $password, $role, $gender, $address);
+        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, gender, address, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssssss", $name, $email, $password, $role, $gender, $address, $profile_pic_path);
         if ($stmt->execute()) {
             $uid = $stmt->insert_id;
             if ($role == 'patient') { $s=$conn->prepare("INSERT INTO patients (user_id) VALUES (?)"); $s->bind_param("i",$uid); $s->execute(); }
@@ -70,7 +85,7 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
         <h2>Create account</h2>
         <p class="sub">Join MediConnect — it's free</p>
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type; ?>"><?php echo $msg_type=='success'?'✅':'❌'; ?> <?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
-        <form method="POST" id="regForm">
+        <form method="POST" id="regForm" enctype="multipart/form-data">
             <div class="form-group">
                 <label class="form-label">I am a</label>
                 <div class="role-toggle">
@@ -86,6 +101,10 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
             <div class="form-group">
                 <label class="form-label">Address</label>
                 <input class="form-input" type="text" name="address" placeholder="Your current address" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Profile Picture (optional)</label>
+                <input class="form-input" type="file" name="profile_pic" accept="image/*" style="padding: 10px;">
             </div>
             <div class="form-group">
                 <label class="form-label">Gender</label>
