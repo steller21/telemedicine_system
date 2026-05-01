@@ -236,7 +236,6 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
             <a href="dashboard.php" class="nav-link">🏠 Dashboard</a>
             <a href="book_appointment.php" class="nav-link">📅 Book Appointment</a>
             <a href="friends.php" class="nav-link" style="color:var(--white)">👥 Friends & Chat</a>
-            <a href="../logout.php" class="nav-link">🚪 Logout</a>
         </nav>
     </aside>
 

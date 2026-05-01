@@ -425,7 +425,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <a href="add_monitor.php" class="nav-link"><span class="nav-icon">👁️</span> Add Monitor</a>
         <a href="monitor_view.php" class="nav-link"><span class="nav-icon">👥</span> Monitored Patients</a>
     </div>
-    <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <!-- MAIN -->
 <main class="main">

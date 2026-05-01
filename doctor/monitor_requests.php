@@ -289,7 +289,6 @@ body {
     <div class="nav-section"><div class="nav-section-label">Others</div>
         <a href="monitor_requests.php" class="nav-link active"><span class="nav-icon">📬</span> Monitor Requests</a>
     </div>
-    <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
     <div class="page-header">

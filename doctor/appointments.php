@@ -305,7 +305,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
         <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Friends & Chat</a>
     </div>
-    <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
     <div class="page-header"><h1>📅 My Appointments</h1><p>All patient appointments scheduled with you.</p></div>

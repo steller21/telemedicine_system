@@ -262,9 +262,6 @@ body {
         <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
         <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Friends & Chat</a>
     </div>
-    <div class="sidebar-bottom">
-        <a href="../logout.php" class="nav-link"><span class="nav-icon">🚪</span> Logout</a>
-    </div>
 </aside>
  
 <!-- MAIN -->
@@ -364,10 +361,6 @@ body {
         <a href="friends.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">💬</div>
             <div><div style="font-weight:600;margin-bottom:2px;color:white;">Messages</div><div style="font-size:0.8rem;color:var(--muted);">Chat with patients</div></div>
-        </a>
-        <a href="../logout.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
-            <div style="font-size:1.8rem;">🚪</div>
-            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Logout</div><div style="font-size:0.8rem;color:var(--muted);">End your session</div></div>
         </a>
     </div>
 </main>

@@ -131,7 +131,6 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
             <a href="appointments.php" class="nav-link">📅 Appointments</a>
             <a href="monitor_patients.php" class="nav-link">👥 Monitor Patients</a>
             <a href="friends.php" class="nav-link" style="color:var(--white)">👥 Friends & Chat</a>
-            <a href="../logout.php" class="nav-link">🚪 Logout</a>
         </nav>
     </aside>
     <main class="main">

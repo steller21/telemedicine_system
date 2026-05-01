@@ -142,7 +142,6 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
             <a href="view_patient_reports.php" class="nav-link active"><span style="font-size:1.1rem;">📄</span> View Reports</a>
         <?php endif; ?>
     </div>
-    <div class="sidebar-bottom" style="margin-top:auto;"><a href="../logout.php" class="nav-link"><span style="font-size:1.1rem;">🚪</span> Logout</a></div>
 </aside>
 
 <!-- Floating Chatbot Widget -->

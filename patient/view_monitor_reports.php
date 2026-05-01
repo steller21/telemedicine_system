@@ -150,7 +150,6 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
         <a href="monitor_view.php" class="nav-link"><span style="font-size:1.1rem;">👥</span> My Patients</a>
         <a href="view_monitor_reports.php" class="nav-link active"><span style="font-size:1.1rem;">📄</span> View Reports</a>
     </div>
-    <div class="sidebar-bottom"><a href="../logout.php" class="nav-link"><span style="font-size:1.1rem;">🚪</span> Logout</a></div>
 </aside>
 <main class="main">
 
