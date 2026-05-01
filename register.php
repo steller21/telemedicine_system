@@ -8,13 +8,14 @@ if (isset($_POST['register'])) {
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $role     = $_POST['role'];
     $gender   = $_POST['gender'];
+    $address  = trim($_POST['address']);
     $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $stmt->bind_param("s", $email); $stmt->execute();
     if ($stmt->get_result()->num_rows > 0) {
         $msg = "Email already exists!"; $msg_type = "error";
     } else {
-        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, gender) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssss", $name, $email, $password, $role, $gender);
+        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, gender, address) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssss", $name, $email, $password, $role, $gender, $address);
         if ($stmt->execute()) {
             $uid = $stmt->insert_id;
             if ($role == 'patient') { $s=$conn->prepare("INSERT INTO patients (user_id) VALUES (?)"); $s->bind_param("i",$uid); $s->execute(); }
@@ -81,6 +82,10 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
             <div class="form-group">
                 <label class="form-label">Full Name</label>
                 <input class="form-input" type="text" name="name" placeholder="Your full name" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Address</label>
+                <input class="form-input" type="text" name="address" placeholder="Your current address" required>
             </div>
             <div class="form-group">
                 <label class="form-label">Gender</label>
