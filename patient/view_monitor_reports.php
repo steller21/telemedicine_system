@@ -152,6 +152,70 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
     </div>
 </aside>
 <main class="main">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
+        <?php 
+        require_once("monitor_core.php");
+        $notifCount = getPendingNotificationCount($conn, $monitor_id);
+        $notifications = getPendingNotifications($conn, $monitor_id);
+        ?>
+        <?php 
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt->bind_param("i", $monitor_id);
+    $acc_stmt->execute();
+    $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
+    $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
+    $user_email_acc = $user_data_acc['email'] ?? 'N/A';
+    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
+    ?>
+    <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
+        <div style="position:relative; display:inline-block;">
+        <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+        <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-list">
+                <?php if(!empty($notifications)): foreach($notifications as $n): ?>
+                    <div class="notif-item">
+                        <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
+                        <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
+                        <div class="notif-actions">
+                            <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                            <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                        </div>
+                    </div>
+                <?php endforeach; else: ?>
+                    <div style="padding:20px; text-align:center; color:var(--muted); font-size:0.85rem;">No new notifications</div>
+                <?php endif; ?>
+            </div>
+        </div>
+        </div> <!-- end relative wrapper -->
+        
+        <!-- Account Dropdown -->
+        <div style="position:relative; display:inline-block;">
+            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3); overflow:hidden;">
+                <?php if ($user_pic_acc): ?>
+                    <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+                <?php else: ?>👤<?php endif; ?>
+            </div>
+            <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
+                <div style="text-align:center; margin-bottom:16px;">
+                    <?php if ($user_pic_acc): ?>
+                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block;">
+                    <?php else: ?>
+                        <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
+                            <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                        </div>
+                    <?php endif; ?>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($user_name_acc); ?></div>
+                    <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px;">📧 <?php echo htmlspecialchars($user_email_acc); ?></div>
+                    <div style="font-size:0.85rem; color:var(--muted);">📍 <?php echo htmlspecialchars($user_address_acc); ?></div>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px;">
+                    <a href="../logout.php" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:rgba(239,68,68,0.1); color:var(--danger); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">🚪 Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
 
 <!-- Floating Chatbot Widget -->
 <div class="chatbot-fab" id="chatbotFab">
@@ -200,15 +264,14 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
     border-radius: 15px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
     overflow: hidden;
     transform: translateY(20px) scale(0.95);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s ease;
 }
-.chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.chatbot-modal.show { display: flex; transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 .chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
 .chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
 .chatbot-close:hover { opacity: 1; }

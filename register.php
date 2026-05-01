@@ -94,6 +94,15 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
                 </div>
                 <input type="hidden" name="role" id="roleInput" value="<?php echo htmlspecialchars($role_pre); ?>">
             </div>
+           <div class="form-group" style="text-align:center; margin-bottom:24px;">
+                <label class="form-label" style="text-align:center; margin-bottom:20px;">Profile Picture (optional)</label>
+                <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
+                    <img id="profilePicturePreview" src="images/default_user.png" 
+                         style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
+                    <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
+                </label>
+                <input type="file" name="profile_pic" id="profilePictureInput" accept="image/*" style="display:none;" onchange="previewProfilePicture(event)">
+            </div>
             <div class="form-group">
                 <label class="form-label">Full Name</label>
                 <input class="form-input" type="text" name="name" placeholder="Your full name" required>
@@ -101,10 +110,6 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
             <div class="form-group">
                 <label class="form-label">Address</label>
                 <input class="form-input" type="text" name="address" placeholder="Your current address" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Profile Picture (optional)</label>
-                <input class="form-input" type="file" name="profile_pic" accept="image/*" style="padding: 10px;">
             </div>
             <div class="form-group">
                 <label class="form-label">Gender</label>
@@ -133,6 +138,11 @@ function setRole(r){
     document.getElementById('roleInput').value=r;
     document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
     event.target.classList.add('active');
+}
+function previewProfilePicture(event) {
+    const reader = new FileReader();
+    reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
+    reader.readAsDataURL(event.target.files[0]);
 }
 </script>
 </body>

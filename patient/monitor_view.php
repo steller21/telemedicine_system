@@ -356,15 +356,14 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     border-radius: 15px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
     overflow: hidden;
     transform: translateY(20px) scale(0.95);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s ease;
 }
-.chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.chatbot-modal.show { display: flex; transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 .chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
 .chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
 .chatbot-close:hover { opacity: 1; }

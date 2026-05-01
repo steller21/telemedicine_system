@@ -481,10 +481,12 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         
         <!-- Account Dropdown -->
         <div style="position:relative; display:inline-block;">
-            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3); overflow:hidden;">
+            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:<?php echo $user_pic_acc ? 'var(--teal-glow)' : 'var(--teal)'; ?>; color:var(--navy); border:1px solid rgba(14,184,160,0.3); overflow:hidden; display:flex; align-items:center; font-weight:700; font-size:1.1rem;">
                 <?php if ($user_pic_acc): ?>
-                    <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:100%; height:100%; object-fit:cover;">
-                <?php else: ?>👤<?php endif; ?>
+                    <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+                <?php else: ?>
+                    <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                <?php endif; ?>
             </div>
             <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
                 <div style="text-align:center; margin-bottom:16px;">
@@ -690,15 +692,14 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         border-radius: 15px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.3);
         z-index: 999;
-        display: flex;
+        display: none;
         flex-direction: column;
         overflow: hidden;
         transform: translateY(20px) scale(0.95);
         opacity: 0;
         pointer-events: none;
-        transition: all 0.3s ease;
     }
-    .chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+    .chatbot-modal.show { display: flex; transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
     .chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
     .chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
     .chatbot-close:hover { opacity: 1; }

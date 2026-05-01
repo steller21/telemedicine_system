@@ -11,6 +11,40 @@ $patient_id = $_SESSION['user_id'];
 $msg = "";
 $msg_type = "";
 
+// Handle profile update
+if (isset($_POST['update_profile'])) {
+    $new_name = trim($_POST['name']);
+    $new_address = trim($_POST['address']);
+    
+    $update_sql = "UPDATE users SET name=?, address=? WHERE id=?";
+    $params = [$new_name, $new_address, $patient_id];
+    $types = "ssi";
+
+    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = "../images/profiles/";
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+
+        $file_ext = strtolower(pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION));
+        if (in_array($file_ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+            $new_file_name = uniqid('profile_') . '.' . $file_ext;
+            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_file_name)) {
+                $db_path = "images/profiles/" . $new_file_name;
+                $update_sql = "UPDATE users SET name=?, address=?, profile_picture=? WHERE id=?";
+                $params = [$new_name, $new_address, $db_path, $patient_id];
+                $types = "sssi";
+            }
+        }
+    }
+
+    $stmt = $conn->prepare($update_sql);
+    $stmt->bind_param($types, ...$params);
+    if ($stmt->execute()) {
+        $_SESSION['name'] = $new_name;
+        header("Location: upload_report.php?success=ProfileUpdated");
+        exit;
+    }
+}
+
 // Ensure share request table exists
 $conn->query("CREATE TABLE IF NOT EXISTS report_share_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -646,15 +680,14 @@ body {
     border-radius: 15px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
     overflow: hidden;
     transform: translateY(20px) scale(0.95);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s ease;
 }
-.chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.chatbot-modal.show { display: flex; transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 .chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
 .chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
 .chatbot-close:hover { opacity: 1; }
@@ -692,7 +725,44 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </div>
 
+<!-- Edit Profile Modal -->
+<div id="editProfileModal">
+    <div class="modal-content" style="animation:modalSlideIn 0.3s ease-out;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Edit Profile</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group" style="text-align:center; margin-bottom:20px;">
+                <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
+                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.png'); ?>" 
+                         style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
+                    <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
+                </label>
+                <input type="file" name="profile_picture" id="profilePictureInput" accept="image/*" style="display:none;" onchange="previewProfilePicture(event)">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input class="form-input" type="text" name="name" value="<?php echo htmlspecialchars($user_name_acc); ?>" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Address</label>
+                <input class="form-input" type="text" name="address" value="<?php echo htmlspecialchars($user_data_acc['address'] ?? ''); ?>">
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+                <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" name="update_profile" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
+function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
+function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
+function previewProfilePicture(event) {
+    const reader = new FileReader();
+    reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
+    reader.readAsDataURL(event.target.files[0]);
+}
 function showFileName(input) {
     const display = document.getElementById('fileNameDisplay');
     if (input.files && input.files[0]) {

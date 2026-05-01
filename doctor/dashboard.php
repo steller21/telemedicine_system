@@ -47,6 +47,11 @@ $calls = $conn->query("SELECT vc.*, u.name as patient_name
     --shadow:     0 4px 20px rgba(0,0,0,0.05);
 }
 
+/* Modal Styles */
+#editProfileModal { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center; }
+.modal-content { background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:450px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4); }
+@keyframes modalSlideIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
 body.dark-mode {
     --navy:       #0B1526;
     --navy-mid:   #112035;
@@ -271,11 +276,14 @@ body {
         $notifications = getPendingNotifications($conn, $doctor_id);
         ?>
             <?php 
-    $acc_user_id = isset($patient_id) ? $patient_id : (isset($doctor_id) ? $doctor_id : $_SESSION['user_id']);
-    $user_q_acc = $conn->query("SELECT email, address FROM users WHERE id = '$acc_user_id'");
-    $user_data_acc = $user_q_acc ? $user_q_acc->fetch_assoc() : null;
-    $user_email_acc = $user_data_acc ? $user_data_acc['email'] : 'N/A';
-    $user_address_acc = ($user_data_acc && !empty($user_data_acc['address'])) ? $user_data_acc['address'] : 'Not provided';
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt->bind_param("i", $doctor_id);
+    $acc_stmt->execute();
+    $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
+    $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
+    $user_email_acc = $user_data_acc['email'] ?? 'N/A';
+    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
         <div style="position:relative; display:inline-block;">
@@ -306,15 +314,28 @@ body {
         
         <!-- Account Dropdown -->
         <div style="position:relative; display:inline-block;">
-            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3);">👤</div>
+            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:<?php echo $user_pic_acc ? 'var(--teal-glow)' : 'var(--teal)'; ?>; color:var(--navy); border:1px solid rgba(14,184,160,0.3); overflow:hidden; display:flex; align-items:center; font-weight:700; font-size:1.1rem;">
+                <?php if ($user_pic_acc): ?>
+                    <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+                <?php else: ?>
+                    <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                <?php endif; ?>
+            </div>
             <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
                 <div style="text-align:center; margin-bottom:16px;">
-                    <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
-                        <?php echo strtoupper(substr($_SESSION['name'], 0, 1)); ?>
-                    </div>
-                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($_SESSION['name']); ?></div>
+                    <?php if ($user_pic_acc): ?>
+                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block;">
+                    <?php else: ?>
+                        <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
+                            <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                        </div>
+                    <?php endif; ?>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($user_name_acc); ?></div>
                     <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px;">📧 <?php echo htmlspecialchars($user_email_acc); ?></div>
                     <div style="font-size:0.85rem; color:var(--muted);">📍 <?php echo htmlspecialchars($user_address_acc); ?></div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <a href="#" onclick="event.preventDefault(); hideAccountDropdown(); showEditProfileModal();" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:var(--navy-light); color:var(--white); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)'">✏️ Edit Profile</a>
                 </div>
                 <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px;">
                     <a href="../logout.php" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:rgba(239,68,68,0.1); color:var(--danger); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">🚪 Logout</a>
@@ -365,6 +386,35 @@ body {
     </div>
 </main>
 </div>
+
+<!-- Edit Profile Modal -->
+<div id="editProfileModal">
+    <div class="modal-content" style="animation:modalSlideIn 0.3s ease-out;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Edit Profile</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group" style="text-align:center; margin-bottom:20px;">
+                <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
+                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.png'); ?>" 
+                         style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
+                    <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
+                </label>
+                <input type="file" name="profile_picture" id="profilePictureInput" accept="image/*" style="display:none;" onchange="previewProfilePicture(event)">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Name</label>
+                <input class="form-input" type="text" name="name" value="<?php echo htmlspecialchars($user_name_acc); ?>" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Address</label>
+                <input class="form-input" type="text" name="address" value="<?php echo htmlspecialchars($user_data_acc['address'] ?? ''); ?>">
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+                <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>
+                <button type="submit" name="update_profile" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
  
 <!-- ── Incoming call popup ── -->
 <div id="callOverlay">
@@ -380,6 +430,14 @@ body {
 </div>
  
 <script>
+function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
+function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
+function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
+function previewProfilePicture(event) {
+    const reader = new FileReader();
+    reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
+    reader.readAsDataURL(event.target.files[0]);
+}
 // Poll every 4 seconds for new incoming calls
 let popupShown = false;
 let knownCallIds = new Set([

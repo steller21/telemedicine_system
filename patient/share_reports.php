@@ -208,15 +208,14 @@ if ($stmt) {
     border-radius: 15px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
     z-index: 999;
-    display: flex;
+    display: none;
     flex-direction: column;
     overflow: hidden;
     transform: translateY(20px) scale(0.95);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s ease;
 }
-.chatbot-modal.show { transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
+.chatbot-modal.show { display: flex; transform: translateY(0) scale(1); opacity: 1; pointer-events: auto; }
 .chatbot-header { background: var(--teal); color: var(--navy); padding: 12px 15px; font-weight: 600; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
 .chatbot-close { background: none; border: none; color: var(--navy); font-size: 1.2rem; cursor: pointer; opacity: 0.8; }
 .chatbot-close:hover { opacity: 1; }
@@ -258,11 +257,14 @@ document.addEventListener('DOMContentLoaded', () => {
         $notifications = getPendingNotifications($conn, $patient_id);
         ?>
             <?php 
-    $acc_user_id = isset($patient_id) ? $patient_id : (isset($doctor_id) ? $doctor_id : $_SESSION['user_id']);
-    $user_q_acc = $conn->query("SELECT email, address FROM users WHERE id = '$acc_user_id'");
-    $user_data_acc = $user_q_acc ? $user_q_acc->fetch_assoc() : null;
-    $user_email_acc = $user_data_acc ? $user_data_acc['email'] : 'N/A';
-    $user_address_acc = ($user_data_acc && !empty($user_data_acc['address'])) ? $user_data_acc['address'] : 'Not provided';
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt->bind_param("i", $_SESSION['user_id']);
+    $acc_stmt->execute();
+    $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
+    $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
+    $user_email_acc = $user_data_acc['email'] ?? 'N/A';
+    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
         <div style="position:relative; display:inline-block;">
@@ -287,13 +289,23 @@ document.addEventListener('DOMContentLoaded', () => {
         
         <!-- Account Dropdown -->
         <div style="position:relative; display:inline-block;">
-            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3);">👤</div>
+            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:<?php echo $user_pic_acc ? 'var(--teal-glow)' : 'var(--teal)'; ?>; color:var(--navy); border:1px solid rgba(14,184,160,0.3); overflow:hidden; display:flex; align-items:center; font-weight:700; font-size:1.1rem;">
+                <?php if ($user_pic_acc): ?>
+                    <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+                <?php else: ?>
+                    <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                <?php endif; ?>
+            </div>
             <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
                 <div style="text-align:center; margin-bottom:16px;">
-                    <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
-                        <?php echo strtoupper(substr($_SESSION['name'], 0, 1)); ?>
-                    </div>
-                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($_SESSION['name']); ?></div>
+                    <?php if ($user_pic_acc): ?>
+                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block;">
+                    <?php else: ?>
+                        <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
+                            <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                        </div>
+                    <?php endif; ?>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($user_name_acc); ?></div>
                     <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px;">📧 <?php echo htmlspecialchars($user_email_acc); ?></div>
                     <div style="font-size:0.85rem; color:var(--muted);">📍 <?php echo htmlspecialchars($user_address_acc); ?></div>
                 </div>
