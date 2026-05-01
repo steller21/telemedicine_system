@@ -348,9 +348,19 @@ if (window.history.replaceState) {
 <script>
 document.getElementById('notifBtn').addEventListener('click', function(e){
     document.getElementById('notifDropdown').classList.toggle('show');
+    if(document.getElementById('accountDropdown')) document.getElementById('accountDropdown').classList.remove('show');
 });
+if(document.getElementById('accountBtn')) {
+    document.getElementById('accountBtn').addEventListener('click', function(e){
+        document.getElementById('accountDropdown').classList.toggle('show');
+        if(document.getElementById('notifDropdown')) document.getElementById('notifDropdown').classList.remove('show');
+    });
+}
 window.addEventListener('click', function(e){
-    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
+    if(!e.target.closest('.notif-container')){
+        if(document.getElementById('notifDropdown')) document.getElementById('notifDropdown').classList.remove('show');
+        if(document.getElementById('accountDropdown')) document.getElementById('accountDropdown').classList.remove('show');
+    }
 });
 
 // Theme Toggle Logic

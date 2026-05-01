@@ -273,7 +273,15 @@ body {
         $notifCount = getPendingNotificationCount($conn, $doctor_id);
         $notifications = getPendingNotifications($conn, $doctor_id);
         ?>
-        <div class="notif-container">
+            <?php 
+    $acc_user_id = isset($patient_id) ? $patient_id : (isset($doctor_id) ? $doctor_id : $_SESSION['user_id']);
+    $user_q_acc = $conn->query("SELECT email, address FROM users WHERE id = '$acc_user_id'");
+    $user_data_acc = $user_q_acc ? $user_q_acc->fetch_assoc() : null;
+    $user_email_acc = $user_data_acc ? $user_data_acc['email'] : 'N/A';
+    $user_address_acc = ($user_data_acc && !empty($user_data_acc['address'])) ? $user_data_acc['address'] : 'Not provided';
+    ?>
+    <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
+        <div style="position:relative; display:inline-block;">
             <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
             <div class="notif-dropdown" id="notifDropdown">
                 <div class="notif-list">
@@ -297,6 +305,25 @@ body {
                     <?php endif; ?>
                 </div>
             </div>
+        </div> <!-- end relative wrapper -->
+        
+        <!-- Account Dropdown -->
+        <div style="position:relative; display:inline-block;">
+            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3);">👤</div>
+            <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
+                <div style="text-align:center; margin-bottom:16px;">
+                    <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
+                        <?php echo strtoupper(substr($_SESSION['name'], 0, 1)); ?>
+                    </div>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($_SESSION['name']); ?></div>
+                    <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px;">📧 <?php echo htmlspecialchars($user_email_acc); ?></div>
+                    <div style="font-size:0.85rem; color:var(--muted);">📍 <?php echo htmlspecialchars($user_address_acc); ?></div>
+                </div>
+                <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px;">
+                    <a href="../logout.php" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:rgba(239,68,68,0.1); color:var(--danger); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">🚪 Logout</a>
+                </div>
+            </div>
+        </div>
         </div>
 
     <div class="page-header">
@@ -466,9 +493,19 @@ if (window.history.replaceState) {
 
 document.getElementById('notifBtn').addEventListener('click', function(e){
     document.getElementById('notifDropdown').classList.toggle('show');
+    if(document.getElementById('accountDropdown')) document.getElementById('accountDropdown').classList.remove('show');
 });
+if(document.getElementById('accountBtn')) {
+    document.getElementById('accountBtn').addEventListener('click', function(e){
+        document.getElementById('accountDropdown').classList.toggle('show');
+        if(document.getElementById('notifDropdown')) document.getElementById('notifDropdown').classList.remove('show');
+    });
+}
 window.addEventListener('click', function(e){
-    if(!e.target.closest('.notif-container')){document.getElementById('notifDropdown').classList.remove('show');}
+    if(!e.target.closest('.notif-container')){
+        if(document.getElementById('notifDropdown')) document.getElementById('notifDropdown').classList.remove('show');
+        if(document.getElementById('accountDropdown')) document.getElementById('accountDropdown').classList.remove('show');
+    }
 });
 </script>
 </body>
