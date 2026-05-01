@@ -116,6 +116,40 @@ if (isset($_GET['reject'])) {
     exit;
 }
 
+// Handle profile update
+if (isset($_POST['update_profile'])) {
+    $new_name = trim($_POST['name']);
+    $new_address = trim($_POST['address']);
+    
+    $update_sql = "UPDATE users SET name=?, address=? WHERE id=?";
+    $params = [$new_name, $new_address, $user_id];
+    $types = "ssi";
+
+    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = "../images/profiles/";
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+
+        $file_ext = strtolower(pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION));
+        if (in_array($file_ext, ['jpg', 'jpeg', 'png', 'gif'])) {
+            $new_file_name = uniqid('profile_') . '.' . $file_ext;
+            if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_file_name)) {
+                $db_path = "images/profiles/" . $new_file_name;
+                $update_sql = "UPDATE users SET name=?, address=?, profile_picture=? WHERE id=?";
+                $params = [$new_name, $new_address, $db_path, $user_id];
+                $types = "sssi";
+            }
+        }
+    }
+
+    $stmt = $conn->prepare($update_sql);
+    $stmt->bind_param($types, ...$params);
+    if ($stmt->execute()) {
+        $_SESSION['name'] = $new_name;
+        header("Location: friends.php?msg=ProfileUpdated");
+        exit;
+    }
+}
+
 /**
  * SECTION 4: DATA FETCHING
  * Retrieves active friends and pending requests from the database for display in the UI.
@@ -178,6 +212,17 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
     .notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
     .chatbot-widget { background: rgba(14, 184, 160, 0.1) !important; color: var(--teal) !important; border: 1px dashed var(--teal) !important; margin-top: 20px; margin-bottom: 10px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 10px; padding: 12px 16px; text-decoration: none; font-size: 0.875rem; transition: all 0.3s; animation: pulse 2s infinite; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(14, 184, 160, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(14, 184, 160, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 184, 160, 0); } }
+
+    /* Modal Styles */
+    #editProfileModal { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center; }
+    .modal-content { background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:450px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4); }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+    .form-input { width: 100%; padding: 12px 16px; background: var(--navy-light); border: 1px solid var(--border); border-radius: 14px; color: var(--white); outline: none; }
+    @keyframes modalSlideIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
 </style>
 </head><body>
     
@@ -203,12 +248,15 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
         $notifCount = getPendingNotificationCount($conn, $user_id);
         $notifications = getPendingNotifications($conn, $user_id);
         ?>
-            <?php 
-    $acc_user_id = isset($patient_id) ? $patient_id : (isset($doctor_id) ? $doctor_id : $_SESSION['user_id']);
-    $user_q_acc = $conn->query("SELECT email, address FROM users WHERE id = '$acc_user_id'");
-    $user_data_acc = $user_q_acc ? $user_q_acc->fetch_assoc() : null;
-    $user_email_acc = $user_data_acc ? $user_data_acc['email'] : 'N/A';
-    $user_address_acc = ($user_data_acc && !empty($user_data_acc['address'])) ? $user_data_acc['address'] : 'Not provided';
+    <?php 
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt->bind_param("i", $user_id);
+    $acc_stmt->execute();
+    $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
+    $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
+    $user_email_acc = $user_data_acc['email'] ?? 'N/A';
+    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
         <div style="position:relative; display:inline-block;">
@@ -239,15 +287,26 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
         
         <!-- Account Dropdown -->
         <div style="position:relative; display:inline-block;">
-            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3);">👤</div>
+            <div class="notif-btn" id="accountBtn" style="border-radius:50%; width:44px; height:44px; justify-content:center; padding:0; background:var(--teal-glow); color:var(--teal); border:1px solid rgba(14,184,160,0.3); overflow:hidden;">
+                <?php if ($user_pic_acc): ?>
+                    <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:100%; height:100%; object-fit:cover;">
+                <?php else: ?>👤<?php endif; ?>
+            </div>
             <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
                 <div style="text-align:center; margin-bottom:16px;">
-                    <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
-                        <?php echo strtoupper(substr($_SESSION['name'], 0, 1)); ?>
-                    </div>
-                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($_SESSION['name']); ?></div>
+                    <?php if ($user_pic_acc): ?>
+                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block;">
+                    <?php else: ?>
+                        <div style="width:60px; height:60px; border-radius:50%; background:var(--teal); color:var(--navy); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
+                            <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
+                        </div>
+                    <?php endif; ?>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--white); margin-bottom:4px;"><?php echo htmlspecialchars($user_name_acc); ?></div>
                     <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px;">📧 <?php echo htmlspecialchars($user_email_acc); ?></div>
                     <div style="font-size:0.85rem; color:var(--muted);">📍 <?php echo htmlspecialchars($user_address_acc); ?></div>
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <a href="#" onclick="event.preventDefault(); hideAccountDropdown(); showEditProfileModal();" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:var(--navy-light); color:var(--white); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)'">✏️ Edit Profile</a>
                 </div>
                 <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px;">
                     <a href="../logout.php" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:rgba(239,68,68,0.1); color:var(--danger); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">🚪 Logout</a>
@@ -309,6 +368,46 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
             </div>
         </div>
     </main>
+
+    <!-- Edit Profile Modal -->
+    <div id="editProfileModal">
+        <div class="modal-content" style="animation:modalSlideIn 0.3s ease-out;">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Edit Profile</h2>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="form-group" style="text-align:center; margin-bottom:20px;">
+                    <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
+                        <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.png'); ?>" 
+                             style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
+                        <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
+                    </label>
+                    <input type="file" name="profile_picture" id="profilePictureInput" accept="image/*" style="display:none;" onchange="previewProfilePicture(event)">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Name</label>
+                    <input class="form-input" type="text" name="name" value="<?php echo htmlspecialchars($user_name_acc); ?>" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input class="form-input" type="text" name="address" value="<?php echo htmlspecialchars($user_data_acc['address'] ?? ''); ?>">
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+                    <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" name="update_profile" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
+    function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
+    function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
+    function previewProfilePicture(event) {
+        const reader = new FileReader();
+        reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
+        reader.readAsDataURL(event.target.files[0]);
+    }
+    </script>
 
 <!-- Floating Chatbot Widget -->
 <div class="chatbot-fab" id="chatbotFab">
