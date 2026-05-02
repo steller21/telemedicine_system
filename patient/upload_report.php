@@ -732,7 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group" style="text-align:center; margin-bottom:20px;">
                 <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
-                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.png'); ?>" 
+                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.svg'); ?>" 
                          style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
                     <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
                 </label>

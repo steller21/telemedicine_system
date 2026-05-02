@@ -290,6 +290,31 @@ body {
     box-shadow: var(--shadow);
 }
 
+/* FORMS */
+.form-group { margin-bottom: 20px; }
+.form-label {
+    display: block; font-size: 0.8rem;
+    font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+.form-input, .form-select {
+    width: 100%; padding: 12px 16px;
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--white); font-size: 0.9rem;
+    font-family: 'DM Sans', sans-serif;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+.form-input:focus, .form-select:focus {
+    border-color: rgba(14,184,160,0.5);
+    box-shadow: 0 0 0 3px rgba(14,184,160,0.1);
+}
+.form-input::placeholder { color: var(--muted-dim); }
+.form-select option { background: var(--navy-mid); }
+
 /* TABLE */
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 thead th {
@@ -558,7 +583,7 @@ tbody td { padding: 14px; }
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group" style="text-align:center; margin-bottom:20px;">
                 <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
-                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.png'); ?>" 
+                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.svg'); ?>" 
                          style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
                     <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
                 </label>
