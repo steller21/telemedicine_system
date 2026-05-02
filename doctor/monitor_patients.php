@@ -102,6 +102,17 @@ if (isset($_GET['reject'])) {
 // Fetch pending monitor requests
 $pending_requests = $conn->query("SELECT mr.id, u.id as patient_id, u.name, u.gender, mr.created_at FROM monitor_requests mr JOIN users u ON mr.requester_id=u.id WHERE mr.requested_user_id='$doctor_id' AND mr.status='pending' ORDER BY mr.created_at DESC");
 
+// Function to fetch vitals for a patient
+function getPatientVitals($conn, $p_id) {
+    $stmt = $conn->prepare("SELECT systolic, diastolic, glucose, spo2, heart_rate, DATE_FORMAT(logged_at, '%b %d') as label FROM patient_vitals WHERE patient_id = ? ORDER BY logged_at DESC LIMIT 10");
+    $stmt->bind_param("i", $p_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $vitals = [];
+    while($row = $res->fetch_assoc()) { $vitals[] = $row; }
+    return array_reverse($vitals);
+}
+
 // Get patients' medicines for this doctor (only patients who added doctor as monitor)
 $patients_medicines = $conn->query("SELECT DISTINCT u.id, u.name, u.gender, ci.id as medicine_id, 
                                     ci.medicine_name, ci.dosage, ci.due_time, ci.status, ci.medicine_image, ci.completed_at
@@ -120,6 +131,7 @@ require_once("../includes/helpers.php");
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Monitor Patients — MediConnect</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
 
@@ -480,6 +492,7 @@ tbody td { padding: 14px; }
                             <th>Dosage</th>
                             <th>When to Take</th>
                             <th>Marked as Taken</th>
+                            <th>Health Trends</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -488,6 +501,7 @@ tbody td { padding: 14px; }
                             $title = ($patient_data['gender'] === 'male') ? 'Mr.' : (($patient_data['gender'] === 'female') ? 'Mrs.' : 'Mx.');
                             $patient_name = htmlspecialchars($title . ' ' . $patient_data['name']);
                             $first_medicine = true;
+                            $v_trend = getPatientVitals($conn, $patient_id);
                         ?>
                             <?php if (count($patient_data['medicines']) > 0): ?>
                                 <?php foreach ($patient_data['medicines'] as $med): 
@@ -512,6 +526,11 @@ tbody td { padding: 14px; }
                                             <div style="font-size:0.85rem;font-weight:600;"><?php echo date('M d, h:i A', strtotime($med['completed_at'])); ?></div>
                                         <?php else: ?>
                                             <span style="color:var(--muted);">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if($first_medicine): ?>
+                                            <button onclick='showTrendsModal("<?php echo $patient_name; ?>", <?php echo json_encode($v_trend); ?>)' class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">📊 Trends</button>
                                         <?php endif; ?>
                                     </td>
                                     <td style="color:<?php echo $status_color; ?>;font-weight:600;"><?php echo $status_badge; ?></td>
@@ -574,6 +593,15 @@ tbody td { padding: 14px; }
         <?php endif; ?>
     </div>
 </main>
+</div>
+
+<!-- Health Trends Modal -->
+<div id="trendsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+    <div class="modal-content" style="max-width:800px; width:90%; animation:modalSlideIn 0.3s ease-out;">
+        <h2 id="modalPatientName" style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Patient Trends</h2>
+        <div style="height:400px; width:100%;"><canvas id="trendsChart"></canvas></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:20px;"><button type="button" onclick="hideTrendsModal()" class="btn btn-secondary">Close</button></div>
+    </div>
 </div>
 
 <!-- Edit Profile Modal -->
@@ -640,6 +668,36 @@ document.getElementById('imageModal').onclick = function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeImageModal();
 });
+
+let trendChart = null;
+function showTrendsModal(name, data) {
+    document.getElementById('modalPatientName').textContent = name + "'s Health Trends";
+    document.getElementById('trendsModal').style.display = 'flex';
+    const ctx = document.getElementById('trendsChart').getContext('2d');
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(v => v.label),
+            datasets: [
+                { label: 'Systolic', data: data.map(v => v.systolic), borderColor: '#0EB8A0', tension: 0.3 },
+                { label: 'Diastolic', data: data.map(v => v.diastolic), borderColor: '#22C55E', tension: 0.3 },
+                { label: 'Glucose', data: data.map(v => v.glucose), borderColor: '#F59E0B', tension: 0.3 },
+                { label: 'Heart Rate', data: data.map(v => v.heart_rate), borderColor: '#EF4444', tension: 0.3 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+function hideTrendsModal() { document.getElementById('trendsModal').style.display = 'none'; }
+
 document.getElementById('notifBtn').addEventListener('click', function(e){
     document.getElementById('notifDropdown').classList.toggle('show');
     if(document.getElementById('accountDropdown')) document.getElementById('accountDropdown').classList.remove('show');

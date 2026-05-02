@@ -725,44 +725,9 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </div>
 
-<!-- Edit Profile Modal -->
-<div id="editProfileModal">
-    <div class="modal-content" style="animation:modalSlideIn 0.3s ease-out;">
-        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Edit Profile</h2>
-        <form method="POST" enctype="multipart/form-data">
-            <div class="form-group" style="text-align:center; margin-bottom:20px;">
-                <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
-                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.svg'); ?>" 
-                         style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
-                    <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
-                </label>
-                <input type="file" name="profile_picture" id="profilePictureInput" accept="image/*" style="display:none;" onchange="previewProfilePicture(event)">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Name</label>
-                <input class="form-input" type="text" name="name" value="<?php echo htmlspecialchars($user_name_acc); ?>" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Address</label>
-                <input class="form-input" type="text" name="address" value="<?php echo htmlspecialchars($user_data_acc['address'] ?? ''); ?>">
-            </div>
-            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
-                <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>
-                <button type="submit" name="update_profile" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <script>
-function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
-function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
-function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
-function previewProfilePicture(event) {
-    const reader = new FileReader();
-    reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
-    reader.readAsDataURL(event.target.files[0]);
-}
+
 function showFileName(input) {
     const display = document.getElementById('fileNameDisplay');
     if (input.files && input.files[0]) {

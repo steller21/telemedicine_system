@@ -10,6 +10,33 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') {
  
 $patient_id = intval($_SESSION['user_id']);
 
+// Ensure vitals table exists
+$conn->query("CREATE TABLE IF NOT EXISTS patient_vitals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL,
+    systolic INT,
+    diastolic INT,
+    glucose DECIMAL(5,2),
+    spo2 INT,
+    heart_rate INT,
+    logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+)");
+
+// Handle vitals logging
+if (isset($_POST['log_vitals'])) {
+    $sys = intval($_POST['systolic']);
+    $dia = intval($_POST['diastolic']);
+    $glu = floatval($_POST['glucose']);
+    $spo = intval($_POST['spo2']);
+    $hr = intval($_POST['heart_rate']);
+    $stmt_v = $conn->prepare("INSERT INTO patient_vitals (patient_id, systolic, diastolic, glucose, spo2, heart_rate) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmt_v->bind_param("iiidii", $patient_id, $sys, $dia, $glu, $spo, $hr);
+    $stmt_v->execute();
+    header("Location: dashboard.php?success=Vitals logged successfully!");
+    exit;
+}
+
 // Handle profile update
 if (isset($_POST['update_profile'])) {
     $new_name = trim($_POST['name']);
@@ -58,28 +85,15 @@ WHERE cl.patient_id='$patient_id' AND ci.status='pending'")->fetch_assoc()['c'];
  
 $monitors     = $conn->query("SELECT COUNT(*) as c FROM patient_monitors WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
  
-/* ================= FIXED REPORTS ================= */
- 
-$reports_count = 0;
-$recent_reports = [];
- 
-$stmt = $conn->prepare("SELECT * FROM reports WHERE patient_id=? ORDER BY created_at DESC");
-if ($stmt === false) {
-    // Table might not exist or connection error
-    $recent_reports = [];
-    $reports_count = 0;
-} else {
-    $stmt->bind_param("i", $patient_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
- 
-    while ($row = $result->fetch_assoc()) {
-        $recent_reports[] = $row;
-    }
- 
-    $reports_count = count($recent_reports);
-    $recent_reports = array_slice($recent_reports, 0, 5);
-}
+// Fetch Vitals Trend Data
+$vitals_query = $conn->prepare("SELECT systolic, diastolic, glucose, spo2, heart_rate, DATE_FORMAT(logged_at, '%b %d %H:%i') as label FROM patient_vitals WHERE patient_id = ? ORDER BY logged_at DESC LIMIT 10");
+$vitals_query->bind_param("i", $patient_id);
+$vitals_query->execute();
+$vitals_res = $vitals_query->get_result();
+$v_history = [];
+while($v_row = $vitals_res->fetch_assoc()) { $v_history[] = $v_row; }
+$v_history = array_reverse($v_history);
+$vitals_count = $conn->query("SELECT COUNT(*) FROM patient_vitals WHERE patient_id='$patient_id'")->fetch_row()[0];
 
 // Handle success/error messages
 $msg = "";
@@ -97,6 +111,7 @@ if (isset($_GET['error'])) {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Patient Dashboard — MediConnect</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
  
@@ -516,7 +531,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <div class="stat-card"><div class="stat-card-icon">📅</div><div class="stat-card-value"><?php echo $upcoming_appts_count; ?></div><div class="stat-card-label">Upcoming Appointments</div></div>
         <div class="stat-card"><div class="stat-card-icon">💊</div><div class="stat-card-value"><?php echo $pending_meds; ?></div><div class="stat-card-label">Pending Medicines</div></div>
         <div class="stat-card"><div class="stat-card-icon">👁️</div><div class="stat-card-value"><?php echo $monitors; ?></div><div class="stat-card-label">Monitors</div></div>
-        <div class="stat-card"><div class="stat-card-icon">📄</div><div class="stat-card-value"><?php echo $reports_count; ?></div><div class="stat-card-label">Reports Uploaded</div></div>
+        <div class="stat-card"><div class="stat-card-icon">📊</div><div class="stat-card-value"><?php echo $vitals_count; ?></div><div class="stat-card-label">Vitals Logged</div></div>
     </div>
     <!-- UPCOMING APPOINTMENTS -->
     <div class="card">
@@ -548,37 +563,20 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         </div>
         <?php endif; ?>
     </div>
-    <!-- RECENT REPORTS -->
+    <!-- HEALTH TRENDS (VITALS) -->
     <div class="card" style="margin-bottom:28px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;">📄 Recent Reports (<?php echo $reports_count; ?>)</h2>
-            <a href="upload_report.php" class="btn btn-primary btn-sm">+ Upload New</a>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;">📊 Health Trends</h2>
+            <button onclick="showLogVitalsModal()" class="btn btn-primary btn-sm">+ Log Vitals</button>
         </div>
-        <?php if(count($recent_reports) > 0): ?>
-            <?php foreach($recent_reports as $row):
-                $ext = strtolower(pathinfo($row['file_path'], PATHINFO_EXTENSION));
-                $icon = ($ext === 'pdf') ? '📄' : (in_array($ext, ['jpg', 'jpeg', 'png']) ? '🖼️' : '📋');
-            ?>
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);">
-                <div style="display:flex;align-items:center;gap:12px;">
-                    <div style="width:40px;height:40px;background:var(--teal-glow);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;"><?php echo $icon; ?></div>
-                    <div>
-                        <div style="font-weight:600;font-size:0.9rem;"><?php echo htmlspecialchars($row['report_name']); ?></div>
-                        <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['file_path']); ?> · <?php echo htmlspecialchars($row['created_at']); ?></div>
-                    </div>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;">
-                    <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-primary btn-sm">👁️ View</a>
-                    <button type="button" class="btn btn-danger btn-sm" onclick="showConfirmModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['report_name']); ?>');">🗑️ Delete</button>
-                </div>
-            </div>
-            <?php endforeach; ?>
+        <?php if($vitals_count > 0): ?>
+            <div style="height:300px; width:100%;"><canvas id="vitalsChart"></canvas></div>
         <?php else: ?>
             <div class="empty-state" style="padding:40px 20px;">
-                <div class="empty-icon">📂</div>
-                <h3>No reports uploaded yet</h3>
-                <p>Upload your medical reports to share with your doctor.</p>
-                <br><a href="upload_report.php" class="btn btn-primary btn-sm">Upload Report</a>
+                <div class="empty-icon">📊</div>
+                <h3>No vitals logged yet</h3>
+                <p>Record your daily health metrics to see trends over time.</p>
+                <br><button onclick="showLogVitalsModal()" class="btn btn-primary btn-sm">Log Vitals Now</button>
             </div>
         <?php endif; ?>
     </div>
@@ -592,10 +590,10 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <div style="font-size:1.8rem;">🤖</div>
             <div><div style="font-weight:600;margin-bottom:2px;">Health Assistant</div><div style="font-size:0.8rem;color:var(--muted);">Ask health questions</div></div>
         </a>
-        <a href="upload_report.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
-            <div style="font-size:1.8rem;">📄</div>
-            <div><div style="font-weight:600;margin-bottom:2px;">Upload Report</div><div style="font-size:0.8rem;color:var(--muted);">Share with doctor</div></div>
-        </a>
+        <button onclick="showLogVitalsModal()" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;text-align:left;width:100%;cursor:pointer;border:none;background:var(--navy-card);" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+            <div style="font-size:1.8rem;">📊</div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:var(--white);">Log Vitals</div><div style="font-size:0.8rem;color:var(--muted);">Log BP, HR, SpO2</div></div>
+        </button>
         <a href="friends.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">💬</div>
             <div><div style="font-weight:600;margin-bottom:2px;">Messages</div><div style="font-size:0.8rem;color:var(--muted);">Chat with friends</div></div>
@@ -631,10 +629,42 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         </div>
     </div>
 
+    <!-- Log Vitals Modal -->
+    <div id="logVitalsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+        <div class="modal-content" style="max-width:500px; animation:modalSlideIn 0.3s ease-out;">
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Log Daily Vitals</h2>
+            <form method="POST">
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Systolic (BP)</label><input class="form-input" type="number" name="systolic" placeholder="e.g. 120" required></div>
+                    <div class="form-group"><label class="form-label">Diastolic (BP)</label><input class="form-input" type="number" name="diastolic" placeholder="e.g. 80" required></div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group"><label class="form-label">Glucose (mg/dL)</label><input class="form-input" type="number" step="0.1" name="glucose" placeholder="e.g. 95.5" required></div>
+                    <div class="form-group"><label class="form-label">SpO2 (%)</label><input class="form-input" type="number" name="spo2" placeholder="e.g. 98" required></div>
+                </div>
+                <div class="form-group"><label class="form-label">Heart Rate (BPM)</label><input class="form-input" type="number" name="heart_rate" placeholder="e.g. 72" required></div>
+                
+                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+                    <button type="button" onclick="hideLogVitalsModal()" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" name="log_vitals" class="btn btn-primary">Save Vitals</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
     function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
     function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
+    function showLogVitalsModal() { document.getElementById('logVitalsModal').style.display = 'flex'; }
+    function hideLogVitalsModal() { document.getElementById('logVitalsModal').style.display = 'none'; }
     function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
+    window.onclick = function(event) {
+        const modal1 = document.getElementById('editProfileModal');
+        const modal2 = document.getElementById('logVitalsModal');
+        if (event.target == modal1) hideEditProfileModal();
+        if (event.target == modal2) hideLogVitalsModal();
+    }
+
     function previewProfilePicture(event) {
         const reader = new FileReader();
         reader.onload = function(){
@@ -727,63 +757,32 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     </script>
 </main>
 
-</div>
-
-<!-- CUSTOM CONFIRMATION MODAL -->
-<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
-    <div style="background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.4);animation:modalSlideIn 0.3s ease-out;">
-        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:12px;color:var(--white);">Delete Report?</h2>
-        <p style="color:var(--muted);font-size:0.9rem;margin-bottom:28px;">Are you sure you want to delete "<span id="reportName" style="font-weight:600;color:var(--teal);"></span>"? This action cannot be undone.</p>
-        <div style="display:flex;gap:12px;justify-content:flex-end;">
-            <button type="button" onclick="hideConfirmModal()" style="padding:10px 24px;background:var(--navy-light);border:1px solid var(--border);border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)';">Cancel</button>
-            <button type="button" onclick="confirmDelete()" style="padding:10px 24px;background:#EF4444;border:none;border-radius:50px;color:var(--white);font-weight:600;cursor:pointer;font-size:0.875rem;transition:all 0.2s;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#EF4444';">Delete</button>
-        </div>
-    </div>
-</div>
-
-<style>
-@keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-</style>
-
 <script>
-let pendingDeleteId = null;
-let pendingDeleteUrl = null;
-
-function showConfirmModal(reportId, reportName) {
-    pendingDeleteId = reportId;
-    pendingDeleteUrl = 'delete_report.php?id=' + reportId;
-    document.getElementById('reportName').textContent = reportName;
-    document.getElementById('confirmModal').style.display = 'flex';
-}
-
-function hideConfirmModal() {
-    document.getElementById('confirmModal').style.display = 'none';
-    pendingDeleteId = null;
-    pendingDeleteUrl = null;
-}
-
-function confirmDelete() {
-    if (pendingDeleteUrl) {
-        window.location.href = pendingDeleteUrl;
-    }
-}
-
-// Close modal when clicking outside
-document.addEventListener('click', function(event) {
-    const modal = document.getElementById('confirmModal');
-    if (event.target === modal) {
-        hideConfirmModal();
+<?php if($vitals_count > 0): ?>
+const ctxV = document.getElementById('vitalsChart').getContext('2d');
+const vitalsHistory = <?php echo json_encode($v_history); ?>;
+new Chart(ctxV, {
+    type: 'line',
+    data: {
+        labels: vitalsHistory.map(v => v.label),
+        datasets: [
+            { label: 'Systolic', data: vitalsHistory.map(v => v.systolic), borderColor: '#0EB8A0', tension: 0.3 },
+            { label: 'Diastolic', data: vitalsHistory.map(v => v.diastolic), borderColor: '#22C55E', tension: 0.3 },
+            { label: 'Glucose', data: vitalsHistory.map(v => v.glucose), borderColor: '#F59E0B', tension: 0.3 },
+            { label: 'Heart Rate', data: vitalsHistory.map(v => v.heart_rate), borderColor: '#EF4444', tension: 0.3 }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#64748b' } } },
+        scales: {
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+            x: { grid: { display: false }, ticks: { color: '#64748b' } }
+        }
     }
 });
+<?php endif; ?>
 
 document.getElementById('notifBtn').addEventListener('click', function(e){
     document.getElementById('notifDropdown').classList.toggle('show');
