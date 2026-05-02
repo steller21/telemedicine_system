@@ -407,7 +407,6 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>
-        <a href="friends.php" class="nav-link"><span class="nav-icon">👥</span> Friends & Chat</a>
     </div>
     <div class="nav-section">
     <div class="nav-section-label">Health</div>
@@ -453,6 +452,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
+        <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
         <div style="position:relative; display:inline-block;">
         <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
         <div class="notif-dropdown" id="notifDropdown">

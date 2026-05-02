@@ -361,7 +361,6 @@ tbody td { padding: 14px; }
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
         <a href="monitor_patients.php" class="nav-link active"><span class="nav-icon">👥</span> Monitor Patients</a>
-        <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Friends & Chat</a>
     </div>
 </aside>
 
@@ -382,6 +381,7 @@ tbody td { padding: 14px; }
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
+        <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
         <div style="position:relative; display:inline-block;">
             <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
             <div class="notif-dropdown" id="notifDropdown">

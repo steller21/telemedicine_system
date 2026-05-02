@@ -420,7 +420,6 @@ document.addEventListener('DOMContentLoaded', () => {
         <h1>💊 My Medicines</h1>
         <p>Track your daily medicine intake and mark doses as taken.</p>
     </div>
-    <?php if($error): ?><div class="alert alert-warning">⚠️ <?php echo $error; ?> <a href="add_checklist.php" style="color:inherit;font-weight:700;">Add medicine →</a></div><?php endif; ?>
     <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
         <a href="add_checklist.php" class="btn btn-primary">+ Add Medicine</a>
     </div>
