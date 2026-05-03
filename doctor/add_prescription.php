@@ -15,8 +15,9 @@ $patient_id = isset($_GET['patient_id']) ? intval($_GET['patient_id']) : 0;
 $check = $conn->prepare("SELECT u.name, u.gender FROM users u 
                          LEFT JOIN patient_monitors pm ON u.id = pm.patient_id AND pm.monitor_id = ?
                          LEFT JOIN appointments a ON u.id = a.patient_id AND a.doctor_id = ?
-                         WHERE u.id = ? AND (pm.id IS NOT NULL OR a.id IS NOT NULL) LIMIT 1");
-$check->bind_param("iii", $doctor_id, $doctor_id, $patient_id);
+                         LEFT JOIN video_calls vc ON u.id = vc.patient_id AND vc.doctor_id = ? AND vc.status = 'active'
+                         WHERE u.id = ? AND (pm.id IS NOT NULL OR a.id IS NOT NULL OR vc.id IS NOT NULL) LIMIT 1");
+$check->bind_param("iiii", $doctor_id, $doctor_id, $doctor_id, $patient_id);
 $check->execute();
 $patient_data = $check->get_result()->fetch_assoc();
 

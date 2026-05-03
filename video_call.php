@@ -39,8 +39,18 @@ if ($patientData) {
         $patientPrefix = 'Mrs.';
     }
     $patientName = $patientPrefix . ' ' . $patientData['name'];
-} else {
-    $patientName = 'Mr. Patient';
+$patientName = 'Mr. Patient';
+}
+
+// Fetch patient's vitals for doctor view
+$v_trend = [];
+if ($isDoctor) {
+    $stmt = $conn->prepare("SELECT systolic, diastolic, glucose, spo2, heart_rate, DATE_FORMAT(logged_at, '%b %d') as label FROM patient_vitals WHERE patient_id = ? ORDER BY logged_at DESC LIMIT 10");
+    $stmt->bind_param("i", $data['patient_id']);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while($row = $res->fetch_assoc()) { $v_trend[] = $row; }
+    $v_trend = array_reverse($v_trend);
 }
  
 $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
@@ -180,7 +190,22 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
                 font-size: 1.4em;
             }
         }
+        /* Modal Styles */
+        .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center; }
+        .modal-content { background:#0f3460; border-radius:12px; padding:25px; max-width:600px; width:90%; color:white; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px; }
+        .modal-header h3 { margin:0; }
+        .close-btn { background:none; border:none; color:white; font-size:1.5em; cursor:pointer; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
+        .form-group input[type="text"] { width: 100%; padding: 10px; border-radius: 6px; border: none; background: #1a1a2e; color: white; box-sizing: border-box; }
+        .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #1a1a2e; padding: 15px; border-radius: 8px; }
+        .btn-primary { background: #0EB8A0; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .btn-primary:hover { background: #0A8A78; }
+        .btn-action { background: #f39c12; color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer; font-weight: bold; }
+        .btn-action:hover { background: #e67e22; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
  
@@ -204,12 +229,131 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
             <label>📷 Camera:</label>
             <select id="cameraSelect" onchange="switchCamera()"><option>Loading cameras...</option></select>
         </div>
+        <?php if ($isDoctor): ?>
+            <div class="control-group">
+                <button class="btn-action" onclick="showTrendsModal()">📊 Health Trends</button>
+                <button class="btn-action" onclick="showPrescriptionModal()">💊 Prescribe</button>
+            </div>
+        <?php endif; ?>
     </div>
  
     <div style="text-align: center;">
         <button class="btn-end" onclick="endCall()">📵 End Call</button>
     </div>
 </div>
+ 
+<?php if ($isDoctor): ?>
+<!-- Trends Modal -->
+<div id="trendsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>📊 Health Trends - <?php echo htmlspecialchars($patientName); ?></h3>
+            <button class="close-btn" onclick="hideTrendsModal()">&times;</button>
+        </div>
+        <div style="height:300px; width:100%;"><canvas id="trendsChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Prescription Modal -->
+<div id="prescriptionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>💊 Issue Prescription</h3>
+            <button class="close-btn" onclick="hidePrescriptionModal()">&times;</button>
+        </div>
+        <form id="prescriptionForm" onsubmit="submitPrescription(event)">
+            <div class="form-group">
+                <label>Medicine Name</label>
+                <input type="text" name="medicine_name" required placeholder="e.g. Amoxicillin 500mg">
+            </div>
+            <div class="form-group">
+                <label>Dosage Instructions</label>
+                <input type="text" name="dosage" required placeholder="e.g. 1 capsule after meals">
+            </div>
+            <div class="form-group">
+                <label>Daily Reminders</label>
+                <div class="time-grid">
+                    <label><input type="checkbox" name="medicine_time[]" value="morning"> 🌅 Morning</label>
+                    <label><input type="checkbox" name="medicine_time[]" value="afternoon"> ☀️ Afternoon</label>
+                    <label><input type="checkbox" name="medicine_time[]" value="evening"> 🌆 Evening</label>
+                    <label><input type="checkbox" name="medicine_time[]" value="night"> 🌙 Night</label>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary" id="submitPrescriptionBtn">Issue Digital Prescription</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const patientVitals = <?php echo json_encode($v_trend); ?>;
+    let trendChart = null;
+
+    function showTrendsModal() {
+        document.getElementById('trendsModal').style.display = 'flex';
+        const ctx = document.getElementById('trendsChart').getContext('2d');
+        if (trendChart) trendChart.destroy();
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: patientVitals.map(v => v.label),
+                datasets: [
+                    { label: 'Systolic', data: patientVitals.map(v => v.systolic), borderColor: '#0EB8A0', tension: 0.3 },
+                    { label: 'Diastolic', data: patientVitals.map(v => v.diastolic), borderColor: '#22C55E', tension: 0.3 },
+                    { label: 'Glucose', data: patientVitals.map(v => v.glucose), borderColor: '#F59E0B', tension: 0.3 },
+                    { label: 'Heart Rate', data: patientVitals.map(v => v.heart_rate), borderColor: '#EF4444', tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'white' } },
+                    x: { grid: { display: false }, ticks: { color: 'white' } }
+                },
+                plugins: { legend: { labels: { color: 'white' } } }
+            }
+        });
+    }
+
+    function hideTrendsModal() { document.getElementById('trendsModal').style.display = 'none'; }
+    
+    function showPrescriptionModal() { document.getElementById('prescriptionModal').style.display = 'flex'; }
+    function hidePrescriptionModal() { document.getElementById('prescriptionModal').style.display = 'none'; document.getElementById('prescriptionForm').reset(); }
+
+    function submitPrescription(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitPrescriptionBtn');
+        btn.disabled = true;
+        btn.innerText = 'Issuing...';
+        
+        const form = document.getElementById('prescriptionForm');
+        const formData = new FormData(form);
+        formData.append('patient_id', <?php echo $data['patient_id']; ?>);
+        
+        fetch('doctor/ajax_issue_prescription.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert('✅ Prescription issued successfully!');
+                hidePrescriptionModal();
+            } else {
+                alert('❌ Error: ' + (data.message || 'Failed to issue prescription'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ An error occurred.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerText = 'Issue Digital Prescription';
+        });
+    }
+</script>
+<?php endif; ?>
  
 <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
  

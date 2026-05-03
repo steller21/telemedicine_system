@@ -113,14 +113,15 @@ function getPatientVitals($conn, $p_id) {
     return array_reverse($vitals);
 }
 
-// Get patients' medicines for this doctor (only patients who added doctor as monitor)
+// Get patients' medicines for this doctor (patients who added doctor as monitor OR have active video call)
 $patients_medicines = $conn->query("SELECT DISTINCT u.id, u.name, u.gender, ci.id as medicine_id, 
                                     ci.medicine_name, ci.dosage, ci.due_time, ci.status, ci.medicine_image, ci.completed_at
                                     FROM users u
-                                    JOIN patient_monitors pm ON u.id = pm.patient_id
+                                    LEFT JOIN patient_monitors pm ON u.id = pm.patient_id AND pm.monitor_id='$doctor_id'
+                                    LEFT JOIN video_calls vc ON u.id = vc.patient_id AND vc.doctor_id='$doctor_id' AND vc.status='active'
                                     LEFT JOIN checklists cl ON u.id = cl.patient_id
                                     LEFT JOIN checklist_items ci ON cl.id = ci.checklist_id
-                                    WHERE pm.monitor_id='$doctor_id'
+                                    WHERE pm.monitor_id='$doctor_id' OR (vc.doctor_id='$doctor_id' AND vc.status='active')
                                     ORDER BY u.name ASC, CAST(SUBSTRING_INDEX(ci.due_time, ',', 1) AS TIME) ASC");
 
 require_once("../includes/helpers.php");
@@ -541,7 +542,12 @@ tbody td { padding: 14px; }
                             <?php else: ?>
                                 <tr>
                                     <td style="font-weight:600;"><?php echo $patient_name; ?></td>
-                                    <td colspan="6" style="color:var(--muted);font-style:italic;">No medicines added</td>
+                                    <td colspan="5" style="color:var(--muted);font-style:italic;">No medicines added</td>
+                                    <td>
+                                        <button onclick='showTrendsModal("<?php echo $patient_name; ?>", <?php echo json_encode($v_trend); ?>)' class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">📊 Trends</button>
+                                        <a href="add_prescription.php?patient_id=<?php echo $patient_id; ?>" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;">💊 Prescribe</a>
+                                    </td>
+                                    <td><span style="color:var(--muted);">—</span></td>
                                 </tr>
                             <?php endif; ?>
                         <?php endforeach; ?>
