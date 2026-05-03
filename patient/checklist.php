@@ -1,27 +1,130 @@
 <?php
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
+require_once("../patient/monitor_core.php"); // Ensure tables and columns are initialized
 $patient_id = $_SESSION['user_id'];
 $stmt = $conn->prepare("SELECT id FROM checklists WHERE patient_id = ? LIMIT 1");
-$stmt->bind_param("i", $patient_id); $stmt->execute();
+$stmt->bind_param("i", $patient_id);
+$stmt->execute();
 $check = $stmt->get_result();
 $checklist_id = null; $error = null;
 if ($check->num_rows > 0) { $checklist_id = $check->fetch_assoc()['id']; }
 else { $error = "No checklist found. Add medicines first."; }
-if (isset($_POST['mark_done']) && $checklist_id) {
+
+if (isset($_POST['mark_done'])) {
     $item_id = intval($_POST['item_id']);
-    $u = $conn->prepare("UPDATE checklist_items SET status='completed', completed_at=NOW() WHERE id=?");
-    $u->bind_param("i", $item_id); $u->execute();
+    $scheduled_date = $_POST['scheduled_date'];
+    $time_slot = $_POST['time_slot'];
+
+    // Use INSERT ... ON DUPLICATE KEY UPDATE on the unique key (checklist_item_id, scheduled_date, time_of_day_slot)
+    $u = $conn->prepare("INSERT INTO medicine_intakes (checklist_item_id, scheduled_date, time_of_day_slot, status, completed_at) VALUES (?, ?, ?, 'completed', NOW()) ON DUPLICATE KEY UPDATE status='completed', completed_at=NOW()");
+    $u->bind_param("iss", $item_id, $scheduled_date, $time_slot);
+    $u->execute();
     header("Location: checklist.php"); exit;
 }
-$result = null;
+
+if (isset($_GET['delete_history_item'])) {
+    $intake_id = intval($_GET['delete_history_item']);
+    $del = $conn->prepare("DELETE FROM medicine_intakes WHERE id=? AND checklist_item_id IN (SELECT id FROM checklist_items WHERE checklist_id=?)");
+    $del->bind_param("ii", $intake_id, $checklist_id);
+    $del->execute();
+    header("Location: checklist.php"); exit;
+}
+
+$today = date('Y-m-d');
+$current_time_slot = ''; // Determine current time slot for highlighting
+$current_hour = date('H');
+if ($current_hour >= 6 && $current_hour < 12) $current_time_slot = 'morning';
+elseif ($current_hour >= 12 && $current_hour < 17) $current_time_slot = 'afternoon';
+elseif ($current_hour >= 17 && $current_hour < 21) $current_time_slot = 'evening';
+else $current_time_slot = 'night';
+
+$today_medicines = [];
+$past_medicines = [];
+
 if ($checklist_id) {
-    $stmt = $conn->prepare("SELECT ci.*, u.name as doctor_name 
-                            FROM checklist_items ci 
-                            LEFT JOIN users u ON ci.prescribed_by = u.id 
-                            WHERE ci.checklist_id=? ORDER BY ci.due_time ASC");
-    $stmt->bind_param("i", $checklist_id); $stmt->execute();
-    $result = $stmt->get_result();
+    // Fetch all active checklist items for the patient
+    $stmt_items = $conn->prepare("SELECT ci.*, u.name as doctor_name 
+                                  FROM checklist_items ci 
+                                  LEFT JOIN users u ON ci.prescribed_by = u.id 
+                                  WHERE ci.checklist_id=? 
+                                  ORDER BY ci.start_date ASC");
+    $stmt_items->bind_param("i", $checklist_id);
+    $stmt_items->execute();
+    $checklist_items = $stmt_items->get_result();
+
+    while ($item = $checklist_items->fetch_assoc()) {
+        $item_id = $item['id'];
+        $start_date = new DateTime($item['start_date']);
+        $duration_days = $item['duration_days'];
+        $times_of_day_slots = explode(',', $item['times_of_day']);
+
+        // Determine end date
+        $end_date = null;
+        if ($duration_days > 0) {
+            $end_date = clone $start_date;
+            $end_date->modify('+' . ($duration_days - 1) . ' days');
+        }
+
+        // Generate medicine intakes for today and past days
+        $current_date = new DateTime($item['start_date']);
+        $today_dt = new DateTime($today);
+
+        while ($current_date <= $today_dt && ($end_date === null || $current_date <= $end_date)) {
+            foreach ($times_of_day_slots as $slot) {
+                $slot = trim($slot);
+                if (empty($slot)) continue;
+
+                $scheduled_date_str = $current_date->format('Y-m-d');
+
+                // Check if this specific intake instance already exists in medicine_intakes
+                $stmt_intake = $conn->prepare("SELECT id, status, completed_at FROM medicine_intakes WHERE checklist_item_id=? AND scheduled_date=? AND time_of_day_slot=?");
+                $stmt_intake->bind_param("iss", $item_id, $scheduled_date_str, $slot);
+                $stmt_intake->execute();
+                $intake_res = $stmt_intake->get_result();
+
+                $intake_id = null;
+                $intake_status = 'pending';
+                $intake_completed_at = null;
+
+                if ($intake_res->num_rows > 0) {
+                    $intake_data = $intake_res->fetch_assoc();
+                    $intake_id = $intake_data['id'];
+                    $intake_status = $intake_data['status'];
+                    $intake_completed_at = $intake_data['completed_at'];
+                }
+
+                $medicine_entry = [
+                    'intake_id' => $intake_id,
+                    'item_id' => $item_id,
+                    'medicine_name' => $item['medicine_name'],
+                    'medicine_image' => $item['medicine_image'],
+                    'doctor_name' => $item['doctor_name'],
+                    'dosage' => $item['dosage'],
+                    'times_of_day' => $item['times_of_day'],
+                    'time_slot' => $slot,
+                    'scheduled_date' => $scheduled_date_str,
+                    'status' => $intake_status,
+                    'completed_at' => $intake_completed_at,
+                    'is_prescribed' => !empty($item['prescribed_by'])
+                ];
+
+                if ($scheduled_date_str == $today) {
+                    $today_medicines[] = $medicine_entry;
+                } elseif ($scheduled_date_str < $today) {
+                    $past_medicines[] = $medicine_entry;
+                }
+            }
+            $current_date->modify('+1 day');
+        }
+    }
+    // Sort medicines by time slot
+    $order = ['morning' => 1, 'afternoon' => 2, 'evening' => 3, 'night' => 4];
+    usort($today_medicines, function($a, $b) use ($order) { return $order[$a['time_slot']] <=> $order[$b['time_slot']]; });
+    usort($past_medicines, function($a, $b) use ($order) { 
+        $d = $b['scheduled_date'] <=> $a['scheduled_date'];
+        return ($d === 0) ? $order[$a['time_slot']] <=> $order[$b['time_slot']] : $d;
+    });
 }
 ?>
 <!DOCTYPE html><html lang="en"><head>
@@ -421,38 +524,118 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
     <div class="page-header">
         <h1>💊 My Medicines</h1>
-        <p>Track your daily medicine intake and mark doses as taken.</p>
+        <p>Track your daily medicine intake and manage your prescription history.</p>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
         <a href="add_checklist.php" class="btn btn-primary">+ Add Medicine</a>
     </div>
+
+    <!-- TODAY'S SCHEDULE -->
+    <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📅 Today's Schedule</h2>
+        <?php if (!empty($today_medicines)): ?>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Dosage</th>
+                            <th>Time Slot</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($today_medicines as $m): ?>
+                            <tr <?php echo ($m['time_slot'] === $current_time_slot && $m['status'] !== 'completed') ? 'style="background:rgba(14,184,160,0.05)"' : ''; ?>>
+                                <td>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <?php if(!empty($m['medicine_image'])): ?>
+                                            <img src="../<?php echo htmlspecialchars($m['medicine_image']); ?>" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">
+                                        <?php else: ?>
+                                            <div style="width:40px;height:40px;background:var(--navy-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💊</div>
+                                        <?php endif; ?>
+                                        <div>
+                                            <div style="font-weight:600;"><?php echo htmlspecialchars($m['medicine_name']); ?></div>
+                                            <?php if($m['is_prescribed']): ?>
+                                                <div style="font-size:0.7rem;color:var(--teal);font-weight:500;">Prescribed by Dr. <?php echo htmlspecialchars($m['doctor_name']); ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><span style="color:var(--muted);"><?php echo htmlspecialchars($m['dosage']); ?></span></td>
+                                <td>
+                                    <span class="badge <?php echo ($m['time_slot'] === $current_time_slot) ? 'badge-info' : ''; ?>" style="text-transform: capitalize;">
+                                        <?php 
+                                            $icon = ['morning'=>'🌅','afternoon'=>'☀️','evening'=>'🌆','night'=>'🌙'][$m['time_slot']] ?? '';
+                                            echo $icon . ' ' . $m['time_slot']; 
+                                        ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <?php if($m['status'] == 'completed'): ?>
+                                        <span class="badge badge-success">Taken</span>
+                                        <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;">at <?php echo date('h:i A', strtotime($m['completed_at'])); ?></div>
+                                    <?php else: ?>
+                                        <span class="badge badge-warning">Pending</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if($m['status'] !== 'completed'): ?>
+                                        <form method="POST" style="margin:0;">
+                                            <input type="hidden" name="item_id" value="<?php echo $m['item_id']; ?>">
+                                            <input type="hidden" name="scheduled_date" value="<?php echo $m['scheduled_date']; ?>">
+                                            <input type="hidden" name="time_slot" value="<?php echo $m['time_slot']; ?>">
+                                            <button type="submit" name="mark_done" class="btn btn-primary btn-sm">Mark Taken</button>
+                                        </form>
+                                    <?php else: ?>
+                                        <span style="color:var(--success); font-weight:bold;">✓</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="empty-state" style="padding:40px;">
+                <div class="empty-icon" style="font-size:2rem;">💊</div>
+                <p>No medicines scheduled for today.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- MEDICINE HISTORY -->
     <div class="card">
-    <?php if($result && $result->num_rows > 0): ?>
-    <div class="table-wrap"><table>
-        <thead><tr><th>Image</th><th>Medicine</th><th>Source</th><th>Dosage</th><th>Time</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody>
-        <?php while($row=$result->fetch_assoc()): ?>
-        <tr>
-            <td><?php if(!empty($row['medicine_image'])): ?><img src="<?php echo htmlspecialchars($row['medicine_image']); ?>" style="width:48px;height:48px;object-fit:cover;border-radius:8px;"><?php else: ?><div style="width:48px;height:48px;background:var(--navy-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💊</div><?php endif; ?></td>
-            <td><strong><?php echo htmlspecialchars($row['medicine_name']); ?></strong></td>
-            <td><?php echo $row['doctor_name'] ? '<span class="badge badge-info" title="Prescribed by doctor">👨‍⚕️ Dr. '.htmlspecialchars($row['doctor_name']).'</span>' : '<span style="color:var(--muted);font-size:0.75rem;">Self-added</span>'; ?></td>
-            <td style="color:var(--muted);font-size:0.85rem;"><?php echo htmlspecialchars($row['dosage']); ?></td>
-            <td><?php echo htmlspecialchars($row['due_time']); ?></td>
-            <td><?php if($row['status']=='completed'): ?><span class="badge badge-success">Taken</span><?php else: ?><span class="badge badge-warning">Pending</span><?php endif; ?></td>
-            <td>
-                <?php if($row['status']=='pending'): ?>
-                    <form method="POST" style="margin:0;"><input type="hidden" name="item_id" value="<?php echo $row['id']; ?>"><button class="btn btn-primary btn-sm" type="submit" name="mark_done">✔ Mark Taken</button></form>
-                <?php else: ?>
-                    <span style="color:var(--muted);font-size:0.85rem;">✔ Done <?php echo !empty($row['completed_at']) ? 'at ' . date('h:i A', strtotime($row['completed_at'])) : ''; ?></span>
-                <?php endif; ?>
-            </td>
-        </tr>
-        <?php endwhile; ?>
-        </tbody>
-    </table></div>
-    <?php else: ?>
-    <div class="empty-state"><div class="empty-icon">💊</div><h3>No medicines added</h3><p>Add your first medicine to start tracking.</p><br><a href="add_checklist.php" class="btn btn-primary btn-sm">Add Medicine</a></div>
-    <?php endif; ?>
+        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📜 Medicine History</h2>
+        <?php if (!empty($past_medicines)): ?>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Medicine</th>
+                            <th>Slot</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($past_medicines as $pm): ?>
+                            <tr>
+                                <td style="color:var(--muted);"><?php echo date('D, M d', strtotime($pm['scheduled_date'])); ?></td>
+                                <td style="font-weight:500;"><?php echo htmlspecialchars($pm['medicine_name']); ?></td>
+                                <td style="text-transform:capitalize;"><?php echo $pm['time_slot']; ?></td>
+                                <td>
+                                    <?php if($pm['status'] == 'completed'): ?><span class="badge badge-success">Taken</span><?php else: ?><span class="badge badge-danger">Missed</span><?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <p style="color:var(--muted);text-align:center;padding:20px;font-size:0.9rem;">No medicine history found.</p>
+        <?php endif; ?>
     </div>
 </main></div></body></html>
 <script>
