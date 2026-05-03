@@ -53,8 +53,8 @@ if ($res_checklist->num_rows > 0) {
 
 $time_str = implode(",", $medicine_times);
 
-$is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, due_time, status, prescribed_by) VALUES (?, ?, ?, ?, 'pending', ?)");
-$is->bind_param("isssi", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id);
+$is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by) VALUES (?, ?, ?, ?, 'pending', ?)");
+$is->bind_param("isssi", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id); // Changed due_time to times_of_day
 
 if ($is->execute()) {
     addUserNotification($conn, $patient_id, "New Prescription Issued", "Dr. " . $_SESSION['name'] . " has issued a new prescription.");

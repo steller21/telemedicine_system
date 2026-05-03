@@ -402,9 +402,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <thead><tr><th>Medicine</th><th>Scheduled Time</th><th>Status</th><th>Time Taken</th></tr></thead>
         <tbody>
         <?php while($row=$result->fetch_assoc()): ?>
+        <?php $scheduled_time = $row['times_of_day'] ?? $row['due_time'] ?? 'Not set'; ?>
         <tr>
             <td><strong><?php echo htmlspecialchars($row['medicine_name']); ?></strong></td>
-            <td><?php echo htmlspecialchars($row['due_time']); ?></td>
+            <td><?php echo htmlspecialchars($scheduled_time); ?></td>
             <td><?php if($row['status']=='completed'): ?><span class="badge badge-success">Taken</span><?php else: ?><span class="badge badge-warning">Pending</span><?php endif; ?></td>
             <td style="font-size:0.85rem;color:var(--muted);"><?php echo !empty($row['completed_at']) ? date('M d, h:i A', strtotime($row['completed_at'])) : '—'; ?></td>
         </tr>

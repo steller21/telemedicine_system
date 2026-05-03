@@ -60,8 +60,8 @@ if (isset($_POST['issue_prescription'])) {
             $time_str = implode(",", $times_for_medicine);
 
             if (!empty($medicine_name) && !empty($dosage) && !empty($time_str)) {
-                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, due_time, status, prescribed_by) VALUES (?, ?, ?, ?, 'pending', ?)");
-                $is->bind_param("isssi", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id);
+                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by) VALUES (?, ?, ?, ?, 'pending', ?)");
+                $is->bind_param("isssi", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id); // Changed due_time to times_of_day
                 
                 if ($is->execute()) {
                     $success_count++;

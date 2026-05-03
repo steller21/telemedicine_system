@@ -45,18 +45,12 @@ if (isset($_POST['add'])) {
 
             if (!empty($medicine_name) && !empty($dosage) && !empty($time_str)) {
                 $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, medicine_image, dosage, times_of_day, status) VALUES (?, ?, ?, ?, ?, 'pending')");
-
-                if ($is) {
-                    $is->bind_param("issss", $checklist_id, $medicine_name, $target, $dosage, $time_str);
-
-                    if ($is->execute()) {
-                        $success_count++;
-                    } else {
-                        error_log("Error inserting medicine: " . $is->error);
-                        $error_occurred = true;
-                    }
+                $is->bind_param("issss", $checklist_id, $medicine_name, $target, $dosage, $time_str); // Changed due_time to times_of_day
+                
+                if ($is->execute()) {
+                    $success_count++;
                 } else {
-                    error_log("Error preparing medicine insert: " . $conn->error);
+                    error_log("Error inserting medicine: " . $is->error);
                     $error_occurred = true;
                 }
             }

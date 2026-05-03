@@ -41,6 +41,12 @@ else $current_time_slot = 'night';
 
 $today_medicines = [];
 $past_medicines = [];
+$grouped_today_medicines = [
+    'morning' => [],
+    'afternoon' => [],
+    'evening' => [],
+    'night' => []
+];
 
 if ($checklist_id) {
     // Fetch all active checklist items for the patient
@@ -111,6 +117,7 @@ if ($checklist_id) {
 
                 if ($scheduled_date_str == $today) {
                     $today_medicines[] = $medicine_entry;
+                    $grouped_today_medicines[$slot][] = $medicine_entry;
                 } elseif ($scheduled_date_str < $today) {
                     $past_medicines[] = $medicine_entry;
                 }
@@ -119,6 +126,11 @@ if ($checklist_id) {
         }
     }
     // Sort medicines by time slot
+     // This sorting is now primarily for the overall $today_medicines array if it's used elsewhere.
+    // For grouped display, we might want to sort within each group.
+    foreach ($grouped_today_medicines as $slot_key => $medicines_in_slot) {
+        usort($grouped_today_medicines[$slot_key], function($a, $b) { return $a['medicine_name'] <=> $b['medicine_name']; });
+    }
     $order = ['morning' => 1, 'afternoon' => 2, 'evening' => 3, 'night' => 4];
     usort($today_medicines, function($a, $b) use ($order) { return $order[$a['time_slot']] <=> $order[$b['time_slot']]; });
     usort($past_medicines, function($a, $b) use ($order) { 
@@ -533,70 +545,95 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- TODAY'S SCHEDULE -->
     <div class="card" style="margin-bottom: 24px;">
         <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">📅 Today's Schedule</h2>
-        <?php if (!empty($today_medicines)): ?>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Medicine</th>
-                            <th>Dosage</th>
-                            <th>Time Slot</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($today_medicines as $m): ?>
-                            <tr <?php echo ($m['time_slot'] === $current_time_slot && $m['status'] !== 'completed') ? 'style="background:rgba(14,184,160,0.05)"' : ''; ?>>
-                                <td>
-                                    <div style="display:flex;align-items:center;gap:12px;">
-                                        <?php if(!empty($m['medicine_image'])): ?>
-                                            <img src="../<?php echo htmlspecialchars($m['medicine_image']); ?>" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">
-                                        <?php else: ?>
-                                            <div style="width:40px;height:40px;background:var(--navy-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💊</div>
-                                        <?php endif; ?>
-                                        <div>
-                                            <div style="font-weight:600;"><?php echo htmlspecialchars($m['medicine_name']); ?></div>
-                                            <?php if($m['is_prescribed']): ?>
-                                                <div style="font-size:0.7rem;color:var(--teal);font-weight:500;">Prescribed by Dr. <?php echo htmlspecialchars($m['doctor_name']); ?></div>
+  <?php 
+        $has_today_medicines = false;
+        foreach ($grouped_today_medicines as $slot_meds) {
+            if (!empty($slot_meds)) {
+                $has_today_medicines = true;
+                break;
+            }
+        }
+        ?>
+        <?php if ($has_today_medicines): ?>
+            <?php 
+            $time_slots_order = ['morning', 'afternoon', 'evening', 'night'];
+            foreach ($time_slots_order as $slot_key): 
+                if (!empty($grouped_today_medicines[$slot_key])):
+            ?>
+                <div style="margin-bottom: 20px; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; background: var(--navy-light);">
+                    <h3 style="font-family:'Clash Display',sans-serif;font-size:1rem;font-weight:600;margin-bottom:12px;text-transform:capitalize;">
+                        <?php 
+                            $icon = ['morning'=>'🌅','afternoon'=>'☀️','evening'=>'🌆','night'=>'🌙'][$slot_key] ?? '';
+                            echo $icon . ' ' . $slot_key; 
+                        ?>
+                        <span style="font-size:0.8rem;color:var(--muted);margin-left:8px;">
+                            <?php 
+                                if ($slot_key === 'morning') echo '(6 AM - 12 PM)';
+                                elseif ($slot_key === 'afternoon') echo '(12 PM - 5 PM)';
+                                elseif ($slot_key === 'evening') echo '(5 PM - 8 PM)';
+                                elseif ($slot_key === 'night') echo '(8 PM - 11 PM)';
+                            ?>
+                        </span>
+                    </h3>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Dosage</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($grouped_today_medicines[$slot_key] as $m): ?>
+                                    <tr <?php echo ($m['time_slot'] === $current_time_slot && $m['status'] !== 'completed') ? 'style="background:rgba(14,184,160,0.05)"' : ''; ?>>
+                                        <td>
+                                            <div style="display:flex;align-items:center;gap:12px;">
+                                                <?php if(!empty($m['medicine_image'])): ?>
+                                                    <img src="../<?php echo htmlspecialchars($m['medicine_image']); ?>" style="width:40px;height:40px;object-fit:cover;border-radius:8px;">
+                                                <?php else: ?>
+                                                    <div style="width:40px;height:40px;background:var(--navy-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💊</div>
+                                                <?php endif; ?>
+                                                <div>
+                                                    <div style="font-weight:600;"><?php echo htmlspecialchars($m['medicine_name']); ?></div>
+                                                    <?php if($m['is_prescribed']): ?>
+                                                        <div style="font-size:0.7rem;color:var(--teal);font-weight:500;">Prescribed by Dr. <?php echo htmlspecialchars($m['doctor_name']); ?></div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td><span style="color:var(--muted);"><?php echo htmlspecialchars($m['dosage']); ?></span></td>
+                                        <td>
+                                            <?php if($m['status'] == 'completed'): ?>
+                                                <span class="badge badge-success">Taken</span>
+                                                <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;">at <?php echo date('h:i A', strtotime($m['completed_at'])); ?></div>
+                                            <?php else: ?>
+                                                <span class="badge badge-warning">Pending</span>
                                             <?php endif; ?>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td><span style="color:var(--muted);"><?php echo htmlspecialchars($m['dosage']); ?></span></td>
-                                <td>
-                                    <span class="badge <?php echo ($m['time_slot'] === $current_time_slot) ? 'badge-info' : ''; ?>" style="text-transform: capitalize;">
-                                        <?php 
-                                            $icon = ['morning'=>'🌅','afternoon'=>'☀️','evening'=>'🌆','night'=>'🌙'][$m['time_slot']] ?? '';
-                                            echo $icon . ' ' . $m['time_slot']; 
-                                        ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <?php if($m['status'] == 'completed'): ?>
-                                        <span class="badge badge-success">Taken</span>
-                                        <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;">at <?php echo date('h:i A', strtotime($m['completed_at'])); ?></div>
-                                    <?php else: ?>
-                                        <span class="badge badge-warning">Pending</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if($m['status'] !== 'completed'): ?>
-                                        <form method="POST" style="margin:0;">
-                                            <input type="hidden" name="item_id" value="<?php echo $m['item_id']; ?>">
-                                            <input type="hidden" name="scheduled_date" value="<?php echo $m['scheduled_date']; ?>">
-                                            <input type="hidden" name="time_slot" value="<?php echo $m['time_slot']; ?>">
-                                            <button type="submit" name="mark_done" class="btn btn-primary btn-sm">Mark Taken</button>
-                                        </form>
-                                    <?php else: ?>
-                                        <span style="color:var(--success); font-weight:bold;">✓</span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                                        </td>
+                                        <td>
+                                            <?php if($m['status'] !== 'completed'): ?>
+                                                <form method="POST" style="margin:0;">
+                                                    <input type="hidden" name="item_id" value="<?php echo $m['item_id']; ?>">
+                                                    <input type="hidden" name="scheduled_date" value="<?php echo $m['scheduled_date']; ?>">
+                                                    <input type="hidden" name="time_slot" value="<?php echo $m['time_slot']; ?>">
+                                                    <button type="submit" name="mark_done" class="btn btn-primary btn-sm">Mark Taken</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span style="color:var(--success); font-weight:bold;">✓</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            <?php 
+                endif; // End if !empty($grouped_today_medicines[$slot_key])
+            endforeach; // End foreach $time_slots_order
+            ?>
         <?php else: ?>
             <div class="empty-state" style="padding:40px;">
                 <div class="empty-icon" style="font-size:2rem;">💊</div>
