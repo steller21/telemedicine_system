@@ -16,7 +16,10 @@ if (isset($_POST['mark_done']) && $checklist_id) {
 }
 $result = null;
 if ($checklist_id) {
-    $stmt = $conn->prepare("SELECT * FROM checklist_items WHERE checklist_id=? ORDER BY due_time ASC");
+    $stmt = $conn->prepare("SELECT ci.*, u.name as doctor_name 
+                            FROM checklist_items ci 
+                            LEFT JOIN users u ON ci.prescribed_by = u.id 
+                            WHERE ci.checklist_id=? ORDER BY ci.due_time ASC");
     $stmt->bind_param("i", $checklist_id); $stmt->execute();
     $result = $stmt->get_result();
 }
@@ -426,12 +429,13 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="card">
     <?php if($result && $result->num_rows > 0): ?>
     <div class="table-wrap"><table>
-        <thead><tr><th>Image</th><th>Medicine</th><th>Dosage</th><th>Time</th><th>Status</th><th>Action</th></tr></thead>
+        <thead><tr><th>Image</th><th>Medicine</th><th>Source</th><th>Dosage</th><th>Time</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
         <?php while($row=$result->fetch_assoc()): ?>
         <tr>
             <td><?php if(!empty($row['medicine_image'])): ?><img src="<?php echo htmlspecialchars($row['medicine_image']); ?>" style="width:48px;height:48px;object-fit:cover;border-radius:8px;"><?php else: ?><div style="width:48px;height:48px;background:var(--navy-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;">💊</div><?php endif; ?></td>
             <td><strong><?php echo htmlspecialchars($row['medicine_name']); ?></strong></td>
+            <td><?php echo $row['doctor_name'] ? '<span class="badge badge-info" title="Prescribed by doctor">👨‍⚕️ Dr. '.htmlspecialchars($row['doctor_name']).'</span>' : '<span style="color:var(--muted);font-size:0.75rem;">Self-added</span>'; ?></td>
             <td style="color:var(--muted);font-size:0.85rem;"><?php echo htmlspecialchars($row['dosage']); ?></td>
             <td><?php echo htmlspecialchars($row['due_time']); ?></td>
             <td><?php if($row['status']=='completed'): ?><span class="badge badge-success">Taken</span><?php else: ?><span class="badge badge-warning">Pending</span><?php endif; ?></td>

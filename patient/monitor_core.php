@@ -62,6 +62,11 @@ function initMonitorTables($conn) {
     if (!$conn->query($sql3)) {
         error_log("Error creating user_notifications table: " . $conn->error);
     }
+
+    // Ensure checklist_items has prescribed_by column for digital prescriptions
+    if ($conn->query("SHOW COLUMNS FROM checklist_items LIKE 'prescribed_by'")->num_rows == 0) {
+        $conn->query("ALTER TABLE checklist_items ADD COLUMN prescribed_by INT NULL DEFAULT NULL");
+    }
 }
 
 initMonitorTables($conn);

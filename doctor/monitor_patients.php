@@ -432,7 +432,7 @@ tbody td { padding: 14px; }
             <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
                 <div style="text-align:center; margin-bottom:16px;">
                     <?php if ($user_pic_acc): ?>
-                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block;">
+                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block; cursor:pointer;" onclick="openImageModal(this.src)" title="View profile picture">
                     <?php else: ?>
                         <div style="width:60px; height:60px; border-radius:50%; background:var(--teal-glow); color:var(--teal); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
                             <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
@@ -531,6 +531,7 @@ tbody td { padding: 14px; }
                                     <td>
                                         <?php if($first_medicine): ?>
                                             <button onclick='showTrendsModal("<?php echo $patient_name; ?>", <?php echo json_encode($v_trend); ?>)' class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:6px;">📊 Trends</button>
+                                            <a href="add_prescription.php?patient_id=<?php echo $patient_id; ?>" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;">💊 Prescribe</a>
                                         <?php endif; ?>
                                     </td>
                                     <td style="color:<?php echo $status_color; ?>;font-weight:600;"><?php echo $status_badge; ?></td>
@@ -637,7 +638,7 @@ tbody td { padding: 14px; }
 <div id="imageModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;padding:20px;align-items:center;justify-content:center;">
     <div style="position:relative;max-width:90vw;max-height:90vh;background:var(--navy-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);">
         <button onclick="closeImageModal()" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--white);font-size:1.5rem;cursor:pointer;z-index:1001;transition:all 0.2s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--white)'">✕</button>
-        <img id="modalImage" src="" alt="Medicine" style="max-width:100%;max-height:80vh;border-radius:10px;object-fit:contain;">
+        <img id="modalImage" src="" alt="Image View" style="max-width:100%;max-height:80vh;border-radius:10px;object-fit:contain;">
     </div>
 </div>
 

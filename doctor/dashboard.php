@@ -349,7 +349,7 @@ body {
             <div class="notif-dropdown" id="accountDropdown" style="right:0; width:280px; padding:16px;">
                 <div style="text-align:center; margin-bottom:16px;">
                     <?php if ($user_pic_acc): ?>
-                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block;">
+                        <img src="../<?php echo htmlspecialchars($user_pic_acc); ?>" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--teal); margin:0 auto 12px auto; display:block; cursor:pointer;" onclick="openImageModal(this.src)" title="View profile picture">
                     <?php else: ?>
                         <div style="width:60px; height:60px; border-radius:50%; background:var(--teal-glow); color:var(--teal); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 12px auto; font-weight:bold;">
                             <?php echo strtoupper(substr($user_name_acc, 0, 1)); ?>
@@ -454,6 +454,14 @@ body {
     </div>
 </div>
  
+<!-- IMAGE MODAL -->
+<div id="imageModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100000;padding:20px;align-items:center;justify-content:center;">
+    <div style="position:relative;max-width:90vw;max-height:90vh;background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <button onclick="closeImageModal()" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--white);font-size:1.5rem;cursor:pointer;z-index:1001;transition:all 0.2s;" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='var(--white)'">✕</button>
+        <img id="modalImage" src="" alt="Profile View" style="max-width:100%;max-height:80vh;border-radius:10px;object-fit:contain;">
+    </div>
+</div>
+
 <script>
 function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
 function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
@@ -463,6 +471,17 @@ function previewProfilePicture(event) {
     reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
     reader.readAsDataURL(event.target.files[0]);
 }
+
+function openImageModal(src) {
+    const modal = document.getElementById('imageModal');
+    document.getElementById('modalImage').src = src;
+    modal.style.display = 'flex';
+}
+function closeImageModal() { document.getElementById('imageModal').style.display = 'none'; }
+window.addEventListener('click', function(e){
+    if(e.target === document.getElementById('imageModal')) closeImageModal();
+});
+
 // Poll every 4 seconds for new incoming calls
 let popupShown = false;
 let knownCallIds = new Set([
