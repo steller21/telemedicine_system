@@ -41,6 +41,7 @@ if (isset($_POST['register'])) {
     } else {
         $specialization  = trim($_POST['specialization'] ?? '');
         $license_number  = trim($_POST['license_number'] ?? '');
+        $affiliations    = trim($_POST['affiliations'] ?? '');
         $bio             = trim($_POST['bio'] ?? '');
         // Check duplicate email
         $chk = $conn->prepare("SELECT id FROM doctors WHERE email = ?");
@@ -48,8 +49,8 @@ if (isset($_POST['register'])) {
         if ($chk->get_result()->num_rows > 0) {
             $msg = "Email already exists!"; $msg_type = "error";
         } else {
-            $s = $conn->prepare("INSERT INTO doctors (name, email, password, phone, specialization, license_number, bio, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $s->bind_param("ssssssss", $name, $email, $password, $phone, $specialization, $license_number, $bio, $profile_pic_path);
+            $s = $conn->prepare("INSERT INTO doctors (name, email, password, phone, specialization, license_number, affiliations, bio, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $s->bind_param("sssssssss", $name, $email, $password, $phone, $specialization, $license_number, $affiliations, $bio, $profile_pic_path);
             if ($s->execute()) { $msg = "Registered successfully! You can now login."; $msg_type = "success"; }
             else { $msg = "Registration failed. Please try again."; $msg_type = "error"; }
         }
@@ -160,6 +161,10 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
                 <div class="form-group">
                     <label class="form-label">License Number</label>
                     <input class="form-input" type="text" name="license_number" placeholder="Medical license number">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Affiliations</label>
+                    <input class="form-input" type="text" name="affiliations" placeholder="e.g. American Medical Association">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Bio / About</label>

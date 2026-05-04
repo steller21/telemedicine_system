@@ -372,6 +372,7 @@ tbody td { padding: 14px; }
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
         <a href="monitor_patients.php" class="nav-link active"><span class="nav-icon">👥</span> Monitor Patients</a>
+        <a href="account.php" class="nav-link"><span class="nav-icon">👤</span> My Account</a>
     </div>
 </aside>
 
@@ -442,7 +443,7 @@ tbody td { padding: 14px; }
                     <div style="font-size:0.85rem; color:var(--muted);">📍 <?php echo htmlspecialchars($user_address_acc); ?></div>
                 </div>
                 <div style="margin-bottom: 8px;">
-                    <a href="#" onclick="event.preventDefault(); hideAccountDropdown(); showEditProfileModal();" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:var(--navy-light); color:var(--white); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)'">✏️ Edit Profile</a>
+                    <a href="account.php" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:var(--navy-light); color:var(--white); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='var(--navy-mid)'" onmouseout="this.style.background='var(--navy-light)'">👤 My Account</a>
                 </div>
                 <div style="border-top:1px solid var(--border); padding-top:12px; margin-top:12px;">
                     <a href="../logout.php" style="display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:rgba(239,68,68,0.1); color:var(--danger); text-decoration:none; border-radius:12px; font-weight:600; transition:0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">🚪 Logout</a>
@@ -609,35 +610,6 @@ tbody td { padding: 14px; }
     </div>
 </div>
 
-<!-- Edit Profile Modal -->
-<div id="editProfileModal">
-    <div class="modal-content" style="animation:modalSlideIn 0.3s ease-out;">
-        <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Edit Profile</h2>
-        <form method="POST" enctype="multipart/form-data">
-            <div class="form-group" style="text-align:center; margin-bottom:20px;">
-                <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
-                    <img id="profilePicturePreview" src="../<?php echo htmlspecialchars($user_pic_acc ?: 'images/default_user.svg'); ?>" 
-                         style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
-                    <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
-                </label>
-                <input type="file" name="profile_picture" id="profilePictureInput" accept="image/*" style="display:none;" onchange="previewProfilePicture(event)">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Name</label>
-                <input class="form-input" type="text" name="name" value="<?php echo htmlspecialchars($user_name_acc); ?>" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Address</label>
-                <input class="form-input" type="text" name="specialization" value="<?php echo htmlspecialchars($user_data_acc['specialization'] ?? ''); ?>" placeholder="e.g. Cardiology">
-            </div>
-            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
-                <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>
-                <button type="submit" name="update_profile" class="btn btn-primary">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- IMAGE MODAL -->
 <div id="imageModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;padding:20px;align-items:center;justify-content:center;">
     <div style="position:relative;max-width:90vw;max-height:90vh;background:var(--navy-card);border-radius:var(--radius);padding:20px;border:1px solid var(--border);">
@@ -647,14 +619,7 @@ tbody td { padding: 14px; }
 </div>
 
 <script>
-function showEditProfileModal() { document.getElementById('editProfileModal').style.display = 'flex'; }
-function hideEditProfileModal() { document.getElementById('editProfileModal').style.display = 'none'; }
 function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
-function previewProfilePicture(event) {
-    const reader = new FileReader();
-    reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
-    reader.readAsDataURL(event.target.files[0]);
-}
 function openImageModal(imagePath) {
     const modal = document.getElementById('imageModal');
     const img = document.getElementById('modalImage');
