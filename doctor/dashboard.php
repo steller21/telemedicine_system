@@ -13,7 +13,7 @@ $doctor_id = intval($_SESSION['user_id']);
 // Get incoming calls
 $calls = $conn->query("SELECT vc.*, u.name as patient_name 
                        FROM video_calls vc
-                       LEFT JOIN users u ON u.id = vc.patient_id
+                       LEFT JOIN patients u ON u.id = vc.patient_id
                        WHERE vc.doctor_id='$doctor_id' AND vc.status='waiting'");
 ?>
 <!DOCTYPE html>
@@ -300,14 +300,35 @@ body {
         $notifications = getPendingNotifications($conn, $doctor_id);
         ?>
             <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture FROM doctors WHERE id = ?");
     $acc_stmt->bind_param("i", $doctor_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
     $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
     $user_email_acc = $user_data_acc['email'] ?? 'N/A';
-    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_address_acc = !empty($user_data_acc['specialization']) ? $user_data_acc['specialization'] : 'General Practice';
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
+    // Handle doctor profile update
+    if (isset($_POST['update_profile'])) {
+        $new_name = trim($_POST['name']);
+        $new_spec = trim($_POST['specialization'] ?? '');
+        $upd_sql = "UPDATE doctors SET name=?, specialization=? WHERE id=?";
+        $upd_params = [$new_name, $new_spec, $doctor_id]; $upd_types = "ssi";
+        if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $upload_dir = "../images/profiles/";
+            if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+            $ext = strtolower(pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['jpg','jpeg','png','gif'])) {
+                $fn = uniqid('profile_').'.'.$ext;
+                if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir.$fn)) {
+                    $upd_sql = "UPDATE doctors SET name=?, specialization=?, profile_picture=? WHERE id=?";
+                    $upd_params = [$new_name, $new_spec, "images/profiles/$fn", $doctor_id]; $upd_types = "sssi";
+                }
+            }
+        }
+        $us = $conn->prepare($upd_sql); $us->bind_param($upd_types, ...$upd_params);
+        if ($us->execute()) { $_SESSION['name'] = $new_name; header("Location: dashboard.php?success=Profile updated!"); exit; }
+    }
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
         <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
@@ -430,8 +451,8 @@ body {
                 <input class="form-input" type="text" name="name" value="<?php echo htmlspecialchars($user_name_acc); ?>" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Address</label>
-                <input class="form-input" type="text" name="address" value="<?php echo htmlspecialchars($user_data_acc['address'] ?? ''); ?>">
+                <label class="form-label">Specialization</label>
+                <input class="form-input" type="text" name="specialization" value="<?php echo htmlspecialchars($user_data_acc['specialization'] ?? ''); ?>">
             </div>
             <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
                 <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>

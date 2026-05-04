@@ -15,9 +15,9 @@ if (isset($_POST['update_profile'])) {
     $new_name = trim($_POST['name']);
     $new_address = trim($_POST['address']);
     
-    $update_sql = "UPDATE users SET name=?, address=? WHERE id=?";
-    $params = [$new_name, $new_address, $doctor_id];
-    $types = "ssi";
+    $update_sql = "UPDATE doctors SET name=? WHERE id=?";
+    $params = [$new_name, $doctor_id];
+    $types = "si";
 
     if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
         $upload_dir = "../images/profiles/";
@@ -28,9 +28,9 @@ if (isset($_POST['update_profile'])) {
             $new_file_name = uniqid('profile_') . '.' . $file_ext;
             if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_file_name)) {
                 $db_path = "images/profiles/" . $new_file_name;
-                $update_sql = "UPDATE users SET name=?, address=?, profile_picture=? WHERE id=?";
-                $params = [$new_name, $new_address, $db_path, $doctor_id];
-                $types = "sssi";
+                $update_sql = "UPDATE doctors SET name=?, profile_picture=? WHERE id=?";
+                $params = [$new_name, $db_path, $doctor_id];
+                $types = "ssi";
             }
         }
     }
@@ -55,9 +55,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
     status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_request (requester_id, requested_user_id),
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+    UNIQUE KEY unique_request (requester_id, requested_user_id)
 )");
 
 // Handle accept request
@@ -384,13 +382,13 @@ tbody td { padding: 14px; }
         $notifications = getPendingNotifications($conn, $doctor_id);
         ?>
             <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture FROM doctors WHERE id = ?");
     $acc_stmt->bind_param("i", $doctor_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
     $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
     $user_email_acc = $user_data_acc['email'] ?? 'N/A';
-    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_address_acc = !empty($user_data_acc['specialization']) ? $user_data_acc['specialization'] : 'General Practice';
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
@@ -630,7 +628,7 @@ tbody td { padding: 14px; }
             </div>
             <div class="form-group">
                 <label class="form-label">Address</label>
-                <input class="form-input" type="text" name="address" value="<?php echo htmlspecialchars($user_data_acc['address'] ?? ''); ?>">
+                <input class="form-input" type="text" name="specialization" value="<?php echo htmlspecialchars($user_data_acc['specialization'] ?? ''); ?>" placeholder="e.g. Cardiology">
             </div>
             <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
                 <button type="button" onclick="hideEditProfileModal()" class="btn btn-secondary">Cancel</button>

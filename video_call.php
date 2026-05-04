@@ -16,7 +16,9 @@ $isPatient = ($user_id == $data['patient_id']);
 if (!$isDoctor && !$isPatient) { echo "❌ Unauthorized"; exit; }
  
 // Fetch current user name and gender
-$userQuery = $conn->query("SELECT name, gender, role FROM users WHERE id='".$user_id."'");
+$userQuery = $isDoctor
+    ? $conn->query("SELECT name, NULL as gender, 'doctor' as role FROM doctors WHERE id='".$user_id."'")
+    : $conn->query("SELECT name, gender, 'patient' as role FROM patients WHERE id='".$user_id."'");
 $userData = $userQuery->fetch_assoc();
 $myPrefix = 'Mr.';
 if ($userData && isset($userData['role']) && $userData['role'] === 'doctor') {
@@ -27,11 +29,11 @@ if ($userData && isset($userData['role']) && $userData['role'] === 'doctor') {
 $myName = $myPrefix . ' ' . ($userData ? $userData['name'] : 'User');
  
 // Fetch doctor and patient names with gender
-$doctorQuery = $conn->query("SELECT name, gender FROM users WHERE id='".$data['doctor_id']."'");
+$doctorQuery = $conn->query("SELECT name FROM doctors WHERE id='".$data['doctor_id']."'");
 $doctorData = $doctorQuery->fetch_assoc();
 $doctorName = 'Dr. ' . ($doctorData ? $doctorData['name'] : 'Doctor');
  
-$patientQuery = $conn->query("SELECT name, gender FROM users WHERE id='".$data['patient_id']."'");
+$patientQuery = $conn->query("SELECT name, gender FROM patients WHERE id='".$data['patient_id']."'");
 $patientData = $patientQuery->fetch_assoc();
 $patientPrefix = 'Mr.';
 if ($patientData) {
@@ -39,11 +41,11 @@ if ($patientData) {
         $patientPrefix = 'Mrs.';
     }
     $patientName = $patientPrefix . ' ' . $patientData['name'];
-$patientName = 'Mr. Patient';
 }
 
 // Fetch patient's vitals for doctor view
 $v_trend = [];
+$patient_reports = [];
 if ($isDoctor) {
     $stmt = $conn->prepare("SELECT systolic, diastolic, glucose, spo2, heart_rate, DATE_FORMAT(logged_at, '%b %d') as label FROM patient_vitals WHERE patient_id = ? ORDER BY logged_at DESC LIMIT 10");
     $stmt->bind_param("i", $data['patient_id']);
@@ -51,6 +53,19 @@ if ($isDoctor) {
     $res = $stmt->get_result();
     while($row = $res->fetch_assoc()) { $v_trend[] = $row; }
     $v_trend = array_reverse($v_trend);
+    // Fetch patient reports (accepted share OR appointment-based access)
+    $rpt_stmt = $conn->prepare(
+        "SELECT r.id, r.report_name, r.report_type, r.file_path, r.created_at 
+         FROM reports r 
+         LEFT JOIN report_share_requests rsr ON rsr.report_id = r.id AND rsr.requester_id = ? AND rsr.requester_role = 'doctor' AND rsr.status = 'accepted'
+         LEFT JOIN appointments a ON a.patient_id = r.patient_id AND a.doctor_id = ?
+         WHERE r.patient_id = ? AND (rsr.id IS NOT NULL OR a.id IS NOT NULL)
+         GROUP BY r.id ORDER BY r.created_at DESC"
+    );
+    $rpt_stmt->bind_param("iii", $user_id, $user_id, $data['patient_id']);
+    $rpt_stmt->execute();
+    $rpt_res = $rpt_stmt->get_result();
+    while($row = $rpt_res->fetch_assoc()) { $patient_reports[] = $row; }
 }
  
 $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
@@ -233,6 +248,7 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
             <div class="control-group">
                 <button class="btn-action" onclick="showTrendsModal()">📊 Health Trends</button>
                 <button class="btn-action" onclick="showPrescriptionModal()">💊 Prescribe</button>
+                <button class="btn-action" style="background:#8b5cf6;" onclick="showReportsModal()">📄 Patient Reports</button>
             </div>
         <?php endif; ?>
     </div>
@@ -251,6 +267,41 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
             <button class="close-btn" onclick="hideTrendsModal()">&times;</button>
         </div>
         <div style="height:300px; width:100%;"><canvas id="trendsChart"></canvas></div>
+    </div>
+</div>
+
+<!-- Patient Reports Modal -->
+<div id="reportsModal" class="modal">
+    <div class="modal-content" style="max-width:700px; max-height:80vh; overflow-y:auto;">
+        <div class="modal-header">
+            <h3>📄 Patient Reports — <?php echo htmlspecialchars($patientName ?? 'Patient'); ?></h3>
+            <button class="close-btn" onclick="hideReportsModal()">&times;</button>
+        </div>
+        <?php if (!empty($patient_reports)): ?>
+            <div style="display:grid; gap:12px; margin-top:10px;">
+            <?php foreach($patient_reports as $rpt):
+                $ext = strtolower(pathinfo($rpt['file_path'], PATHINFO_EXTENSION));
+                $icon = $ext === 'pdf' ? '📄' : '🖼️';
+            ?>
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,0.07); padding:14px 18px; border-radius:10px; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:1.5rem;"><?php echo $icon; ?></span>
+                        <div>
+                            <div style="font-weight:600; font-size:0.95rem;"><?php echo htmlspecialchars($rpt['report_name']); ?></div>
+                            <div style="font-size:0.78rem; color:#7A8EA8;"><?php echo htmlspecialchars($rpt['report_type']); ?> · <?php echo date('d M Y', strtotime($rpt['created_at'])); ?></div>
+                        </div>
+                    </div>
+                    <a href="<?php echo htmlspecialchars($rpt['file_path']); ?>" target="_blank" style="background:#0EB8A0; color:white; padding:8px 16px; border-radius:20px; text-decoration:none; font-size:0.82rem; font-weight:600; white-space:nowrap;">👁️ View</a>
+                </div>
+            <?php endforeach; ?>
+            </div>
+        <?php else: ?>
+            <div style="text-align:center; padding:40px 20px; color:#7A8EA8;">
+                <div style="font-size:2.5rem; margin-bottom:12px;">📂</div>
+                <p style="font-weight:600; margin-bottom:8px;">No reports available</p>
+                <p style="font-size:0.85rem;">Patient has not shared any reports yet, or no appointments exist.</p>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -316,6 +367,8 @@ $conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
     }
 
     function hideTrendsModal() { document.getElementById('trendsModal').style.display = 'none'; }
+    function showReportsModal()  { document.getElementById('reportsModal').style.display = 'flex'; }
+    function hideReportsModal()  { document.getElementById('reportsModal').style.display = 'none'; }
     
     function showPrescriptionModal() { document.getElementById('prescriptionModal').style.display = 'flex'; }
     function hidePrescriptionModal() { document.getElementById('prescriptionModal').style.display = 'none'; document.getElementById('prescriptionForm').reset(); }

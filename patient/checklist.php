@@ -50,9 +50,9 @@ $grouped_today_medicines = [
 
 if ($checklist_id) {
     // Fetch all active checklist items for the patient
-    $stmt_items = $conn->prepare("SELECT ci.*, u.name as doctor_name 
+    $stmt_items = $conn->prepare("SELECT ci.*, d.name as doctor_name 
                                   FROM checklist_items ci 
-                                  LEFT JOIN users u ON ci.prescribed_by = u.id 
+                                  LEFT JOIN doctors d ON ci.prescribed_by = d.id 
                                   WHERE ci.checklist_id=? 
                                   ORDER BY ci.start_date ASC");
     $stmt_items->bind_param("i", $checklist_id);

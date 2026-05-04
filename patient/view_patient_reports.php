@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $notifications = getPendingNotifications($conn, $user_id);
         ?>
         <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
     $acc_stmt->bind_param("i", $user_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();

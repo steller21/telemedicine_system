@@ -1,28 +1,37 @@
 <?php
 session_start();
 require_once("config/db.php");
- 
+
 $error = "";
 if (isset($_POST['login'])) {
-    $email    = $_POST['email'];
+    $email    = trim($_POST['email']);
     $password = $_POST['password'];
-    $stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
-    if ($stmt === false) {
-        $error = "Database error. Please try again later.";
-    } else {
+
+    $role = $_POST['role'] ?? 'patient';
+    $table = ($role === 'doctor') ? 'doctors' : 'patients';
+
+    $stmt = $conn->prepare("SELECT id, name, password FROM $table WHERE email = ?");
+    $user = null;
+    if ($stmt) {
         $stmt->bind_param("s", $email);
         $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            $user = $result->fetch_assoc();
-            if ($user && password_verify($password, $user['password'])) {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['role']    = $user['role'];
-                $_SESSION['name']    = $user['name'];
-                header("Location: " . ($user['role'] == 'doctor' ? "doctor/dashboard.php" : "patient/dashboard.php"));
-                exit;
-            } else { $error = "Invalid email or password."; }
-        } else { $error = "Invalid email or password."; }
+        $res = $stmt->get_result();
+        if ($res->num_rows > 0) {
+            $row = $res->fetch_assoc();
+            if (password_verify($password, $row['password'])) {
+                $user = $row;
+            }
+        }
+    }
+
+    if ($user && $role) {
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['role']    = $role;
+        $_SESSION['name']    = $user['name'];
+        header("Location: " . ($role == 'doctor' ? "doctor/dashboard.php" : "patient/dashboard.php"));
+        exit;
+    } else {
+        $error = "Invalid email or password.";
     }
 }
 ?>
@@ -45,6 +54,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .card{background:var(--navy-card);border:1px solid var(--border);border-radius:22px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
 h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margin-bottom:6px;}
 .sub{color:var(--muted);font-size:0.875rem;margin-bottom:28px;}
+.role-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px;}
+.role-btn{padding:12px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.875rem;font-weight:500;cursor:pointer;transition:all 0.2s;text-align:center;}
+.role-btn.active{background:rgba(14,184,160,0.12);border-color:rgba(14,184,160,0.4);color:var(--teal);}
 .form-group{margin-bottom:18px;}
 .form-label{display:block;font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;}
 .form-input{width:100%;padding:13px 16px;background:var(--navy-light);border:1px solid var(--border);border-radius:12px;color:var(--white);font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
@@ -73,6 +85,14 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
         <?php if($error): ?><div class="alert-error">❌ <?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <form method="POST">
             <div class="form-group">
+                <label class="form-label">I am a</label>
+                <div class="role-toggle">
+                    <button type="button" class="role-btn <?php echo (isset($_POST['role']) && $_POST['role']=='doctor')?'':'active'; ?>" onclick="setRole('patient', event)">🙋 Patient</button>
+                    <button type="button" class="role-btn <?php echo (isset($_POST['role']) && $_POST['role']=='doctor')?'active':''; ?>" onclick="setRole('doctor', event)">👨‍⚕️ Doctor</button>
+                </div>
+                <input type="hidden" name="role" id="roleInput" value="<?php echo htmlspecialchars($_POST['role'] ?? 'patient'); ?>">
+            </div>
+            <div class="form-group">
                 <label class="form-label">Email Address</label>
                 <input class="form-input" type="email" name="email" placeholder="you@example.com" required>
             </div>
@@ -85,5 +105,12 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
         <div class="footer-link">Don't have an account? <a href="register.php">Register here</a></div>
     </div>
 </div>
+<script>
+function setRole(role, event) {
+    document.getElementById('roleInput').value = role;
+    document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+}
+</script>
 </body>
 </html>

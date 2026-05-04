@@ -20,7 +20,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS patient_vitals (
     spo2 INT,
     heart_rate INT,
     logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 )");
 
 // Handle vitals logging
@@ -42,7 +42,7 @@ if (isset($_POST['update_profile'])) {
     $new_name = trim($_POST['name']);
     $new_address = trim($_POST['address']);
     
-    $update_sql = "UPDATE users SET name=?, address=? WHERE id=?";
+    $update_sql = "UPDATE patients SET name=?, address=? WHERE id=?";
     $params = [$new_name, $new_address, $patient_id];
     $types = "ssi";
 
@@ -55,7 +55,7 @@ if (isset($_POST['update_profile'])) {
             $new_file_name = uniqid('profile_') . '.' . $file_ext;
             if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_file_name)) {
                 $db_path = "images/profiles/" . $new_file_name;
-                $update_sql = "UPDATE users SET name=?, address=?, profile_picture=? WHERE id=?";
+                $update_sql = "UPDATE patients SET name=?, address=?, profile_picture=? WHERE id=?";
                 $params = [$new_name, $new_address, $db_path, $patient_id];
                 $types = "sssi";
             }
@@ -73,7 +73,7 @@ if (isset($_POST['update_profile'])) {
  
 $appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name 
 FROM appointments a 
-JOIN users u ON a.doctor_id = u.id 
+JOIN doctors u ON a.doctor_id = u.id 
 WHERE a.patient_id = '$patient_id' AND DATE_ADD(a.appointment_date, INTERVAL 2 HOUR) >= NOW() 
 ORDER BY a.appointment_date ASC");
  
@@ -457,7 +457,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     $notifications = getPendingNotifications($conn, $patient_id);
     ?>
         <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
     $acc_stmt->bind_param("i", $patient_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();

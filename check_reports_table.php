@@ -27,7 +27,7 @@ if ($check && $check->num_rows > 0) {
         report_type VARCHAR(100),
         file_path VARCHAR(500) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     )";
     
     if ($conn->query($sql)) {

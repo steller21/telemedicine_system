@@ -20,9 +20,7 @@ function initMonitorTables($conn) {
         status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_request (requester_id, requested_user_id),
-        FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+        UNIQUE KEY unique_request (requester_id, requested_user_id)
     )";
     
     if (!$conn->query($sql1)) {
@@ -41,8 +39,7 @@ function initMonitorTables($conn) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_request (report_id, requester_id),
         FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
-        FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     )";
     
     if (!$conn->query($sql2)) {
@@ -56,8 +53,7 @@ function initMonitorTables($conn) {
         title VARCHAR(255) NOT NULL,
         message TEXT NOT NULL,
         is_read TINYINT(1) DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )";
     if (!$conn->query($sql3)) {
         error_log("Error creating user_notifications table: " . $conn->error);
@@ -273,20 +269,29 @@ function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = 
 
     error_log("sendMonitorRequest: Attempting to find user with email: $target_email");
 
-    // Find target user
-    $stmt = $conn->prepare("SELECT id, role FROM users WHERE email = ?");
+    // Find target user — check patients first, then doctors
+    // Patients can only request to monitor other patients
+    $stmt = $conn->prepare("SELECT id, 'patient' as role FROM patients WHERE email = ?");
     if (!$stmt) {
         error_log("sendMonitorRequest: Failed to prepare statement: " . $conn->error);
         return ["type" => "error", "msg" => "Database error. Please try again."];
     }
-    
     $stmt->bind_param("s", $target_email);
     if (!$stmt->execute()) {
         error_log("sendMonitorRequest: Failed to execute select: " . $stmt->error);
         return ["type" => "error", "msg" => "Database error. Please try again."];
     }
-    
     $user = $stmt->get_result()->fetch_assoc();
+
+    // If not found in patients, try doctors (for doctor-to-patient monitoring)
+    if (!$user) {
+        $stmt2 = $conn->prepare("SELECT id, 'doctor' as role FROM doctors WHERE email = ?");
+        if ($stmt2) {
+            $stmt2->bind_param("s", $target_email);
+            $stmt2->execute();
+            $user = $stmt2->get_result()->fetch_assoc();
+        }
+    }
 
     if (!$user) {
         error_log("sendMonitorRequest: User not found with email: $target_email");

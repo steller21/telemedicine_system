@@ -159,7 +159,7 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
         $notifications = getPendingNotifications($conn, $monitor_id);
         ?>
         <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
     $acc_stmt->bind_param("i", $monitor_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();

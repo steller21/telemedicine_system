@@ -22,8 +22,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS report_share_requests (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_request (report_id, requester_id),
     FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
-    FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 )");
 
 // Handle accept request
@@ -257,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $notifications = getPendingNotifications($conn, $patient_id);
         ?>
             <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
     $acc_stmt->bind_param("i", $_SESSION['user_id']);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();

@@ -3,12 +3,11 @@ require_once("config/db.php");
 $msg = ""; $msg_type = "";
 $role_pre = isset($_GET['role']) ? $_GET['role'] : 'patient';
 if (isset($_POST['register'])) {
-    $name     = $_POST['name'];
-    $email    = $_POST['email'];
+    $name     = trim($_POST['name']);
+    $email    = trim($_POST['email']);
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $role     = $_POST['role'];
-    $gender   = $_POST['gender'];
-    $address  = trim($_POST['address']);
+    $phone    = trim($_POST['phone'] ?? '');
     $profile_pic_path = null;
 
     // Handle profile picture upload
@@ -24,19 +23,36 @@ if (isset($_POST['register'])) {
         }
     }
 
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
-    $stmt->bind_param("s", $email); $stmt->execute();
-    if ($stmt->get_result()->num_rows > 0) {
-        $msg = "Email already exists!"; $msg_type = "error";
+    if ($role === 'patient') {
+        $gender  = $_POST['gender'] ?? '';
+        $address = trim($_POST['address'] ?? '');
+        $dob     = $_POST['dob'] ?? null;
+        // Check duplicate email
+        $chk = $conn->prepare("SELECT id FROM patients WHERE email = ?");
+        $chk->bind_param("s", $email); $chk->execute();
+        if ($chk->get_result()->num_rows > 0) {
+            $msg = "Email already exists!"; $msg_type = "error";
+        } else {
+            $s = $conn->prepare("INSERT INTO patients (name, email, password, phone, dob, gender, address, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $s->bind_param("ssssssss", $name, $email, $password, $phone, $dob, $gender, $address, $profile_pic_path);
+            if ($s->execute()) { $msg = "Registered successfully! You can now login."; $msg_type = "success"; }
+            else { $msg = "Registration failed. Please try again."; $msg_type = "error"; }
+        }
     } else {
-        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, gender, address, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssssss", $name, $email, $password, $role, $gender, $address, $profile_pic_path);
-        if ($stmt->execute()) {
-            $uid = $stmt->insert_id;
-            if ($role == 'patient') { $s=$conn->prepare("INSERT INTO patients (user_id) VALUES (?)"); $s->bind_param("i",$uid); $s->execute(); }
-            if ($role == 'doctor')  { $s=$conn->prepare("INSERT INTO doctors (user_id) VALUES (?)");  $s->bind_param("i",$uid); $s->execute(); }
-            $msg = "Registered successfully! You can now login."; $msg_type = "success";
-        } else { $msg = "Registration failed. Please try again."; $msg_type = "error"; }
+        $specialization  = trim($_POST['specialization'] ?? '');
+        $license_number  = trim($_POST['license_number'] ?? '');
+        $bio             = trim($_POST['bio'] ?? '');
+        // Check duplicate email
+        $chk = $conn->prepare("SELECT id FROM doctors WHERE email = ?");
+        $chk->bind_param("s", $email); $chk->execute();
+        if ($chk->get_result()->num_rows > 0) {
+            $msg = "Email already exists!"; $msg_type = "error";
+        } else {
+            $s = $conn->prepare("INSERT INTO doctors (name, email, password, phone, specialization, license_number, bio, profile_picture) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $s->bind_param("ssssssss", $name, $email, $password, $phone, $specialization, $license_number, $bio, $profile_pic_path);
+            if ($s->execute()) { $msg = "Registered successfully! You can now login."; $msg_type = "success"; }
+            else { $msg = "Registration failed. Please try again."; $msg_type = "error"; }
+        }
     }
 }
 ?>
@@ -97,7 +113,7 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
            <div class="form-group" style="text-align:center; margin-bottom:24px;">
                 <label class="form-label" style="text-align:center; margin-bottom:20px;">Profile Picture (optional)</label>
                 <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
-                    <img id="profilePicturePreview" src="images/default_user.svg" 
+                    <img id="profilePicturePreview" src="images/default_user.svg"
                          style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--teal);">
                     <div style="position:absolute; bottom:0; right:0; background:var(--teal); color:var(--navy); border-radius:50%; padding:6px; font-size:0.9rem; line-height:1; border:2px solid var(--navy-card);">✏️</div>
                 </label>
@@ -108,21 +124,47 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
                 <input class="form-input" type="text" name="name" placeholder="Your full name" required>
             </div>
             <div class="form-group">
-                <label class="form-label">Address</label>
-                <input class="form-input" type="text" name="address" placeholder="Your current address" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Gender</label>
-                <select class="form-select" name="gender" required>
-                    <option value="">Select your gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-            <div class="form-group">
                 <label class="form-label">Email Address</label>
                 <input class="form-input" type="email" name="email" placeholder="you@example.com" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input class="form-input" type="tel" name="phone" placeholder="Your phone number">
+            </div>
+            <!-- Patient-only fields -->
+            <div id="patientFields">
+                <div class="form-group">
+                    <label class="form-label">Date of Birth</label>
+                    <input class="form-input" type="date" name="dob">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Gender</label>
+                    <select class="form-select" name="gender">
+                        <option value="">Select your gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input class="form-input" type="text" name="address" placeholder="Your current address">
+                </div>
+            </div>
+            <!-- Doctor-only fields -->
+            <div id="doctorFields" style="display:none;">
+                <div class="form-group">
+                    <label class="form-label">Specialization</label>
+                    <input class="form-input" type="text" name="specialization" placeholder="e.g. Cardiology">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">License Number</label>
+                    <input class="form-input" type="text" name="license_number" placeholder="Medical license number">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bio / About</label>
+                    <textarea class="form-input" name="bio" rows="3" placeholder="Brief professional bio" style="resize:vertical;"></textarea>
+                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
@@ -138,12 +180,20 @@ function setRole(r){
     document.getElementById('roleInput').value=r;
     document.querySelectorAll('.role-btn').forEach(b=>b.classList.remove('active'));
     event.target.classList.add('active');
+    document.getElementById('patientFields').style.display = (r==='patient') ? 'block' : 'none';
+    document.getElementById('doctorFields').style.display  = (r==='doctor')  ? 'block' : 'none';
 }
 function previewProfilePicture(event) {
     const reader = new FileReader();
     reader.onload = function(){ document.getElementById('profilePicturePreview').src = reader.result; };
     reader.readAsDataURL(event.target.files[0]);
 }
+// Init visibility on load
+document.addEventListener('DOMContentLoaded', function(){
+    const role = document.getElementById('roleInput').value;
+    document.getElementById('patientFields').style.display = (role==='patient') ? 'block' : 'none';
+    document.getElementById('doctorFields').style.display  = (role==='doctor')  ? 'block' : 'none';
+});
 </script>
 </body>
-</html>
+</html>

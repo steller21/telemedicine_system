@@ -138,13 +138,13 @@ $received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr 
         $notifications = getPendingNotifications($conn, $user_id);
         ?>
             <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture FROM doctors WHERE id = ?");
     $acc_stmt->bind_param("i", $user_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
     $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
     $user_email_acc = $user_data_acc['email'] ?? 'N/A';
-    $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
+    $user_address_acc = !empty($user_data_acc['specialization']) ? $user_data_acc['specialization'] : 'General Practice';
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">

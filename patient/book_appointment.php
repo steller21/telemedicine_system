@@ -2,7 +2,7 @@
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id'];
-$doctors = $conn->query("SELECT * FROM users WHERE role='doctor'");
+$doctors = $conn->query("SELECT * FROM doctors ORDER BY name ASC");
 $msg = ""; $msg_type = "";
 if (isset($_POST['book'])) {
     $doctor_id = intval($_POST['doctor_id']); $date = $_POST['date'];

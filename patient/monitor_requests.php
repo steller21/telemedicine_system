@@ -9,7 +9,7 @@ if (isset($_POST['update_profile'])) {
     $new_name = trim($_POST['name']);
     $new_address = trim($_POST['address']);
     
-    $update_sql = "UPDATE users SET name=?, address=? WHERE id=?";
+    $update_sql = "UPDATE patients SET name=?, address=? WHERE id=?";
     $params = [$new_name, $new_address, $user_id];
     $types = "ssi";
 
@@ -22,7 +22,7 @@ if (isset($_POST['update_profile'])) {
             $new_file_name = uniqid('profile_') . '.' . $file_ext;
             if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_file_name)) {
                 $db_path = "images/profiles/" . $new_file_name;
-                $update_sql = "UPDATE users SET name=?, address=?, profile_picture=? WHERE id=?";
+                $update_sql = "UPDATE patients SET name=?, address=?, profile_picture=? WHERE id=?";
                 $params = [$new_name, $new_address, $db_path, $user_id];
                 $types = "sssi";
             }
@@ -46,9 +46,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS monitor_requests (
     status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_request (requester_id, requested_user_id),
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+    UNIQUE KEY unique_request (requester_id, requested_user_id)
 )");
 
 // Handle accept request
@@ -331,7 +329,7 @@ body {
 <main class="main">
 
 <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM users WHERE id = ?");
+    $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
     $acc_stmt->bind_param("i", $user_id);
     $acc_stmt->execute();
     $user_data_acc = $acc_stmt->get_result()->fetch_assoc();

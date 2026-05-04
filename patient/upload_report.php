@@ -16,7 +16,7 @@ if (isset($_POST['update_profile'])) {
     $new_name = trim($_POST['name']);
     $new_address = trim($_POST['address']);
     
-    $update_sql = "UPDATE users SET name=?, address=? WHERE id=?";
+    $update_sql = "UPDATE patients SET name=?, address=? WHERE id=?";
     $params = [$new_name, $new_address, $patient_id];
     $types = "ssi";
 
@@ -29,7 +29,7 @@ if (isset($_POST['update_profile'])) {
             $new_file_name = uniqid('profile_') . '.' . $file_ext;
             if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_dir . $new_file_name)) {
                 $db_path = "images/profiles/" . $new_file_name;
-                $update_sql = "UPDATE users SET name=?, address=?, profile_picture=? WHERE id=?";
+                $update_sql = "UPDATE patients SET name=?, address=?, profile_picture=? WHERE id=?";
                 $params = [$new_name, $new_address, $db_path, $patient_id];
                 $types = "sssi";
             }
@@ -57,8 +57,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS report_share_requests (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_request (report_id, requester_id),
     FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE,
-    FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+    FOREIGN KEY (requester_id) REFERENCES patients(id) ON DELETE CASCADE
 )");
 
 // Handle share request accept

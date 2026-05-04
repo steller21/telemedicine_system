@@ -9,9 +9,7 @@ $sql = "CREATE TABLE IF NOT EXISTS monitor_requests (
     status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_request (requester_id, requested_user_id),
-    FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+    UNIQUE KEY unique_request (requester_id, requested_user_id)
 )";
 
 if ($conn->query($sql) === TRUE) {

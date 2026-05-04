@@ -29,9 +29,7 @@ if ($check_table->num_rows > 0) {
         status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_request (requester_id, requested_user_id),
-        FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (requested_user_id) REFERENCES users(id) ON DELETE CASCADE
+        UNIQUE KEY unique_request (requester_id, requested_user_id)
     )");
     if ($create) {
         echo "   ✅ Table created successfully!\n";
@@ -52,8 +50,8 @@ if ($check_pm->num_rows > 0) {
         monitor_id INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY unique_relationship (patient_id, monitor_id),
-        FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (monitor_id) REFERENCES users(id) ON DELETE CASCADE
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+        FOREIGN KEY (monitor_id) REFERENCES patients(id) ON DELETE CASCADE
     )");
     if ($create_pm) {
         echo "   ✅ Table created successfully!\n";
@@ -62,14 +60,16 @@ if ($check_pm->num_rows > 0) {
     }
 }
 
-echo "\n3. Checking users table...\n";
-$check_users = $conn->query("SHOW TABLES LIKE 'users'");
-if ($check_users->num_rows > 0) {
-    echo "   ✅ Table exists\n";
+echo "\n3. Checking users VIEW (patients + doctors)...\n";
+$check_users = $conn->query("SHOW FULL TABLES WHERE Table_type='VIEW' AND Tables_in_" . $conn->query("SELECT DATABASE()")->fetch_row()[0] . " LIKE 'users'");
+if ($check_users && $check_users->num_rows > 0) {
+    echo "   ✅ users VIEW exists\n";
     $user_count = $conn->query("SELECT COUNT(*) as count FROM users")->fetch_assoc();
-    echo "   Users in database: " . $user_count['count'] . "\n";
+    echo "   Total users in VIEW: " . $user_count['count'] . "\n";
 } else {
-    echo "   ❌ users table does not exist!\n";
+    $pat = $conn->query("SELECT COUNT(*) as c FROM patients")->fetch_assoc();
+    $doc = $conn->query("SELECT COUNT(*) as c FROM doctors")->fetch_assoc();
+    echo "   ℹ️  users is a VIEW. Patients: " . $pat['c'] . ", Doctors: " . $doc['c'] . "\n";
 }
 
 echo "\n4. Testing Prepared Statements...\n";
@@ -80,42 +80,7 @@ if ($test_stmt) {
     echo "   ❌ Prepared statements error: " . $conn->error . "\n";
 }
 
-echo "\n5. Testing INSERT into monitor_requests...\n";
-if (isset($_SESSION['user_id'])) {
-    $test_user = $_SESSION['user_id'];
-    $test_email = "test_monitor_" . time() . "@example.com";
-    
-    // Create a test monitor user first
-    $create_test = $conn->query("INSERT INTO users (name, email, role, password, gender) 
-                                  VALUES ('Test Monitor', '$test_email', 'monitor', 'hash', 'other')");
-    
-    if ($create_test) {
-        $test_monitor_id = $conn->insert_id;
-        echo "   Created test monitor user (ID: $test_monitor_id)\n";
-        
-        // Try to insert a request
-        $test_insert = $conn->prepare("INSERT INTO monitor_requests (requester_id, requested_user_id, status) 
-                                       VALUES (?, ?, 'pending')");
-        if ($test_insert) {
-            $test_insert->bind_param("ii", $test_user, $test_monitor_id);
-            if ($test_insert->execute()) {
-                echo "   ✅ INSERT test successful\n";
-                
-                // Clean up test data
-                $cleanup = $conn->query("DELETE FROM monitor_requests WHERE id = " . $conn->insert_id);
-                $cleanup_user = $conn->query("DELETE FROM users WHERE id = $test_monitor_id");
-            } else {
-                echo "   ❌ INSERT failed: " . $test_insert->error . "\n";
-            }
-        } else {
-            echo "   ❌ Prepared statement creation failed: " . $conn->error . "\n";
-        }
-    } else {
-        echo "   ❌ Could not create test user: " . $conn->error . "\n";
-    }
-} else {
-    echo "   ⚠️  Not logged in - skipping INSERT test\n";
-}
+    echo "   ⚠️  Skipping INSERT test — users is now a VIEW. Registration inserts into patients or doctors directly.\n";
 
 echo "\n=== END DIAGNOSTIC ===\n";
 ?>
