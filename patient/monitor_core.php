@@ -86,7 +86,7 @@ if (isset($_SESSION['user_id'])) {
     if (isset($_GET['accept']) || isset($_GET['reject']) || isset($_GET['remove_monitor']) || isset($_GET['remove_patient']) || 
         isset($_GET['accept_report']) || isset($_GET['reject_report']) || 
         isset($_GET['accept_friend']) || isset($_GET['reject_friend']) ||
-        isset($_GET['clear_notif'])) {
+        isset($_GET['clear_notif']) || isset($_GET['clear_chat'])) {
         
         if (isset($_GET['accept'])) {
             $request_id = intval($_GET['accept']);
@@ -233,6 +233,16 @@ if (isset($_SESSION['user_id'])) {
             $del->execute();
             header("Location: $current_page"); exit;
         }
+
+        if (isset($_GET['clear_chat'])) {
+            $sender_id = intval($_GET['clear_chat']);
+            $clear_chat = $conn->prepare("UPDATE messages SET is_read = 1 WHERE sender_id = ? AND sender_role = 'patient' AND receiver_id = ? AND receiver_role = 'patient' AND is_read = 0");
+            if ($clear_chat) {
+                $clear_chat->bind_param("ii", $sender_id, $current_user_id);
+                $clear_chat->execute();
+            }
+            header("Location: $current_page"); exit;
+        }
     }
 }
 
@@ -362,7 +372,7 @@ function getPendingNotificationCount($conn, $user_id) {
     }
 
     // Unread messages count
-    $stmt5 = $conn->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0");
+    $stmt5 = $conn->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND receiver_role = 'patient' AND sender_role = 'patient' AND is_read = 0");
     if ($stmt5) {
         $stmt5->bind_param("i", $user_id);
         $stmt5->execute();
@@ -469,7 +479,7 @@ function getPendingNotifications($conn, $user_id) {
         SELECT m.sender_id, u.name as sender_name, COUNT(*) as msg_count 
         FROM messages m 
         JOIN users u ON m.sender_id = u.id AND m.sender_role = u.role
-        WHERE m.receiver_id = ? AND m.is_read = 0 
+        WHERE m.receiver_id = ? AND m.receiver_role = 'patient' AND m.sender_role = 'patient' AND m.is_read = 0 
         GROUP BY m.sender_id
     ");
     if ($stmt5) {
@@ -483,7 +493,7 @@ function getPendingNotifications($conn, $user_id) {
                 'desc' => 'You have ' . $row['msg_count'] . ' unread message(s) from ' . $row['sender_name'], 
                 'type' => 'chat', 
                 'time' => date('Y-m-d H:i:s'), 
-                'param' => 'friend_id'
+                'param' => 'clear_chat'
             ];
         }
     }

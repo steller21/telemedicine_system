@@ -107,6 +107,7 @@ require_once("monitor_core.php");
 // Fetch notification and account data here, before HTML output
 $notifCount = getPendingNotificationCount($conn, $user_id);
 $notifications = getPendingNotifications($conn, $user_id);
+$chatNotifCount = count(array_filter($notifications, static fn($notification) => ($notification['type'] ?? '') === 'chat'));
 
 $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
 $acc_stmt->bind_param("i", $user_id);
@@ -447,9 +448,9 @@ document.addEventListener('DOMContentLoaded', () => {
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>">✅ <?php echo htmlspecialchars($msg);?></div><?php endif;?>
 
         <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
-            <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
+            <a href="friends.php" class="notif-btn" style="text-decoration:none; position:relative; <?php echo $chatNotifCount > 0 ? 'background:rgba(14,184,160,0.16); border-color:var(--teal); color:var(--teal); box-shadow:0 0 0 3px rgba(14,184,160,0.12);' : ''; ?>" title="Friends & Chat">💬<?php if($chatNotifCount > 0): ?><span class="notif-badge"><?php echo $chatNotifCount; ?></span><?php endif; ?></a>
             <div style="position:relative; display:inline-block;">
-                <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+                <div class="notif-btn" id="notifBtn" style="<?php echo $notifCount > 0 ? 'background:rgba(14,184,160,0.16); border-color:var(--teal); color:var(--teal); box-shadow:0 0 0 3px rgba(14,184,160,0.12);' : ''; ?>">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
                 <div class="notif-dropdown" id="notifDropdown">
                     <div class="notif-list">
                         <?php if(!empty($notifications)): foreach($notifications as $n): ?>
@@ -457,8 +458,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="notif-item-title"><?php echo htmlspecialchars($n['title']); ?></div>
                                 <div class="notif-item-desc"><?php echo htmlspecialchars($n['desc']); ?></div>
                                 <div class="notif-actions">
-                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
-                                    <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                    <?php if(($n['type'] ?? '') === 'chat' || ($n['type'] ?? '') === 'info'): ?>
+                                        <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
+                                    <?php else: ?>
+                                        <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
+                                        <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; else: ?>

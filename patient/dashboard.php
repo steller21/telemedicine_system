@@ -508,6 +508,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <?php 
     $notifCount = getPendingNotificationCount($conn, $patient_id);
     $notifications = getPendingNotifications($conn, $patient_id);
+    $chatNotifCount = count(array_filter($notifications, static fn($notification) => ($notification['type'] ?? '') === 'chat'));
     ?>
         <?php 
     $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
@@ -520,9 +521,9 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
-        <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
+        <a href="friends.php" class="notif-btn" style="text-decoration:none; position:relative; <?php echo $chatNotifCount > 0 ? 'background:rgba(14,184,160,0.16); border-color:var(--teal); color:var(--teal); box-shadow:0 0 0 3px rgba(14,184,160,0.12);' : ''; ?>" title="Friends & Chat">💬<?php if($chatNotifCount > 0): ?><span class="notif-badge"><?php echo $chatNotifCount; ?></span><?php endif; ?></a>
         <div style="position:relative; display:inline-block;">
-        <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+        <div class="notif-btn" id="notifBtn" style="<?php echo $notifCount > 0 ? 'background:rgba(14,184,160,0.16); border-color:var(--teal); color:var(--teal); box-shadow:0 0 0 3px rgba(14,184,160,0.12);' : ''; ?>">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
         <div class="notif-dropdown" id="notifDropdown">
             <div class="notif-list">
                 <?php if(!empty($notifications)): foreach($notifications as $n): ?>
@@ -533,7 +534,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                             <?php if($n['type'] === 'info'): ?>
                                 <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
                             <?php elseif($n['type'] === 'chat'): ?>
-                                <a href="chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
+                                <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
                             <?php else: ?>
                             <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
                             <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
@@ -627,8 +628,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <?php else: ?>
             <div class="empty-state" style="padding:40px 20px;">
                 <div class="empty-icon">📊</div>
-                <h3>No vitals logged yet</h3>
-                <p>Record your daily health metrics to see trends over time.</p>
+                <h3>No health records yet</h3>
+                <p>Add your daily health details to see a simple summary here.</p>
                 <br><button onclick="showLogVitalsModal()" class="btn btn-primary btn-sm">Log Vitals Now</button>
             </div>
         <?php endif; ?>
@@ -645,7 +646,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         </a>
         <button onclick="showLogVitalsModal()" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;text-align:left;width:100%;cursor:pointer;border:none;background:var(--navy-card);" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">📊</div>
-            <div><div style="font-weight:600;margin-bottom:2px;color:var(--white);">Log Vitals</div><div style="font-size:0.8rem;color:var(--muted);">Log BP, HR, SpO2</div></div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:var(--white);">Log Health Details</div><div style="font-size:0.8rem;color:var(--muted);">Add BP, heart rate, oxygen and sugar</div></div>
         </button>
         <a href="friends.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">💬</div>
@@ -685,17 +686,17 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <!-- Log Vitals Modal -->
     <div id="logVitalsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
         <div class="modal-content" style="max-width:500px; animation:modalSlideIn 0.3s ease-out;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Log Daily Vitals</h2>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Log Daily Health Details</h2>
             <form method="POST">
                 <div class="grid-2">
-                    <div class="form-group"><label class="form-label">Systolic (BP)</label><input class="form-input" type="number" name="systolic" placeholder="e.g. 120" required></div>
-                    <div class="form-group"><label class="form-label">Diastolic (BP)</label><input class="form-input" type="number" name="diastolic" placeholder="e.g. 80" required></div>
+                    <div class="form-group"><label class="form-label">Blood Pressure (BP) - Top Number</label><input class="form-input" type="number" name="systolic" placeholder="e.g. 120" required></div>
+                    <div class="form-group"><label class="form-label">Blood Pressure (BP) - Bottom Number</label><input class="form-input" type="number" name="diastolic" placeholder="e.g. 80" required></div>
                 </div>
                 <div class="grid-2">
-                    <div class="form-group"><label class="form-label">Glucose (mg/dL)</label><input class="form-input" type="number" step="0.1" name="glucose" placeholder="e.g. 95.5" required></div>
-                    <div class="form-group"><label class="form-label">SpO2 (%)</label><input class="form-input" type="number" name="spo2" placeholder="e.g. 98" required></div>
+                    <div class="form-group"><label class="form-label">Blood Sugar</label><input class="form-input" type="number" step="0.1" name="glucose" placeholder="e.g. 95.5" required></div>
+                    <div class="form-group"><label class="form-label">Oxygen Level (SpO2 %)</label><input class="form-input" type="number" name="spo2" placeholder="e.g. 98" required></div>
                 </div>
-                <div class="form-group"><label class="form-label">Heart Rate (BPM)</label><input class="form-input" type="number" name="heart_rate" placeholder="e.g. 72" required></div>
+                <div class="form-group"><label class="form-label">Heart Rate</label><input class="form-input" type="number" name="heart_rate" placeholder="e.g. 72" required></div>
                 
                 <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
                     <button type="button" onclick="hideLogVitalsModal()" class="btn btn-secondary">Cancel</button>
@@ -836,9 +837,9 @@ new Chart(ctxV, {
     data: {
         labels: vitalsHistory.map(v => v.label),
         datasets: [
-            { label: 'Systolic', data: vitalsHistory.map(v => v.systolic), borderColor: '#0EB8A0', tension: 0.3 },
-            { label: 'Diastolic', data: vitalsHistory.map(v => v.diastolic), borderColor: '#22C55E', tension: 0.3 },
-            { label: 'Glucose', data: vitalsHistory.map(v => v.glucose), borderColor: '#F59E0B', tension: 0.3 },
+            { label: 'Blood Pressure (BP) - Top Number', data: vitalsHistory.map(v => v.systolic), borderColor: '#0EB8A0', tension: 0.3 },
+            { label: 'Blood Pressure (BP) - Bottom Number', data: vitalsHistory.map(v => v.diastolic), borderColor: '#22C55E', tension: 0.3 },
+            { label: 'Blood Sugar', data: vitalsHistory.map(v => v.glucose), borderColor: '#F59E0B', tension: 0.3 },
             { label: 'Heart Rate', data: vitalsHistory.map(v => v.heart_rate), borderColor: '#EF4444', tension: 0.3 }
         ]
     },

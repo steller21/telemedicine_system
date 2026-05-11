@@ -16,6 +16,10 @@ $friend_stmt->bind_param("i", $friend_id);
 $friend_stmt->execute();
 $friend = $friend_stmt->get_result()->fetch_assoc();
 
+$mark_read = $conn->prepare("UPDATE messages SET is_read = 1 WHERE sender_id = ? AND sender_role = 'patient' AND receiver_id = ? AND receiver_role = 'patient' AND is_read = 0");
+$mark_read->bind_param("ii", $friend_id, $user_id);
+$mark_read->execute();
+
 // Handle Send
 if (isset($_POST['send'])) {
     $msg = trim($_POST['message']);

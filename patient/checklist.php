@@ -581,6 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <thead>
                                 <tr>
                                     <th>Medicine</th>
+                                    <th>Prescription</th>
                                     <th>Dosage</th>
                                     <th>Status</th>
                                     <th>Action</th>
@@ -601,13 +602,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     <?php if($m['is_prescribed']): ?>
                                                         <div style="font-size:0.7rem;color:var(--teal);font-weight:500;">Prescribed by Dr. <?php echo htmlspecialchars($m['doctor_name']); ?></div>
                                                     <?php endif; ?>
-                                                    <?php if(!empty($m['prescription_file'])): ?>
-                                                        <div style="font-size:0.7rem;margin-top:4px;">
-                                                            <a href="<?php echo htmlspecialchars($m['prescription_file']); ?>" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:500;">View attached prescription</a>
-                                                        </div>
-                                                    <?php endif; ?>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td>
+                                            <?php if(!empty($m['prescription_file'])): ?>
+                                                <a href="<?php echo htmlspecialchars($m['prescription_file']); ?>" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:500;">View prescription</a>
+                                            <?php else: ?>
+                                                <span style="color:var(--muted);">-</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td><span style="color:var(--muted);"><?php echo htmlspecialchars($m['dosage']); ?></span></td>
                                         <td>

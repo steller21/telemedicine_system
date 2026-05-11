@@ -154,7 +154,51 @@ if (isset($_POST['update_profile'])) {
  * SECTION 4: DATA FETCHING
  * Retrieves active friends and pending requests from the database for display in the UI.
  */
-$friends = $conn->query("SELECT p.id, p.name, p.email, 'patient' AS role FROM friends f JOIN patients p ON ((f.user_id1 = $user_id AND f.user_role1='patient' AND f.user_id2 = p.id AND f.user_role2='patient') OR (f.user_id2 = $user_id AND f.user_role2='patient' AND f.user_id1 = p.id AND f.user_role1='patient'))");
+$friends = $conn->query("
+    SELECT
+        p.id,
+        p.name,
+        p.email,
+        'patient' AS role,
+        COALESCE(unread.unread_count, 0) AS unread_count,
+        latest.last_message_at
+    FROM friends f
+    JOIN patients p
+        ON (
+            (f.user_id1 = $user_id AND f.user_role1='patient' AND f.user_id2 = p.id AND f.user_role2='patient')
+            OR
+            (f.user_id2 = $user_id AND f.user_role2='patient' AND f.user_id1 = p.id AND f.user_role1='patient')
+        )
+    LEFT JOIN (
+        SELECT sender_id, COUNT(*) AS unread_count
+        FROM messages
+        WHERE receiver_id = $user_id AND receiver_role = 'patient' AND sender_role = 'patient' AND is_read = 0
+        GROUP BY sender_id
+    ) unread ON unread.sender_id = p.id
+    LEFT JOIN (
+        SELECT
+            CASE
+                WHEN sender_id = $user_id AND sender_role = 'patient' THEN receiver_id
+                ELSE sender_id
+            END AS friend_id,
+            MAX(created_at) AS last_message_at
+        FROM messages
+        WHERE
+            (
+                (sender_id = $user_id AND sender_role = 'patient' AND receiver_role = 'patient')
+                OR
+                (receiver_id = $user_id AND receiver_role = 'patient' AND sender_role = 'patient')
+            )
+        GROUP BY CASE
+            WHEN sender_id = $user_id AND sender_role = 'patient' THEN receiver_id
+            ELSE sender_id
+        END
+    ) latest ON latest.friend_id = p.id
+    ORDER BY
+        CASE WHEN COALESCE(unread.unread_count, 0) > 0 THEN 0 ELSE 1 END,
+        latest.last_message_at DESC,
+        p.name ASC
+");
 $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr JOIN patients p ON fr.sender_id = p.id WHERE fr.receiver_id='$user_id' AND fr.receiver_role='patient' AND fr.sender_role='patient' AND fr.status='pending'");
 ?>
 <!DOCTYPE html>
@@ -245,6 +289,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         <?php 
         $notifCount = getPendingNotificationCount($conn, $user_id);
         $notifications = getPendingNotifications($conn, $user_id);
+        $chatNotifCount = count(array_filter($notifications, static fn($notification) => ($notification['type'] ?? '') === 'chat'));
         ?>
     <?php 
     $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
@@ -257,9 +302,9 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
-        <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
+        <a href="friends.php" class="notif-btn" style="text-decoration:none; position:relative; <?php echo $chatNotifCount > 0 ? 'background:rgba(14,184,160,0.16); border-color:var(--teal); color:var(--teal); box-shadow:0 0 0 3px rgba(14,184,160,0.12);' : ''; ?>" title="Friends & Chat">💬<?php if($chatNotifCount > 0): ?><span class="notif-badge"><?php echo $chatNotifCount; ?></span><?php endif; ?></a>
         <div style="position:relative; display:inline-block;">
-            <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
+            <div class="notif-btn" id="notifBtn" style="<?php echo $notifCount > 0 ? 'background:rgba(14,184,160,0.16); border-color:var(--teal); color:var(--teal); box-shadow:0 0 0 3px rgba(14,184,160,0.12);' : ''; ?>">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
             <div class="notif-dropdown" id="notifDropdown">
                 <div class="notif-list">
                     <?php if(!empty($notifications)): foreach($notifications as $n): ?>
@@ -270,7 +315,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
                                 <?php if($n['type'] === 'info'): ?>
                                     <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
                                 <?php elseif($n['type'] === 'chat'): ?>
-                                    <a href="chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
+                                    <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
                                 <?php else: ?>
                                 <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
                                 <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
@@ -355,12 +400,22 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
                 <h2>💬 Your Conversations</h2>
                 <?php if($friends->num_rows > 0): ?>
                     <?php while($f = $friends->fetch_assoc()): ?>
-                        <div class="item-row">
+                        <div class="item-row" style="<?php echo ((int)($f['unread_count'] ?? 0) > 0) ? 'background:rgba(14,184,160,0.08);border:1px solid rgba(14,184,160,0.25);padding:14px 16px;border-radius:14px;margin-bottom:10px;' : ''; ?>">
                             <div>
                                 <strong><?php echo htmlspecialchars($f['name']); ?></strong> 
                                 <span style="font-size: 0.7rem; background: var(--navy-mid); padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
                                     <?php echo $f['role']; ?>
                                 </span>
+                                <?php if ((int)($f['unread_count'] ?? 0) > 0): ?>
+                                    <span style="font-size:0.72rem;background:rgba(14,184,160,0.16);color:var(--teal);padding:3px 8px;border-radius:999px;font-weight:700;margin-left:8px;">
+                                        <?php echo (int)$f['unread_count']; ?> new
+                                    </span>
+                                <?php endif; ?>
+                                <?php if (!empty($f['last_message_at'])): ?>
+                                    <div style="font-size:0.78rem;color:var(--muted);margin-top:6px;">
+                                        Last message: <?php echo date('M d, h:i A', strtotime($f['last_message_at'])); ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                             <a href="chat.php?friend_id=<?php echo $f['id']; ?>" class="btn btn-primary">Message</a>
                         </div>

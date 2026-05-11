@@ -763,7 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <main class="main">
-    <div class="page-header"><h1>Book Appointment</h1><p>Select a doctor, choose your preferred date, and pick an available time slot.</p></div>
+    <div class="page-header"><h1>Book Appointment</h1><p>Select a doctor, choose your preferred date, and pick a time slot.</p></div>
     <div class="booking-shell">
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type; ?>"><?php echo $msg_type=='success'?'✅':'❌'; ?> <?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
         <div class="booking-grid">
@@ -794,7 +794,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                max="<?php echo date('Y-m-d', strtotime('+30 days')); ?>" required>
                         <small class="helper-text">Working hours: 9:30 AM - 4:30 PM (30-min appointments with breaks)</small>
                     </div>
-                    <button class="btn btn-primary btn-full" type="submit">🔍 Show Available Slots</button>
                 </form>
                 <div class="selection-summary">
                     <div class="summary-pill">Specialization: <strong id="selectedSpecializationLabel"><?php echo $selected_specialization !== '' ? htmlspecialchars($selected_specialization) : 'Not selected'; ?></strong></div>
@@ -1011,26 +1010,6 @@ document.addEventListener('DOMContentLoaded', function() {
     specializationSelect.addEventListener('change', function() {
         doctorInput.value = '';
         filterDoctors();
-    });
-
-    selectionForm.addEventListener('submit', function(event) {
-        if (specializationSelect.value === '') {
-            specializationSelect.setCustomValidity('Please select a specialization');
-            specializationSelect.reportValidity();
-            event.preventDefault();
-            return;
-        }
-
-        specializationSelect.setCustomValidity('');
-
-        if (doctorInput.value === '') {
-            event.preventDefault();
-            const firstVisibleDoctor = Array.from(doctorCards).find(card => !card.classList.contains('is-hidden'));
-            if (firstVisibleDoctor) {
-                firstVisibleDoctor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            alert('Please select a doctor from the matching specialization list.');
-        }
     });
 
     filterDoctors();
