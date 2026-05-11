@@ -79,9 +79,62 @@ ORDER BY a.appointment_date ASC");
  
 $upcoming_appts_count = $conn->query("SELECT COUNT(*) as c FROM appointments WHERE patient_id='$patient_id' AND DATE_ADD(appointment_date, INTERVAL 2 HOUR) >= NOW()")->fetch_assoc()['c'];
  
-$pending_meds = $conn->query("SELECT COUNT(*) as c FROM checklist_items ci 
-JOIN checklists cl ON ci.checklist_id=cl.id 
-WHERE cl.patient_id='$patient_id' AND ci.status='pending'")->fetch_assoc()['c'];
+$pending_meds = 0;
+$today = date('Y-m-d');
+$checklist_stmt = $conn->prepare("SELECT id FROM checklists WHERE patient_id = ? LIMIT 1");
+if ($checklist_stmt) {
+    $checklist_stmt->bind_param("i", $patient_id);
+    $checklist_stmt->execute();
+    $checklist_result = $checklist_stmt->get_result();
+
+    if ($checklist_result && $checklist_result->num_rows > 0) {
+        $checklist_id = (int) $checklist_result->fetch_assoc()['id'];
+        $items_stmt = $conn->prepare("SELECT id, start_date, duration_days, times_of_day FROM checklist_items WHERE checklist_id = ?");
+
+        if ($items_stmt) {
+            $items_stmt->bind_param("i", $checklist_id);
+            $items_stmt->execute();
+            $items_result = $items_stmt->get_result();
+
+            while ($item = $items_result->fetch_assoc()) {
+                $start_date = !empty($item['start_date']) ? $item['start_date'] : $today;
+                $duration_days = isset($item['duration_days']) ? (int) $item['duration_days'] : 0;
+
+                if ($start_date > $today) {
+                    continue;
+                }
+
+                if ($duration_days > 0) {
+                    $end_date = date('Y-m-d', strtotime($start_date . ' +' . ($duration_days - 1) . ' days'));
+                    if ($end_date < $today) {
+                        continue;
+                    }
+                }
+
+                $time_slots = array_filter(array_map('trim', explode(',', (string) ($item['times_of_day'] ?? ''))));
+                foreach ($time_slots as $slot) {
+                    $intake_stmt = $conn->prepare("SELECT status FROM medicine_intakes WHERE checklist_item_id = ? AND scheduled_date = ? AND time_of_day_slot = ?");
+                    if ($intake_stmt) {
+                        $item_id = (int) $item['id'];
+                        $intake_stmt->bind_param("iss", $item_id, $today, $slot);
+                        $intake_stmt->execute();
+                        $intake_result = $intake_stmt->get_result();
+
+                        if (!$intake_result || $intake_result->num_rows === 0) {
+                            $pending_meds++;
+                            continue;
+                        }
+
+                        $intake = $intake_result->fetch_assoc();
+                        if (($intake['status'] ?? 'pending') !== 'completed') {
+                            $pending_meds++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
  
 $monitors     = $conn->query("SELECT COUNT(*) as c FROM patient_monitors WHERE patient_id='$patient_id'")->fetch_assoc()['c'];
  

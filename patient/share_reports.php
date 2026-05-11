@@ -68,10 +68,11 @@ if (isset($_GET['reject'])) {
 // Fetch pending requests
 $pending_requests = null;
 $stmt = $conn->prepare("
-    SELECT rsr.*, r.report_name, u.name as requester_name, u.gender
+    SELECT rsr.*, r.report_name, COALESCE(p.name, d.name) as requester_name, p.gender
     FROM report_share_requests rsr
     JOIN reports r ON rsr.report_id = r.id
-    JOIN users u ON rsr.requester_id = u.id
+    LEFT JOIN patients p ON rsr.requester_role = 'monitor' AND rsr.requester_id = p.id
+    LEFT JOIN doctors d ON rsr.requester_role = 'doctor' AND rsr.requester_id = d.id
     WHERE rsr.patient_id = ? AND rsr.status = 'pending'
     ORDER BY rsr.created_at DESC
 ");
@@ -84,10 +85,11 @@ if ($stmt) {
 // Fetch accepted shares
 $accepted_shares = null;
 $stmt = $conn->prepare("
-    SELECT rsr.*, r.report_name, u.name as requester_name
+    SELECT rsr.*, r.report_name, COALESCE(p.name, d.name) as requester_name
     FROM report_share_requests rsr
     JOIN reports r ON rsr.report_id = r.id
-    JOIN users u ON rsr.requester_id = u.id
+    LEFT JOIN patients p ON rsr.requester_role = 'monitor' AND rsr.requester_id = p.id
+    LEFT JOIN doctors d ON rsr.requester_role = 'doctor' AND rsr.requester_id = d.id
     WHERE rsr.patient_id = ? AND rsr.status = 'accepted'
     ORDER BY rsr.created_at DESC
 ");
@@ -381,7 +383,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($report['report_type']); ?> · <?php echo date('d M Y', strtotime($report['created_at'])); ?></div>
                         </div>
                     </div>
-                    <a href="<?php echo htmlspecialchars('../' . $report['file_path']); ?>" target="_blank" class="btn btn-secondary btn-sm">👁️ View</a>
+                    <div style="display:flex; gap: 8px;">
+                        <a href="<?php echo htmlspecialchars('../' . $report['file_path']); ?>" target="_blank" class="btn btn-secondary btn-sm">👁️ View</a>
+                        <a href="delete_report.php?id=<?php echo $report['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this report? This action cannot be undone.');">🗑️ Delete</a>
+                    </div>
                 </div>
             <?php endwhile; ?>
         <?php else: ?>

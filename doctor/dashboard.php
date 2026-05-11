@@ -289,7 +289,7 @@ body {
         <div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link active"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
-        <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
+        <a href="patients.php" class="nav-link"><span class="nav-icon">👥</span> Patients</a>
         <a href="account.php" class="nav-link"><span class="nav-icon">👤</span> My Account</a>
     </div>
 </aside>
@@ -297,8 +297,11 @@ body {
 <!-- MAIN -->
 <main class="main">
     <?php 
-        $notifCount = getPendingNotificationCount($conn, $doctor_id);
-        $notifications = getPendingNotifications($conn, $doctor_id);
+        $notifications = array_values(array_filter(
+            getPendingNotifications($conn, $doctor_id),
+            static fn($notification) => in_array($notification['type'], ['info', 'report'], true)
+        ));
+        $notifCount = count($notifications);
         ?>
             <?php 
     $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture FROM doctors WHERE id = ?");
@@ -332,7 +335,6 @@ body {
     }
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
-        <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
         <div style="position:relative; display:inline-block;">
             <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
             <div class="notif-dropdown" id="notifDropdown">
@@ -344,8 +346,6 @@ body {
                             <div class="notif-actions">
                                 <?php if($n['type'] === 'info'): ?>
                                     <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
-                                <?php elseif($n['type'] === 'chat'): ?>
-                                    <a href="chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
                                 <?php else: ?>
                                 <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
                                 <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
@@ -422,13 +422,13 @@ body {
             <div style="font-size:1.8rem;">📅</div>
             <div><div style="font-weight:600;margin-bottom:2px;color:white;">Appointments</div><div style="font-size:0.8rem;color:var(--muted);">View your schedule</div></div>
         </a>
-        <a href="monitor_patients.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+        <a href="patients.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">👥</div>
-            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Monitor Patients</div><div style="font-size:0.8rem;color:var(--muted);">Track patient progress</div></div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Patients</div><div style="font-size:0.8rem;color:var(--muted);">View people in your care</div></div>
         </a>
-        <a href="friends.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
+        <a href="account.php" class="card card-sm" style="text-decoration:none;display:flex;align-items:center;gap:14px;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform=''">
             <div style="font-size:1.8rem;">💬</div>
-            <div><div style="font-weight:600;margin-bottom:2px;color:white;">Messages</div><div style="font-size:0.8rem;color:var(--muted);">Chat with patients</div></div>
+            <div><div style="font-weight:600;margin-bottom:2px;color:white;">My Account</div><div style="font-size:0.8rem;color:var(--muted);">Manage your profile</div></div>
         </a>
     </div>
 </main>
@@ -593,3 +593,9 @@ window.addEventListener('click', function(e){
 </script>
 </body>
 </html>
+
+
+
+
+
+

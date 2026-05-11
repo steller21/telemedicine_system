@@ -10,12 +10,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 $doctor_id = intval($_SESSION['user_id']);
 
 // Get all patients that have appointments with this doctor
-$patients = $conn->query("SELECT DISTINCT u.id, u.name, u.gender, COUNT(a.id) as total_appointments 
-FROM users u
-JOIN appointments a ON u.id = a.patient_id
+$patients = $conn->query("SELECT DISTINCT p.id, p.name, COUNT(a.id) as total_appointments 
+FROM patients p
+JOIN appointments a ON p.id = a.patient_id
 WHERE a.doctor_id = '$doctor_id'
-GROUP BY u.id, u.name, u.gender
-ORDER BY u.name ASC");
+GROUP BY p.id, p.name
+ORDER BY p.name ASC");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -278,23 +278,19 @@ tbody tr:hover { background: rgba(14,184,160,0.05); }
                     <thead>
                         <tr>
                             <th>Patient Name</th>
-                            <th>Gender</th>
                             <th>Total Appointments</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php while ($row = $patients->fetch_assoc()): 
-                            $title = ($row['gender'] === 'male') ? 'Mr.' : (($row['gender'] === 'female') ? 'Mrs.' : 'Mx.');
-                        ?>
+                        <?php while ($row = $patients->fetch_assoc()): ?>
                             <tr>
                                 <td>
                                     <div style="display:flex;align-items:center;gap:12px;">
                                         <div style="width:38px;height:38px;background:var(--teal-glow);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;">👤</div>
-                                        <strong><?php echo htmlspecialchars($title . ' ' . $row['name']); ?></strong>
+                                        <strong><?php echo htmlspecialchars('Mr. ' . $row['name']); ?></strong>
                                     </div>
                                 </td>
-                                <td><?php echo ucfirst($row['gender']); ?></td>
                                 <td><?php echo $row['total_appointments']; ?></td>
                                 <td><a href="add_prescription.php?patient_id=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">💊 Prescribe</a></td>
                             </tr>
@@ -334,3 +330,4 @@ setTimeout(() => {
 </script>
 </body>
 </html>
+

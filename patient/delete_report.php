@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') {
 $patient_id = $_SESSION['user_id'];
 
 if (!isset($_GET['id'])) {
-    header("Location: dashboard.php?error=No report ID provided");
+    header("Location: upload_report.php?error=No report ID provided");
     exit;
 }
 
@@ -24,7 +24,7 @@ $result = $stmt->get_result();
 $report = $result->fetch_assoc();
 
 if (!$report) {
-    header("Location: dashboard.php?error=Report not found or unauthorized");
+    header("Location: upload_report.php?error=Report not found or unauthorized");
     exit;
 }
 
@@ -39,7 +39,7 @@ $delete_stmt = $conn->prepare("DELETE FROM reports WHERE id=? AND patient_id=?")
 $delete_stmt->bind_param("ii", $report_id, $patient_id);
 $delete_stmt->execute();
 
-// Redirect back to dashboard
-header("Location: dashboard.php?success=Report deleted successfully");
+// Redirect back to upload_report.php
+header("Location: upload_report.php?success=Report deleted successfully");
 exit;
 ?>

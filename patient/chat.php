@@ -4,27 +4,31 @@ require_once("../config/db.php");
 if (!isset($_SESSION['user_id']) || !isset($_GET['friend_id'])) { header("Location: friends.php"); exit; }
 
 $user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['role'] ?? 'patient';
 $friend_id = intval($_GET['friend_id']);
 
 // Verify Friendship
-$check = $conn->query("SELECT id FROM friends WHERE (user_id1=$user_id AND user_id2=$friend_id) OR (user_id1=$friend_id AND user_id2=$user_id)");
+$check = $conn->query("SELECT id FROM friends WHERE ((user_id1=$user_id AND user_role1='patient' AND user_id2=$friend_id AND user_role2='patient') OR (user_id1=$friend_id AND user_role1='patient' AND user_id2=$user_id AND user_role2='patient'))");
 if ($check->num_rows == 0) { die("You are not friends with this user."); }
 
-$friend = $conn->query("SELECT name FROM users WHERE id=$friend_id")->fetch_assoc();
+$friend_stmt = $conn->prepare("SELECT name FROM patients WHERE id = ?");
+$friend_stmt->bind_param("i", $friend_id);
+$friend_stmt->execute();
+$friend = $friend_stmt->get_result()->fetch_assoc();
 
 // Handle Send
 if (isset($_POST['send'])) {
     $msg = trim($_POST['message']);
     if (!empty($msg)) {
-        $stmt = $conn->prepare("INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)");
-        $stmt->bind_param("iis", $user_id, $friend_id, $msg);
+        $stmt = $conn->prepare("INSERT INTO messages (sender_id, sender_role, receiver_id, receiver_role, message) VALUES (?, ?, ?, 'patient', ?)");
+        $stmt->bind_param("isis", $user_id, $user_role, $friend_id, $msg);
         $stmt->execute();
     }
     header("Location: chat.php?friend_id=$friend_id"); exit;
 }
 
 // Fetch Messages
-$messages = $conn->query("SELECT * FROM messages WHERE (sender_id=$user_id AND receiver_id=$friend_id) OR (sender_id=$friend_id AND receiver_id=$user_id) ORDER BY created_at ASC");
+$messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND sender_role='patient' AND receiver_id=$friend_id AND receiver_role='patient') OR (sender_id=$friend_id AND sender_role='patient' AND receiver_id=$user_id AND receiver_role='patient')) ORDER BY created_at ASC");
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><title>Chat with <?php echo htmlspecialchars($friend['name']); ?></title>

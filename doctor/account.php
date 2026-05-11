@@ -178,9 +178,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
         <div class="nav-section">
             <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
             <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
-            <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Patients</a>
-            <a href="monitor_requests.php" class="nav-link"><span class="nav-icon">🔔</span> Requests</a>
-            <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Messages</a>
+            <a href="patients.php" class="nav-link"><span class="nav-icon">👥</span> Patients</a>
             <a href="account.php" class="nav-link active"><span class="nav-icon">👤</span> My Account</a>
         </div>
     </aside>
@@ -331,3 +329,4 @@ function previewProfilePicture(event) {
 </script>
 </body>
 </html>
+

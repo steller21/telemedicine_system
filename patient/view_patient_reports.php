@@ -11,50 +11,25 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
 
-// Handle report share request
-if (isset($_POST['request_report'])) {
-    $report_id = intval($_POST['report_id']);
-    $patient_id = intval($_POST['patient_id']);
-    
-    // Check if request already exists
-    $check = $conn->prepare("SELECT id FROM report_share_requests WHERE report_id=? AND requester_id=? AND status IN ('pending', 'accepted')");
-    if ($check) {
-        $check->bind_param("ii", $report_id, $user_id);
-        $check->execute();
-        $result = $check->get_result();
-        
-        if ($result->num_rows === 0) {
-            // Create new request
-            $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, ?, 'pending')");
-            if ($insert) {
-                $insert->bind_param("iis", $report_id, $patient_id, $role);
-                $insert->execute();
-            }
-        }
-    }
-    header("Location: view_patient_reports.php?patient_id=$patient_id");
-    exit;
-}
-
 // Get monitored/patients list
 if ($role === 'doctor') {
     $patients_query = "
-        SELECT DISTINCT u.id, u.name, u.gender
+        SELECT DISTINCT p.id, p.name, p.gender
         FROM patient_monitors pm
-        JOIN users u ON pm.patient_id = u.id
+        JOIN patients p ON pm.patient_id = p.id
         WHERE pm.monitor_id = ?
         UNION
-        SELECT DISTINCT u.id, u.name, u.gender
-        FROM users u
-        WHERE u.id IN (
+        SELECT DISTINCT p.id, p.name, p.gender
+        FROM patients p
+        WHERE p.id IN (
             SELECT patient_id FROM checklists WHERE created_by = ?
         )
     ";
 } else {
     $patients_query = "
-        SELECT DISTINCT u.id, u.name, u.gender
+        SELECT DISTINCT p.id, p.name, p.gender
         FROM patient_monitors pm
-        JOIN users u ON pm.patient_id = u.id
+        JOIN patients p ON pm.patient_id = p.id
         WHERE pm.monitor_id = ?
     ";
 }
@@ -69,11 +44,24 @@ if ($stmt) {
 // If viewing specific patient's reports
 $patient_reports = null;
 $patient_name = null;
+$has_monitor_access = false;
 if (isset($_GET['patient_id'])) {
     $patient_id = intval($_GET['patient_id']);
     
+    $access_stmt = $conn->prepare("
+        SELECT 1
+        FROM patient_monitors
+        WHERE patient_id = ? AND monitor_id = ?
+        LIMIT 1
+    ");
+    if ($access_stmt) {
+        $access_stmt->bind_param("ii", $patient_id, $user_id);
+        $access_stmt->execute();
+        $has_monitor_access = $access_stmt->get_result()->num_rows > 0;
+    }
+
     // Get patient name
-    $pstmt = $conn->prepare("SELECT name FROM users WHERE id=?");
+    $pstmt = $conn->prepare("SELECT name FROM patients WHERE id=?");
     if ($pstmt) {
         $pstmt->bind_param("i", $patient_id);
         $pstmt->execute();
@@ -84,7 +72,7 @@ if (isset($_GET['patient_id'])) {
     // Get all reports from this patient with share status
     $rstmt = $conn->prepare("
         SELECT r.*,
-               CASE WHEN rsr.id IS NOT NULL AND rsr.status='accepted' THEN 1 ELSE 0 END as has_access,
+               CASE WHEN ? = 1 OR (rsr.id IS NOT NULL AND rsr.status='accepted') THEN 1 ELSE 0 END as has_access,
                CASE WHEN rsr.id IS NOT NULL AND rsr.status='pending' THEN 1 ELSE 0 END as pending_request,
                rsr.id as request_id
         FROM reports r
@@ -93,10 +81,49 @@ if (isset($_GET['patient_id'])) {
         ORDER BY r.created_at DESC
     ");
     if ($rstmt) {
-        $rstmt->bind_param("ii", $user_id, $patient_id);
+        $has_monitor_access_int = $has_monitor_access ? 1 : 0;
+        $rstmt->bind_param("iii", $has_monitor_access_int, $user_id, $patient_id);
         $rstmt->execute();
         $patient_reports = $rstmt->get_result();
     }
+}
+
+// Handle report share request
+if (isset($_POST['request_report'])) {
+    $report_id = intval($_POST['report_id']);
+    $patient_id = intval($_POST['patient_id']);
+
+    $access_stmt = $conn->prepare("
+        SELECT 1
+        FROM patient_monitors
+        WHERE patient_id = ? AND monitor_id = ?
+        LIMIT 1
+    ");
+    if ($access_stmt) {
+        $access_stmt->bind_param("ii", $patient_id, $user_id);
+        $access_stmt->execute();
+        $has_monitor_access = $access_stmt->get_result()->num_rows > 0;
+    }
+
+    if (!$has_monitor_access) {
+        $check = $conn->prepare("SELECT id FROM report_share_requests WHERE report_id=? AND requester_id=? AND status IN ('pending', 'accepted')");
+        if ($check) {
+            $check->bind_param("ii", $report_id, $user_id);
+            $check->execute();
+            $result = $check->get_result();
+            
+            if ($result->num_rows === 0) {
+                $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, ?, 'pending')");
+                if ($insert) {
+                    $insert->bind_param("iiis", $report_id, $patient_id, $user_id, $role);
+                    $insert->execute();
+                }
+            }
+        }
+    }
+
+    header("Location: view_patient_reports.php?patient_id=$patient_id");
+    exit;
 }
 ?>
 <!DOCTYPE html><html lang="en"><head>

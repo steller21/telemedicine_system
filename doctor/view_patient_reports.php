@@ -11,50 +11,20 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
 
-// Handle report share request
-if (isset($_POST['request_report'])) {
-    $report_id = intval($_POST['report_id']);
-    $patient_id = intval($_POST['patient_id']);
-    
-    // Check if request already exists
-    $check = $conn->prepare("SELECT id FROM report_share_requests WHERE report_id=? AND requester_id=? AND status IN ('pending', 'accepted')");
-    if ($check) {
-        $check->bind_param("ii", $report_id, $user_id);
-        $check->execute();
-        $result = $check->get_result();
-        
-        if ($result->num_rows === 0) {
-            // Create new request
-            $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, ?, 'pending')");
-            if ($insert) {
-                $insert->bind_param("iis", $report_id, $patient_id, $role);
-                $insert->execute();
-            }
-        }
-    }
-    header("Location: view_patient_reports.php?patient_id=$patient_id");
-    exit;
-}
-
-// Get monitored/patients list
+// Get accessible patients
 if ($role === 'doctor') {
     $patients_query = "
-        SELECT DISTINCT u.id, u.name, u.gender
-        FROM patient_monitors pm
-        JOIN users u ON pm.patient_id = u.id
-        WHERE pm.monitor_id = ?
-        UNION
-        SELECT DISTINCT u.id, u.name, u.gender
-        FROM users u
-        WHERE u.id IN (
-            SELECT patient_id FROM checklists WHERE created_by = ?
-        )
+        SELECT DISTINCT p.id, p.name, p.gender
+        FROM patients p
+        LEFT JOIN appointments a ON p.id = a.patient_id AND a.doctor_id = ?
+        LEFT JOIN checklists c ON p.id = c.patient_id AND c.created_by = ?
+        WHERE a.id IS NOT NULL OR c.id IS NOT NULL
     ";
 } else {
     $patients_query = "
-        SELECT DISTINCT u.id, u.name, u.gender
+        SELECT DISTINCT p.id, p.name, p.gender
         FROM patient_monitors pm
-        JOIN users u ON pm.patient_id = u.id
+        JOIN patients p ON pm.patient_id = p.id
         WHERE pm.monitor_id = ?
     ";
 }
@@ -71,9 +41,9 @@ $patient_reports = null;
 $patient_name = null;
 if (isset($_GET['patient_id'])) {
     $patient_id = intval($_GET['patient_id']);
-    
+
     // Get patient name
-    $pstmt = $conn->prepare("SELECT name FROM users WHERE id=?");
+    $pstmt = $conn->prepare("SELECT name FROM patients WHERE id=?");
     if ($pstmt) {
         $pstmt->bind_param("i", $patient_id);
         $pstmt->execute();
@@ -97,6 +67,29 @@ if (isset($_GET['patient_id'])) {
         $rstmt->execute();
         $patient_reports = $rstmt->get_result();
     }
+}
+
+if (isset($_POST['request_report'])) {
+    $report_id = intval($_POST['report_id']);
+    $patient_id = intval($_POST['patient_id']);
+
+    $check = $conn->prepare("SELECT id FROM report_share_requests WHERE report_id=? AND requester_id=? AND status IN ('pending', 'accepted')");
+    if ($check) {
+        $check->bind_param("ii", $report_id, $user_id);
+        $check->execute();
+        $result = $check->get_result();
+        
+        if ($result->num_rows === 0) {
+            $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, ?, 'pending')");
+            if ($insert) {
+                $insert->bind_param("iiis", $report_id, $patient_id, $user_id, $role);
+                $insert->execute();
+            }
+        }
+    }
+
+    header("Location: view_patient_reports.php?patient_id=$patient_id");
+    exit;
 }
 ?>
 <!DOCTYPE html><html lang="en"><head>
@@ -158,7 +151,7 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
     </div>
     <div class="nav-section"><div class="nav-section-label"><?php echo ucfirst($role); ?></div>
         <?php if ($role === 'doctor'): ?>
-            <a href="monitor_patients.php" class="nav-link"><span style="font-size:1.1rem;">💊</span> Monitor Patients</a>
+            <a href="patients.php" class="nav-link"><span style="font-size:1.1rem;">💊</span> Patients</a>
             <a href="view_patient_reports.php" class="nav-link active"><span style="font-size:1.1rem;">📄</span> Patient Reports</a>
         <?php else: ?>
             <a href="monitor_view.php" class="nav-link"><span style="font-size:1.1rem;">👥</span> Monitored Patients</a>
@@ -169,8 +162,11 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
 <main class="main">
     <div style="display:flex;justify-content:flex-end;margin-bottom:20px;">
         <?php 
-        $notifCount = getPendingNotificationCount($conn, $user_id);
-        $notifications = getPendingNotifications($conn, $user_id);
+        $notifications = array_values(array_filter(
+            getPendingNotifications($conn, $user_id),
+            static fn($notification) => in_array($notification['type'], ['info', 'report'], true)
+        ));
+        $notifCount = count($notifications);
         ?>
         <?php 
     $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture FROM doctors WHERE id = ?");
@@ -183,7 +179,6 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
-        <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
         <div style="position:relative; display:inline-block;">
         <div class="notif-btn" id="notifBtn">🔔 <?php if($notifCount > 0): ?><span class="notif-badge"><?php echo $notifCount; ?></span><?php endif; ?></div>
         <div class="notif-dropdown" id="notifDropdown">
@@ -195,8 +190,6 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
                         <div class="notif-actions">
                             <?php if($n['type'] === 'info'): ?>
                                 <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">Dismiss</a>
-                            <?php elseif($n['type'] === 'chat'): ?>
-                                <a href="../patient/chat.php?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept" style="width:100%; text-align:center;">💬 Open Chat</a>
                             <?php else: ?>
                             <a href="?<?php echo $n['param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-accept">✅ Accept</a>
                             <a href="?<?php echo $n['reject_param']; ?>=<?php echo $n['id']; ?>" class="notif-btn-sm notif-btn-reject">❌ Reject</a>
@@ -309,3 +302,7 @@ themeToggle.addEventListener('click', () => {
 });
 </script>
 </body></html>
+
+
+
+

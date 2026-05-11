@@ -114,39 +114,18 @@ if (isset($_SESSION['user_id'])) {
                     header("Location: $current_page?error=Invalid request"); 
                     exit;
                 }
-                
-                // Determine patient and monitor based on requester's role
-                $role_check = $conn->prepare("SELECT role FROM users WHERE id=?");
-                if ($role_check) {
-                    $role_check->bind_param("i", $requester_id);
-                    $role_check->execute();
-                    $role_result = $role_check->get_result()->fetch_assoc();
-                    $requester_role = $role_result['role'] ?? 'patient';
-                    
-                    // If requester is patient: they want to be monitored
-                    // patient_id = requester, monitor_id = current_user
-                    // If requester is doctor/other: they want to monitor
-                    // patient_id = current_user, monitor_id = requester
-                    if ($requester_role === 'patient') {
-                        $p_id = $requester_id;
-                        $m_id = $current_user_id;
-                    } else {
-                        $p_id = $current_user_id;
-                        $m_id = $requester_id;
-                    }
 
-                    $ins = $conn->prepare("INSERT IGNORE INTO patient_monitors (patient_id, monitor_id) VALUES (?, ?)");
-                    if ($ins) {
-                        $ins->bind_param("ii", $p_id, $m_id);
-                        if ($ins->execute()) {
-                            $upd = $conn->prepare("UPDATE monitor_requests SET status='accepted' WHERE id=?");
-                            if ($upd) {
-                                $upd->bind_param("i", $request_id);
-                                $upd->execute();
-                            }
-                        } else {
-                            error_log("Failed to insert into patient_monitors: " . $ins->error);
+                $ins = $conn->prepare("INSERT IGNORE INTO patient_monitors (patient_id, monitor_id) VALUES (?, ?)");
+                if ($ins) {
+                    $ins->bind_param("ii", $requester_id, $current_user_id);
+                    if ($ins->execute()) {
+                        $upd = $conn->prepare("UPDATE monitor_requests SET status='accepted' WHERE id=?");
+                        if ($upd) {
+                            $upd->bind_param("i", $request_id);
+                            $upd->execute();
                         }
+                    } else {
+                        error_log("Failed to insert into patient_monitors: " . $ins->error);
                     }
                 }
             }
@@ -157,7 +136,7 @@ if (isset($_SESSION['user_id'])) {
         if (isset($_GET['reject'])) {
             $request_id = intval($_GET['reject']);
             // Get requester info before deleting to notify them
-            $stmt = $conn->prepare("SELECT mr.requester_id, u.name as responder_name FROM monitor_requests mr JOIN users u ON mr.requested_user_id = u.id WHERE mr.id=? AND mr.requested_user_id=?");
+            $stmt = $conn->prepare("SELECT mr.requester_id, p.name as responder_name FROM monitor_requests mr JOIN patients p ON mr.requested_user_id = p.id WHERE mr.id=? AND mr.requested_user_id=?");
             $stmt->bind_param("ii", $request_id, $current_user_id);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -231,7 +210,7 @@ if (isset($_SESSION['user_id'])) {
                     $sender_id = $row['sender_id'];
                     $conn->query("UPDATE friend_requests SET status='accepted' WHERE id=$req_id");
                     $u1 = min($current_user_id, $sender_id); $u2 = max($current_user_id, $sender_id);
-                    $conn->query("INSERT IGNORE INTO friends (user_id1, user_id2) VALUES ($u1, $u2)");
+                    $conn->query("INSERT IGNORE INTO friends (user_id1, user_role1, user_id2, user_role2) VALUES ($u1, 'patient', $u2, 'patient')");
                     header("Location: $current_page?success=Friend request accepted!"); exit;
                 }
             }
@@ -269,7 +248,7 @@ function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = 
 
     error_log("sendMonitorRequest: Attempting to find user with email: $target_email");
 
-    // Find target user — check patients first, then doctors
+    // Find target user among patients only
     // Patients can only request to monitor other patients
     $stmt = $conn->prepare("SELECT id, 'patient' as role FROM patients WHERE email = ?");
     if (!$stmt) {
@@ -282,16 +261,6 @@ function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = 
         return ["type" => "error", "msg" => "Database error. Please try again."];
     }
     $user = $stmt->get_result()->fetch_assoc();
-
-    // If not found in patients, try doctors (for doctor-to-patient monitoring)
-    if (!$user) {
-        $stmt2 = $conn->prepare("SELECT id, 'doctor' as role FROM doctors WHERE email = ?");
-        if ($stmt2) {
-            $stmt2->bind_param("s", $target_email);
-            $stmt2->execute();
-            $user = $stmt2->get_result()->fetch_assoc();
-        }
-    }
 
     if (!$user) {
         error_log("sendMonitorRequest: User not found with email: $target_email");
@@ -419,9 +388,9 @@ function getPendingNotifications($conn, $user_id) {
 
     // Monitor requests
     $stmt1 = $conn->prepare("
-        SELECT mr.id, u.name as sender_name, u.gender, 'monitor' as type, mr.created_at 
+        SELECT mr.id, p.name as sender_name, p.gender, 'monitor' as type, mr.created_at 
         FROM monitor_requests mr 
-        JOIN users u ON mr.requester_id = u.id 
+        JOIN patients p ON mr.requester_id = p.id 
         WHERE mr.requested_user_id = ? AND mr.status = 'pending'
         ORDER BY mr.created_at DESC
     ");
@@ -445,10 +414,11 @@ function getPendingNotifications($conn, $user_id) {
 
     // Report share requests
     $stmt2 = $conn->prepare("
-        SELECT rsr.id, u.name as sender_name, r.report_name, rsr.created_at 
+        SELECT rsr.id, COALESCE(p.name, d.name) as sender_name, r.report_name, rsr.created_at 
         FROM report_share_requests rsr 
-        JOIN users u ON rsr.requester_id = u.id 
         JOIN reports r ON rsr.report_id = r.id
+        LEFT JOIN patients p ON rsr.requester_role = 'monitor' AND rsr.requester_id = p.id
+        LEFT JOIN doctors d ON rsr.requester_role = 'doctor' AND rsr.requester_id = d.id
         WHERE rsr.patient_id = ? AND rsr.status = 'pending'
         ORDER BY rsr.created_at DESC
     ");
@@ -473,7 +443,7 @@ function getPendingNotifications($conn, $user_id) {
     $stmt3 = $conn->prepare("
         SELECT fr.id, u.name as sender_name, fr.created_at 
         FROM friend_requests fr 
-        JOIN users u ON fr.sender_id = u.id 
+        JOIN users u ON fr.sender_id = u.id AND fr.sender_role = u.role
         WHERE fr.receiver_id = ? AND fr.status = 'pending'
         ORDER BY fr.created_at DESC
     ");
@@ -498,7 +468,7 @@ function getPendingNotifications($conn, $user_id) {
     $stmt5 = $conn->prepare("
         SELECT m.sender_id, u.name as sender_name, COUNT(*) as msg_count 
         FROM messages m 
-        JOIN users u ON m.sender_id = u.id 
+        JOIN users u ON m.sender_id = u.id AND m.sender_role = u.role
         WHERE m.receiver_id = ? AND m.is_read = 0 
         GROUP BY m.sender_id
     ");

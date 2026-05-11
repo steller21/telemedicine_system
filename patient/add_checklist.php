@@ -2,11 +2,28 @@
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id']; $msg=""; $msg_type="";
+
+function convertDurationToDays($duration_value, $duration_unit) {
+    $duration_value = max(1, (int) $duration_value);
+    if ($duration_unit === 'weeks') {
+        return $duration_value * 7;
+    }
+    if ($duration_unit === 'months') {
+        $start = new DateTime();
+        $end = (clone $start)->modify('+' . $duration_value . ' month');
+        return max(1, (int) $start->diff($end)->days);
+    }
+    return $duration_value;
+}
+
 if (isset($_POST['add'])) {
     $medicine_names = $_POST['medicine_name'] ?? [];
     $dosages = $_POST['dosage'] ?? [];
     $all_times = $_POST['medicine_time'] ?? [];
+    $duration_values = $_POST['duration_value'] ?? [];
+    $duration_units = $_POST['duration_unit'] ?? [];
     $images = $_FILES['image'] ?? [];
+    $prescription_file = $_FILES['prescription_file'] ?? null;
 
     $success_count = 0;
     $error_occurred = false;
@@ -14,57 +31,85 @@ if (isset($_POST['add'])) {
     if (empty($medicine_names) || empty($medicine_names[0])) {
         $msg = "Please add at least one medicine entry.";
         $msg_type = "error";
+    } elseif (!$prescription_file || empty($prescription_file['name'])) {
+        $msg = "Prescription attachment is required.";
+        $msg_type = "error";
     } else {
-        $stmt_checklist = $conn->prepare("SELECT id FROM checklists WHERE patient_id = ? LIMIT 1");
-        $stmt_checklist->bind_param("i", $patient_id);
-        $stmt_checklist->execute();
-        $res_checklist = $stmt_checklist->get_result();
-        
-        if ($res_checklist->num_rows > 0) {
-            $checklist_id = $res_checklist->fetch_assoc()['id'];
+        $shared_prescription_target = null;
+        $prescription_dir = "../uploads/prescriptions/";
+        if (!is_dir($prescription_dir)) mkdir($prescription_dir, 0777, true);
+
+        $prescription_ext = strtolower(pathinfo($prescription_file['name'], PATHINFO_EXTENSION));
+        $allowed_prescription_ext = ['pdf', 'jpg', 'jpeg', 'png'];
+
+        if (in_array($prescription_ext, $allowed_prescription_ext, true)) {
+            $shared_prescription_target = $prescription_dir . time() . "_rx_shared." . $prescription_ext;
+            if (!move_uploaded_file($prescription_file['tmp_name'], $shared_prescription_target)) {
+                $msg = "Unable to upload the prescription attachment.";
+                $msg_type = "error";
+            }
         } else {
-            $cs = $conn->prepare("INSERT INTO checklists (patient_id, created_by, title) VALUES (?, ?, 'Daily Medicines')");
-            $cs->bind_param("ii", $patient_id, $patient_id);
-            $cs->execute();
-            $checklist_id = $cs->insert_id;
+            $msg = "Prescription attachment must be a PDF or image file.";
+            $msg_type = "error";
         }
 
-        foreach ($medicine_names as $index => $medicine_name) {
-            $medicine_name = trim($medicine_name);
-            $dosage = trim($dosages[$index]);
-            $times_for_medicine = isset($all_times[$index]) ? $all_times[$index] : [];
-            $time_str = implode(",", $times_for_medicine);
-            $target = null;
-
-            if (isset($images['name'][$index]) && !empty($images['name'][$index])) {
-                $upload_dir = "../uploads/medicines/";
-                if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-                $target = $upload_dir . time() . "_" . basename($images['name'][$index]);
-                move_uploaded_file($images['tmp_name'][$index], $target);
+        if ($msg_type === "error") {
+            $error_occurred = true;
+        } else {
+            $stmt_checklist = $conn->prepare("SELECT id FROM checklists WHERE patient_id = ? LIMIT 1");
+            $stmt_checklist->bind_param("i", $patient_id);
+            $stmt_checklist->execute();
+            $res_checklist = $stmt_checklist->get_result();
+            
+            if ($res_checklist->num_rows > 0) {
+                $checklist_id = $res_checklist->fetch_assoc()['id'];
+            } else {
+                $cs = $conn->prepare("INSERT INTO checklists (patient_id, created_by, title) VALUES (?, ?, 'Daily Medicines')");
+                $cs->bind_param("ii", $patient_id, $patient_id);
+                $cs->execute();
+                $checklist_id = $cs->insert_id;
             }
 
-            if (!empty($medicine_name) && !empty($dosage) && !empty($time_str)) {
-                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, medicine_image, dosage, times_of_day, status) VALUES (?, ?, ?, ?, ?, 'pending')");
-                $is->bind_param("issss", $checklist_id, $medicine_name, $target, $dosage, $time_str); // Changed due_time to times_of_day
-                
-                if ($is->execute()) {
-                    $success_count++;
-                } else {
-                    error_log("Error inserting medicine: " . $is->error);
-                    $error_occurred = true;
+            foreach ($medicine_names as $index => $medicine_name) {
+                $medicine_name = trim($medicine_name);
+                $dosage = trim($dosages[$index]);
+                $times_for_medicine = isset($all_times[$index]) ? $all_times[$index] : [];
+                $duration_value = isset($duration_values[$index]) ? (int) $duration_values[$index] : 1;
+                $duration_unit = $duration_units[$index] ?? 'days';
+                $duration_days = convertDurationToDays($duration_value, $duration_unit);
+                $time_str = implode(",", $times_for_medicine);
+                $target = null;
+
+                if (isset($images['name'][$index]) && !empty($images['name'][$index])) {
+                    $upload_dir = "../uploads/medicines/";
+                    if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+                    $target = $upload_dir . time() . "_" . basename($images['name'][$index]);
+                    move_uploaded_file($images['tmp_name'][$index], $target);
+                }
+
+                if (!empty($medicine_name) && !empty($dosage) && !empty($time_str)) {
+                    $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, medicine_image, dosage, times_of_day, status, duration_days, prescription_file) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)");
+                    $is->bind_param("issssis", $checklist_id, $medicine_name, $target, $dosage, $time_str, $duration_days, $shared_prescription_target);
+                    
+                    if ($is->execute()) {
+                        $success_count++;
+                    } else {
+                        error_log("Error inserting medicine: " . $is->error);
+                        $error_occurred = true;
+                    }
                 }
             }
-        }
 
-        if ($success_count > 0) {
-            $msg = "$success_count medicine(s) added successfully!";
-            $msg_type = "success";
-        } elseif (!$error_occurred) {
-            $msg = "No valid medicine entries were provided.";
-            $msg_type = "error";
-        } else {
-            $msg = "An error occurred while adding some medicines.";
-            $msg_type = "error";
+            if ($success_count > 0) {
+                $msg = "$success_count medicine(s) added successfully!";
+                $msg_type = "success";
+            } elseif (!$error_occurred) {
+                $msg = "No valid medicine entries were provided.";
+                $msg_type = "error";
+            } else {
+                $msg = "An error occurred while adding some medicines.";
+                $msg_type = "error";
+            }
         }
     }
 }
@@ -460,6 +505,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type;?>"><?php echo $msg_type=='success'?'✅':'❌';?> <?php echo htmlspecialchars($msg);?> <?php if($msg_type=='success'): ?><a href="checklist.php" style="color:inherit;font-weight:700;">View checklist →</a><?php endif;?></div><?php endif;?>
         <div class="card">
             <form method="POST" enctype="multipart/form-data" id="add-medicine-form">
+                <div class="form-group">
+                    <label class="form-label">Prescription Attachment</label>
+                    <input class="form-input" type="file" name="prescription_file" accept=".pdf,image/*" style="padding:10px;" required>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-top:6px;">This one prescription will be attached to all medicines added below.</div>
+                </div>
                 <div id="medicine-entries-container">
                     <div class="medicine-entry" id="medicine-entry-0">
                         <h3 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;margin-bottom:15px;color:var(--white);">Medicine #1</h3>
@@ -490,6 +540,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <input type="checkbox" id="night-0" name="medicine_time[0][]" value="night" style="width:18px;height:18px;cursor:pointer;">
                                     <label for="night-0" style="cursor:pointer;margin:0;font-size:0.9rem;color:var(--white);">🌙 Night (8-11 PM)</label>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Duration</label>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                                <input class="form-input" type="number" name="duration_value[]" min="1" value="1" required>
+                                <select class="form-input" name="duration_unit[]">
+                                    <option value="days">Days</option>
+                                    <option value="weeks">Weeks</option>
+                                    <option value="months">Months</option>
+                                </select>
                             </div>
                         </div>
                         <div class="form-group">

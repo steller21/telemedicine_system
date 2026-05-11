@@ -1,21 +1,166 @@
 <?php
+date_default_timezone_set('Asia/Kolkata');
 session_start(); require_once("../config/db.php");
+require_once("monitor_core.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id'];
-$doctors = $conn->query("SELECT * FROM doctors ORDER BY name ASC");
+$doctor_result = $conn->query("SELECT * FROM doctors ORDER BY specialization ASC, name ASC");
+$doctor_list = [];
+$doctors_by_id = [];
+$specializations = [];
+
+if ($doctor_result) {
+    while ($doctor = $doctor_result->fetch_assoc()) {
+        $doctor['specialization'] = trim($doctor['specialization'] ?? '') ?: 'General Practice';
+        $doctor_list[] = $doctor;
+        $doctors_by_id[(int) $doctor['id']] = $doctor;
+        $specializations[$doctor['specialization']] = $doctor['specialization'];
+    }
+}
+
+ksort($specializations, SORT_NATURAL | SORT_FLAG_CASE);
+$specializations = array_values($specializations);
 $msg = ""; $msg_type = "";
-if (isset($_POST['book'])) {
-    $doctor_id = intval($_POST['doctor_id']); $date = $_POST['date'];
-    $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date) VALUES (?, ?, ?)");
-    if ($stmt !== false) {
-        $stmt->bind_param("iis", $patient_id, $doctor_id, $date);
-        if ($stmt->execute()) { 
-            header("Location: dashboard.php?success=Appointment booked successfully!");
-            exit; 
+
+// Function to get valid appointment slots for a given date
+function getValidAppointmentSlots($date) {
+    $slots = [];
+    $start_time = strtotime($date . ' 09:30:00');
+    $end_time = strtotime($date . ' 16:30:00'); // 4:30 PM
+    
+    // Special breaks (times when no appointments can be booked)
+    $special_breaks = [
+        [strtotime($date . ' 10:40:00'), strtotime($date . ' 10:50:00')], // 10:40-10:50
+        [strtotime($date . ' 12:30:00'), strtotime($date . ' 13:30:00')]  // 12:30-1:30
+    ];
+    
+    $current_time = $start_time;
+    
+    while ($current_time < $end_time) {
+        $slot_end = $current_time + (30 * 60); // 30 minutes
+        
+        // Check if this slot overlaps with any special break
+        $is_valid = true;
+        foreach ($special_breaks as $break) {
+            if (($current_time < $break[1] && $slot_end > $break[0])) {
+                $is_valid = false;
+                break;
+            }
         }
-        else { $msg = "Could not book appointment. Please try again."; $msg_type = "error"; }
+        
+        if ($is_valid && $slot_end <= $end_time) {
+            $slots[] = date('Y-m-d H:i:s', $current_time);
+        }
+        
+        // Move to next slot (30 min call + 5 min break = 35 min)
+        $current_time += (35 * 60);
+    }
+    
+    return $slots;
+}
+
+// Function to check if a slot is already booked
+function isSlotBooked($doctor_id, $slot_datetime) {
+    global $conn;
+    $stmt = $conn->prepare("SELECT id FROM appointments WHERE doctor_id = ? AND appointment_date = ?");
+    $stmt->bind_param("is", $doctor_id, $slot_datetime);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->num_rows > 0;
+}
+
+// Function to check if the patient already has an appointment at the exact same time
+function isPatientBusy($patient_id, $slot_datetime) {
+    global $conn;
+    $stmt = $conn->prepare("SELECT id FROM appointments WHERE patient_id = ? AND appointment_date = ?");
+    $stmt->bind_param("is", $patient_id, $slot_datetime);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->num_rows > 0;
+}
+
+function isSlotStillBookable($slot_datetime) {
+    $slot_timestamp = strtotime($slot_datetime);
+    return $slot_timestamp > (time() + 3600);
+}
+
+// Get selected date (default to today if not set)
+$today_date = date('Y-m-d');
+$selected_date = isset($_GET['date']) ? $_GET['date'] : $today_date;
+$selected_doctor = isset($_GET['doctor']) ? intval($_GET['doctor']) : null;
+$selected_specialization = trim($_GET['specialization'] ?? '');
+$is_selected_date_past = ($selected_date < $today_date);
+
+if ($selected_doctor && isset($doctors_by_id[$selected_doctor])) {
+    $selected_specialization = $doctors_by_id[$selected_doctor]['specialization'];
+}
+
+if ($selected_specialization !== '' && !in_array($selected_specialization, $specializations, true)) {
+    $selected_specialization = '';
+}
+
+if ($selected_doctor && !isset($doctors_by_id[$selected_doctor])) {
+    $selected_doctor = null;
+}
+
+// Get available slots for selected date and doctor
+$available_slots = [];
+if ($selected_doctor && isset($doctors_by_id[$selected_doctor]) && !$is_selected_date_past) {
+    $all_slots = getValidAppointmentSlots($selected_date);
+    foreach ($all_slots as $slot) {
+        if (isSlotStillBookable($slot) && !isSlotBooked($selected_doctor, $slot)) {
+            $available_slots[] = $slot;
+        }
+    }
+} elseif ($selected_doctor && $is_selected_date_past && $msg === "") {
+    $msg = "Past dates are not available for booking.";
+    $msg_type = "warning";
+}
+
+if (isset($_POST['book'])) {
+    $doctor_id = intval($_POST['doctor_id']);
+    $slot_datetime = $_POST['slot_datetime'];
+    
+    // Validate that the appointment date is at least 1 hour in the future
+    $appointment_datetime = new DateTime($slot_datetime);
+    $current_datetime = new DateTime();
+    $min_datetime = clone $current_datetime;
+    $min_datetime->modify('+1 hour');
+    
+    if ($appointment_datetime->format('Y-m-d') < $current_datetime->format('Y-m-d')) {
+        $msg = "You cannot book an appointment for a past date.";
+        $msg_type = "error";
+    } elseif ($appointment_datetime <= $min_datetime) {
+        $msg = "Please select a date and time at least 1 hour from now.";
+        $msg_type = "error";
     } else {
-        $msg = "Database error. Please try again."; $msg_type = "error";
+        // Check if slot is still available
+        if (isSlotBooked($doctor_id, $slot_datetime)) {
+            $msg = "This time slot is no longer available. Please select a different time.";
+            $msg_type = "error";
+        } elseif (isPatientBusy($patient_id, $slot_datetime)) {
+            $msg = "You already have another appointment at this time. Please select a different slot.";
+            $msg_type = "error";
+        } else {
+            $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, status) VALUES (?, ?, ?, 'booked')");
+            if ($stmt !== false) {
+                $stmt->bind_param("iis", $patient_id, $doctor_id, $slot_datetime);
+                if ($stmt->execute()) { 
+                    $doctor_name = $doctors_by_id[$doctor_id]['name'] ?? 'Doctor';
+                    $formatted_time = date('D, d M Y · h:i A', strtotime($slot_datetime));
+                    
+                    // Notify patient and doctor about the confirmed appointment.
+                    addUserNotification($conn, $patient_id, "Appointment Booked", "Your appointment with Dr. $doctor_name on $formatted_time has been booked successfully.");
+                    addUserNotification($conn, $doctor_id, "New Appointment", "A new appointment has been booked by " . ($_SESSION['name'] ?? 'a patient') . " for $formatted_time.");
+
+                    header("Location: dashboard.php?success=Appointment booked successfully!");
+                    exit; 
+                }
+                else { $msg = "Could not book appointment. Please try again."; $msg_type = "error"; }
+            } else {
+                $msg = "Database error. Please try again."; $msg_type = "error";
+            }
+        }
     }
 }
 ?>
@@ -155,6 +300,30 @@ body {
     margin-bottom: 4px;
 }
 .page-header p { color: var(--muted); font-size: 0.9rem; }
+
+.booking-shell {
+    width: min(1180px, 100%);
+}
+
+.booking-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--white);
+}
+
+.section-subtitle {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 18px;
+}
  
 /* CARDS */
 .card {
@@ -217,6 +386,13 @@ body {
 }
 .form-input::placeholder { color: var(--muted-dim); }
 .form-select option { background: var(--navy-mid); }
+
+.helper-text {
+    color: var(--muted-dim);
+    font-size: 0.8rem;
+    margin-top: 4px;
+    display: block;
+}
  
 /* BUTTONS */
 .btn {
@@ -245,7 +421,44 @@ body {
 .btn-danger:hover { background: rgba(239,68,68,0.25); }
 .btn-sm { padding: 7px 16px; font-size: 0.8rem; }
 .btn-full { width: 100%; justify-content: center; }
- 
+
+/* SLOT BUTTONS */
+.slot-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--navy-light);
+    color: var(--white);
+    text-align: center;
+    transition: all 0.2s;
+    min-height: 48px;
+}
+.slot-btn:hover:not(.disabled):not(.selected) {
+    background: var(--teal-glow);
+    border-color: rgba(14,184,160,0.5);
+    color: var(--teal);
+    transform: translateY(-1px);
+}
+.slot-btn.selected {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: var(--navy);
+    box-shadow: 0 0 15px rgba(14,184,160,0.4);
+}
+.slot-btn.disabled {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+    color: var(--muted-dim);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* TABLE */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); }
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
@@ -292,12 +505,155 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 .empty-state .empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.5; }
 .empty-state h3 { font-size: 1rem; font-weight: 600; margin-bottom: 8px; color: var(--white); }
 .empty-state p { font-size: 0.85rem; }
+
+.doctor-list {
+    display: grid;
+    gap: 14px;
+    max-height: 460px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.doctor-option {
+    position: relative;
+}
+
+.doctor-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.doctor-card {
+    display: block;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(14,184,160,0.05), rgba(14,184,160,0.01));
+    cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.doctor-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(14,184,160,0.35);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+}
+
+.doctor-radio:checked + .doctor-card {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(14,184,160,0.14);
+    background: linear-gradient(180deg, rgba(14,184,160,0.14), rgba(14,184,160,0.04));
+}
+
+.doctor-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.doctor-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--white);
+    margin-bottom: 4px;
+}
+
+.doctor-specialization {
+    color: var(--teal);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.doctor-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--teal-glow);
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.doctor-meta {
+    display: grid;
+    gap: 8px;
+}
+
+.doctor-meta-item {
+    color: var(--muted);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.doctor-option.is-hidden,
+.doctor-empty.is-hidden {
+    display: none;
+}
+
+.doctor-empty {
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--muted);
+    background: rgba(255,255,255,0.02);
+}
+
+.doctor-empty strong {
+    display: block;
+    color: var(--white);
+    margin-bottom: 8px;
+}
+
+.selection-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.summary-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--navy-light);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.summary-pill strong {
+    color: var(--white);
+}
+
+.slots-card {
+    margin-top: 24px;
+}
  
 /* RESPONSIVE */
+@media (max-width: 980px) {
+    .booking-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .doctor-list {
+        max-height: none;
+    }
+}
+
 @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
     .main { margin-left: 0; max-width: 100%; padding: 20px; }
     .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .card { padding: 22px; }
 }
 </style>
 </head><body><div class="page-bg"></div><div class="layout">
@@ -407,26 +763,131 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <main class="main">
-    <div class="page-header"><h1>Book Appointment</h1><p>Schedule a consultation with a doctor.</p></div>
-    <div style="max-width:560px;">
+    <div class="page-header"><h1>Book Appointment</h1><p>Select a doctor, choose your preferred date, and pick an available time slot.</p></div>
+    <div class="booking-shell">
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type; ?>"><?php echo $msg_type=='success'?'✅':'❌'; ?> <?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
+        <div class="booking-grid">
         <div class="card">
-            <form method="POST">
-                <div class="form-group">
-                    <label class="form-label">Select Doctor</label>
-                    <select class="form-select" name="doctor_id" required>
-                        <option value="">— Choose a doctor —</option>
-                        <?php while($row = $doctors->fetch_assoc()): ?>
-                        <option value="<?php echo $row['id']; ?>">Dr. <?php echo htmlspecialchars($row['name']); ?></option>
-                        <?php endwhile; ?>
-                    </select>
+            <!-- Step 1: Select Doctor and Date -->
+            <div id="step1" style="display: block;">
+                <h3 class="section-title">Step 1: Select Specialization & Date</h3>
+                <p class="section-subtitle">Choose a specialization first, then pick a doctor from the matching list on the right.</p>
+                <form method="GET" id="selectionForm">
+                    <input type="hidden" name="doctor" id="doctorInput" value="<?php echo $selected_doctor ? $selected_doctor : ''; ?>">
+                    <div class="form-group">
+                        <label class="form-label">Select Specialization</label>
+                        <select class="form-select" name="specialization" id="specializationSelect" required>
+                            <option value="">— PLEASE SELECT A SPECIALIZATION —</option>
+                            <?php foreach ($specializations as $specialization): ?>
+                            <option value="<?php echo htmlspecialchars($specialization); ?>" <?php echo ($selected_specialization === $specialization) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($specialization); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="helper-text">Doctors will appear on the right after you choose a specialization.</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Select Date</label>
+                        <input class="form-input" type="date" name="date" id="dateSelect" 
+                               value="<?php echo $selected_date; ?>" 
+                               min="<?php echo date('Y-m-d'); ?>" 
+                               max="<?php echo date('Y-m-d', strtotime('+30 days')); ?>" required>
+                        <small class="helper-text">Working hours: 9:30 AM - 4:30 PM (30-min appointments with breaks)</small>
+                    </div>
+                    <button class="btn btn-primary btn-full" type="submit">🔍 Show Available Slots</button>
+                </form>
+                <div class="selection-summary">
+                    <div class="summary-pill">Specialization: <strong id="selectedSpecializationLabel"><?php echo $selected_specialization !== '' ? htmlspecialchars($selected_specialization) : 'Not selected'; ?></strong></div>
+                    <div class="summary-pill">Doctor: <strong id="selectedDoctorLabel"><?php echo ($selected_doctor && isset($doctors_by_id[$selected_doctor])) ? htmlspecialchars('Dr. ' . $doctors_by_id[$selected_doctor]['name']) : 'Not selected'; ?></strong></div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Date & Time</label>
-                    <input class="form-input" type="datetime-local" name="date" required>
+            </div>
+        </div>
+
+            <div class="card">
+                <h3 class="section-title">Available Doctors</h3>
+                <p class="section-subtitle">Only doctors from the chosen specialization are shown here.</p>
+                <div class="doctor-list" id="doctorList">
+                    <?php foreach ($doctor_list as $doctor): ?>
+                    <?php
+                        $doctor_id = (int) $doctor['id'];
+                        $doctor_name = trim($doctor['name'] ?? 'Unnamed Doctor');
+                        $doctor_specialization = $doctor['specialization'];
+                        $doctor_affiliations = trim($doctor['affiliations'] ?? '');
+                        $doctor_bio = trim($doctor['bio'] ?? '');
+                        $doctor_bio_preview = strlen($doctor_bio) > 110 ? substr($doctor_bio, 0, 107) . '...' : $doctor_bio;
+                        $doctor_initials = strtoupper(substr($doctor_name, 0, 1));
+                    ?>
+                    <div class="doctor-option<?php echo ($selected_specialization !== '' && $doctor_specialization !== $selected_specialization) ? ' is-hidden' : ''; ?>" data-specialization="<?php echo htmlspecialchars($doctor_specialization); ?>">
+                        <input class="doctor-radio" type="radio" name="doctor_option" id="doctor-option-<?php echo $doctor_id; ?>" value="<?php echo $doctor_id; ?>" data-name="<?php echo htmlspecialchars($doctor_name); ?>" data-specialization="<?php echo htmlspecialchars($doctor_specialization); ?>" <?php echo ($selected_doctor === $doctor_id) ? 'checked' : ''; ?>>
+                        <label class="doctor-card" for="doctor-option-<?php echo $doctor_id; ?>">
+                            <div class="doctor-card-top">
+                                <div>
+                                    <div class="doctor-name">Dr. <?php echo htmlspecialchars($doctor_name); ?></div>
+                                    <div class="doctor-specialization"><?php echo htmlspecialchars($doctor_specialization); ?></div>
+                                </div>
+                                <div class="doctor-avatar"><?php echo htmlspecialchars($doctor_initials); ?></div>
+                            </div>
+                            <div class="doctor-meta">
+                                <div class="doctor-meta-item"><?php echo $doctor_affiliations !== '' ? htmlspecialchars($doctor_affiliations) : 'Available for online consultation and appointment booking.'; ?></div>
+                                <div class="doctor-meta-item"><?php echo $doctor_bio !== '' ? htmlspecialchars($doctor_bio_preview) : 'Choose this doctor to view open time slots for your selected date.'; ?></div>
+                            </div>
+                        </label>
+                    </div>
+                    <?php endforeach; ?>
+                    <div class="doctor-empty<?php echo $selected_specialization !== '' ? ' is-hidden' : ''; ?>" id="doctorPrompt">
+                        <strong>Select a specialization</strong>
+                        Pick a specialization on the left to see matching doctors here.
+                    </div>
+                    <div class="doctor-empty is-hidden" id="doctorEmptyState">
+                        <strong>No doctors found</strong>
+                        There are no doctors available in this specialization right now.
+                    </div>
                 </div>
-                <button class="btn btn-primary btn-full" type="submit" name="book">📅 Confirm Appointment</button>
-            </form>
+            </div>
+        </div>
+
+        <div class="card slots-card" id="step2" style="display: <?php echo $selected_doctor ? 'block' : 'none'; ?>;">
+            <!-- Step 2: Select Time Slot -->
+                <h3 class="section-title">Step 2: Select Time Slot</h3>
+                <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
+                    Available slots for <?php echo date('l, F j, Y', strtotime($selected_date)); ?> with<?php echo ($selected_doctor && isset($doctors_by_id[$selected_doctor])) ? ' Dr. ' . htmlspecialchars($doctors_by_id[$selected_doctor]['name']) : ''; ?>
+                </p>
+
+                <?php if (!empty($available_slots)): ?>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                        <?php foreach ($available_slots as $slot): 
+                            $slot_time = strtotime($slot);
+                            $end_time = $slot_time + (30 * 60);
+                            $time_display = date('g:i A', $slot_time) . ' - ' . date('g:i A', $end_time);
+                            
+                            // Check if slot is in the past (less than 1 hour from now)
+                            $current_time = time();
+                            $is_past = ($slot_time <= ($current_time + 3600));
+                        ?>
+                        <button class="slot-btn <?php echo $is_past ? 'disabled' : ''; ?>" 
+                                type="button" 
+                                data-slot="<?php echo $slot; ?>"
+                                <?php echo $is_past ? 'disabled' : ''; ?>>
+                            <?php echo $time_display; ?>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
+                    
+                    <form method="POST" id="bookingForm" style="display: none;">
+                        <input type="hidden" name="doctor_id" value="<?php echo $selected_doctor; ?>">
+                        <input type="hidden" name="slot_datetime" id="selectedSlot">
+                        <button class="btn btn-primary btn-full" type="submit" name="book" id="confirmBtn">
+                            📅 Confirm Appointment
+                        </button>
+                    </form>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <div class="empty-icon">📅</div>
+                        <h3>No Available Slots</h3>
+                        <p>All appointment slots for this date are booked or unavailable.</p>
+                        <a href="?date=<?php echo date('Y-m-d', strtotime($selected_date . ' +1 day')); ?>&doctor=<?php echo $selected_doctor; ?>&specialization=<?php echo urlencode($selected_specialization); ?>" class="btn btn-secondary">Try Next Day</a>
+                    </div>
+                <?php endif; ?>
         </div>
     </div>
 </main></div></body></html>
@@ -457,4 +918,121 @@ if (window.history.replaceState) {
     url.searchParams.delete('error');
     window.history.replaceState({}, document.title, url);
 }
+
+// Slot selection functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const slotButtons = document.querySelectorAll('.slot-btn:not(.disabled)');
+    const bookingForm = document.getElementById('bookingForm');
+    const selectedSlotInput = document.getElementById('selectedSlot');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const selectionForm = document.getElementById('selectionForm');
+    const specializationSelect = document.getElementById('specializationSelect');
+    const doctorInput = document.getElementById('doctorInput');
+    const doctorCards = document.querySelectorAll('.doctor-option');
+    const doctorRadios = document.querySelectorAll('.doctor-radio');
+    const doctorPrompt = document.getElementById('doctorPrompt');
+    const doctorEmptyState = document.getElementById('doctorEmptyState');
+    const selectedDoctorLabel = document.getElementById('selectedDoctorLabel');
+    const selectedSpecializationLabel = document.getElementById('selectedSpecializationLabel');
+    const dateSelect = document.getElementById('dateSelect');
+    let selectedSlot = null;
+
+    slotButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Remove selected class from all buttons
+            slotButtons.forEach(btn => btn.classList.remove('selected'));
+            
+            // Add selected class to clicked button
+            this.classList.add('selected');
+            
+            // Store selected slot
+            selectedSlot = this.dataset.slot;
+            selectedSlotInput.value = selectedSlot;
+            
+            // Show booking form
+            bookingForm.style.display = 'block';
+            
+            // Scroll to confirm button
+            confirmBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    });
+
+    function updateDoctorSummary() {
+        const checkedDoctor = document.querySelector('.doctor-radio:checked');
+        selectedDoctorLabel.textContent = checkedDoctor ? `Dr. ${checkedDoctor.dataset.name}` : 'Not selected';
+    }
+
+    function filterDoctors() {
+        const selectedSpecialization = specializationSelect.value;
+        let visibleCount = 0;
+        let selectedDoctorStillVisible = false;
+
+        doctorCards.forEach(card => {
+            const matches = selectedSpecialization !== '' && card.dataset.specialization === selectedSpecialization;
+            card.classList.toggle('is-hidden', !matches);
+            if (matches) {
+                visibleCount += 1;
+                const radio = card.querySelector('.doctor-radio');
+                if (radio && radio.checked) {
+                    selectedDoctorStillVisible = true;
+                }
+            }
+        });
+
+        if (!selectedDoctorStillVisible) {
+            doctorInput.value = '';
+            doctorRadios.forEach(radio => {
+                radio.checked = false;
+            });
+        }
+
+        doctorPrompt.classList.toggle('is-hidden', selectedSpecialization !== '');
+        doctorEmptyState.classList.toggle('is-hidden', !(selectedSpecialization !== '' && visibleCount === 0));
+        selectedSpecializationLabel.textContent = selectedSpecialization || 'Not selected';
+        updateDoctorSummary();
+    }
+
+    doctorRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            doctorInput.value = this.value;
+            selectedDoctorLabel.textContent = `Dr. ${this.dataset.name}`;
+            // Automatically refresh slots when a doctor is picked
+            selectionForm.submit();
+        });
+    });
+
+    dateSelect.addEventListener('change', function() {
+        // Automatically refresh slots if a doctor is already selected and date changes
+        if (doctorInput.value !== '') {
+            selectionForm.submit();
+        }
+    });
+
+    specializationSelect.addEventListener('change', function() {
+        doctorInput.value = '';
+        filterDoctors();
+    });
+
+    selectionForm.addEventListener('submit', function(event) {
+        if (specializationSelect.value === '') {
+            specializationSelect.setCustomValidity('Please select a specialization');
+            specializationSelect.reportValidity();
+            event.preventDefault();
+            return;
+        }
+
+        specializationSelect.setCustomValidity('');
+
+        if (doctorInput.value === '') {
+            event.preventDefault();
+            const firstVisibleDoctor = Array.from(doctorCards).find(card => !card.classList.contains('is-hidden'));
+            if (firstVisibleDoctor) {
+                firstVisibleDoctor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            alert('Please select a doctor from the matching specialization list.');
+        }
+    });
+
+    filterDoctors();
+});
 </script>

@@ -52,7 +52,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS messages (
 if (isset($_POST['send_request'])) {
     $email = trim($_POST['email']);
     // Find the user ID associated with the provided email
-    $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id FROM patients WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -63,13 +63,13 @@ if (isset($_POST['send_request'])) {
             $msg = "You cannot add yourself."; $msg_type = "error";
         } else {
             // Check if a request or friendship already exists between the two users
-            $check = $conn->prepare("SELECT id FROM friend_requests WHERE (sender_id=? AND receiver_id=?) OR (sender_id=? AND receiver_id=?)");
+            $check = $conn->prepare("SELECT id FROM friend_requests WHERE (sender_id=? AND sender_role='patient' AND receiver_id=? AND receiver_role='patient') OR (sender_id=? AND sender_role='patient' AND receiver_id=? AND receiver_role='patient')");
             $check->bind_param("iiii", $user_id, $target_id, $target_id, $user_id);
             $check->execute();
             if ($check->get_result()->num_rows > 0) {
                 $msg = "A request or friendship already exists."; $msg_type = "warning";
             } else {
-                $ins = $conn->prepare("INSERT INTO friend_requests (sender_id, receiver_id) VALUES (?, ?)");
+                $ins = $conn->prepare("INSERT INTO friend_requests (sender_id, sender_role, receiver_id, receiver_role) VALUES (?, 'patient', ?, 'patient')");
                 $ins->bind_param("ii", $user_id, $target_id);
                 $ins->execute();
                 $msg = "Friend request sent to $email!"; $msg_type = "success";
@@ -81,7 +81,7 @@ if (isset($_POST['send_request'])) {
 if (isset($_GET['accept'])) {
     $req_id = intval($_GET['accept']);
     // Verify the request exists and is pending for the current user
-    $stmt = $conn->prepare("SELECT sender_id FROM friend_requests WHERE id=? AND receiver_id=? AND status='pending'");
+    $stmt = $conn->prepare("SELECT sender_id FROM friend_requests WHERE id=? AND receiver_id=? AND receiver_role='patient' AND status='pending'");
     $stmt->bind_param("ii", $req_id, $user_id);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -91,7 +91,7 @@ if (isset($_GET['accept'])) {
         $conn->query("UPDATE friend_requests SET status='accepted' WHERE id=$req_id");
         // Create a bidirectional friendship record
         $u1 = min($user_id, $sender_id); $u2 = max($user_id, $sender_id);
-        $conn->query("INSERT IGNORE INTO friends (user_id1, user_id2) VALUES ($u1, $u2)");
+        $conn->query("INSERT IGNORE INTO friends (user_id1, user_role1, user_id2, user_role2) VALUES ($u1, 'patient', $u2, 'patient')");
         header("Location: friends.php?msg=Accepted"); exit;
     }
 }
@@ -99,7 +99,7 @@ if (isset($_GET['accept'])) {
 if (isset($_GET['reject'])) {
     $req_id = intval($_GET['reject']);
     // Fetch requester info before deletion to send a rejection notification
-    $stmt = $conn->prepare("SELECT fr.sender_id, u.name as responder_name FROM friend_requests fr JOIN users u ON fr.receiver_id = u.id WHERE fr.id=? AND fr.receiver_id=?");
+    $stmt = $conn->prepare("SELECT fr.sender_id, p.name as responder_name FROM friend_requests fr JOIN patients p ON fr.receiver_id = p.id WHERE fr.id=? AND fr.receiver_id=? AND fr.receiver_role='patient'");
     $stmt->bind_param("ii", $req_id, $user_id);
     $stmt->execute();
     $res = $stmt->get_result();
@@ -154,8 +154,8 @@ if (isset($_POST['update_profile'])) {
  * SECTION 4: DATA FETCHING
  * Retrieves active friends and pending requests from the database for display in the UI.
  */
-$friends = $conn->query("SELECT u.id, u.name, u.email, u.role FROM friends f JOIN users u ON (f.user_id1=u.id OR f.user_id2=u.id) WHERE (f.user_id1='$user_id' OR f.user_id2='$user_id') AND u.id != '$user_id'");
-$received = $conn->query("SELECT fr.id, u.name, u.email FROM friend_requests fr JOIN users u ON fr.sender_id=u.id WHERE fr.receiver_id='$user_id' AND fr.status='pending'");
+$friends = $conn->query("SELECT p.id, p.name, p.email, 'patient' AS role FROM friends f JOIN patients p ON ((f.user_id1 = $user_id AND f.user_role1='patient' AND f.user_id2 = p.id AND f.user_role2='patient') OR (f.user_id2 = $user_id AND f.user_role2='patient' AND f.user_id1 = p.id AND f.user_role1='patient'))");
+$received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr JOIN patients p ON fr.sender_id = p.id WHERE fr.receiver_id='$user_id' AND fr.receiver_role='patient' AND fr.sender_role='patient' AND fr.status='pending'");
 ?>
 <!DOCTYPE html>
 <html lang="en"><head>

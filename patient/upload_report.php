@@ -105,16 +105,19 @@ if (isset($_GET['reject'])) {
     exit;
 }
 
-// Success messages
+// Handle success/error messages
 if (isset($_GET['success'])) {
-    $msg = "Report uploaded successfully!";
+    $msg = htmlspecialchars($_GET['success']);
     $msg_type = "success";
-} elseif (isset($_GET['share_success'])) {
+} elseif (isset($_GET['error'])) {
+    $msg = htmlspecialchars($_GET['error']);
+    $msg_type = "error";
+} elseif (isset($_GET['share_success'])) { // Specific handling for share actions
     if ($_GET['share_success'] === 'accepted') {
-        $msg = "Report request accepted successfully.";
+        $msg = "Report access granted successfully.";
         $msg_type = "success";
     } elseif ($_GET['share_success'] === 'rejected') {
-        $msg = "Report request rejected successfully.";
+        $msg = "Report access rejected.";
         $msg_type = "warning";
     }
 }
@@ -151,7 +154,7 @@ if (isset($_POST['upload'])) {
                 if ($stmt) {
                     $stmt->bind_param("isss", $patient_id, $report_name, $report_type, $db_path);
                     $stmt->execute();
-                    header("Location: upload_report.php?success=1");
+                    header("Location: upload_report.php?success=Report uploaded successfully!");
                     exit;
                 }
             } else {
@@ -168,10 +171,11 @@ if (isset($_POST['upload'])) {
 // Fetch pending share requests
 $pending_share_requests = null;
 $stmt = $conn->prepare("
-    SELECT rsr.*, r.report_name, u.name as requester_name
+    SELECT rsr.*, r.report_name, COALESCE(p.name, d.name) as requester_name
     FROM report_share_requests rsr
     JOIN reports r ON rsr.report_id = r.id
-    JOIN users u ON rsr.requester_id = u.id
+    LEFT JOIN patients p ON rsr.requester_role = 'monitor' AND rsr.requester_id = p.id
+    LEFT JOIN doctors d ON rsr.requester_role = 'doctor' AND rsr.requester_id = d.id
     WHERE rsr.patient_id = ? AND rsr.status = 'pending'
     ORDER BY rsr.created_at DESC
 ");
@@ -184,10 +188,11 @@ if ($stmt) {
 // Fetch accepted shares
 $accepted_shares = null;
 $stmt = $conn->prepare("
-    SELECT rsr.*, r.report_name, u.name as requester_name
+    SELECT rsr.*, r.report_name, COALESCE(p.name, d.name) as requester_name
     FROM report_share_requests rsr
     JOIN reports r ON rsr.report_id = r.id
-    JOIN users u ON rsr.requester_id = u.id
+    LEFT JOIN patients p ON rsr.requester_role = 'monitor' AND rsr.requester_id = p.id
+    LEFT JOIN doctors d ON rsr.requester_role = 'doctor' AND rsr.requester_id = d.id
     WHERE rsr.patient_id = ? AND rsr.status = 'accepted'
     ORDER BY rsr.created_at DESC
 ");
@@ -619,7 +624,10 @@ body {
                             <div style="font-size:0.75rem;color:var(--muted);"><?php echo htmlspecialchars($row['report_type']); ?> · <?php echo date('d M Y', strtotime($row['created_at'])); ?></div>
                         </div>
                     </div>
-                    <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-secondary btn-sm">👁️ View</a>
+                    <div style="display:flex; gap: 8px;">
+                        <a href="<?php echo htmlspecialchars('../' . $row['file_path']); ?>" target="_blank" class="btn btn-secondary btn-sm">👁️ View</a>
+                        <a href="delete_report.php?id=<?php echo $row['id']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this report? This action cannot be undone.');">🗑️ Delete</a>
+                    </div>
                 </div>
                 <?php endwhile; ?>
             <?php else: ?>

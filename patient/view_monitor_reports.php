@@ -11,9 +11,9 @@ $monitor_id = $_SESSION['user_id'];
 
 // Get monitored patients' reports
 $patients = $conn->prepare("
-    SELECT DISTINCT u.id, u.name
+    SELECT DISTINCT p.id, p.name
     FROM patient_monitors pm
-    JOIN users u ON pm.patient_id = u.id
+    JOIN patients p ON pm.patient_id = p.id
     WHERE pm.monitor_id = ?
 ");
 if ($patients) {
@@ -25,11 +25,24 @@ if ($patients) {
 // If viewing specific patient's reports
 $patient_reports = null;
 $patient_name = null;
+$has_monitor_access = false;
 if (isset($_GET['patient_id'])) {
     $patient_id = intval($_GET['patient_id']);
     
+    $access_stmt = $conn->prepare("
+        SELECT 1
+        FROM patient_monitors
+        WHERE patient_id = ? AND monitor_id = ?
+        LIMIT 1
+    ");
+    if ($access_stmt) {
+        $access_stmt->bind_param("ii", $patient_id, $monitor_id);
+        $access_stmt->execute();
+        $has_monitor_access = $access_stmt->get_result()->num_rows > 0;
+    }
+
     // Get patient name
-    $pstmt = $conn->prepare("SELECT name FROM users WHERE id=?");
+    $pstmt = $conn->prepare("SELECT name FROM patients WHERE id=?");
     if ($pstmt) {
         $pstmt->bind_param("i", $patient_id);
         $pstmt->execute();
@@ -40,7 +53,7 @@ if (isset($_GET['patient_id'])) {
     // Get all reports from this patient with access status
     $rstmt = $conn->prepare("
         SELECT r.*,
-               CASE WHEN rsr.id IS NOT NULL AND rsr.status='accepted' THEN 1 ELSE 0 END as has_access,
+               CASE WHEN ? = 1 OR (rsr.id IS NOT NULL AND rsr.status='accepted') THEN 1 ELSE 0 END as has_access,
                CASE WHEN rsr.id IS NOT NULL AND rsr.status='pending' THEN 1 ELSE 0 END as pending_request,
                rsr.id as request_id
         FROM reports r
@@ -49,7 +62,8 @@ if (isset($_GET['patient_id'])) {
         ORDER BY r.created_at DESC
     ");
     if ($rstmt) {
-        $rstmt->bind_param("ii", $monitor_id, $patient_id);
+        $has_monitor_access_int = $has_monitor_access ? 1 : 0;
+        $rstmt->bind_param("iii", $has_monitor_access_int, $monitor_id, $patient_id);
         $rstmt->execute();
         $patient_reports = $rstmt->get_result();
     }
@@ -59,11 +73,25 @@ if (isset($_GET['patient_id'])) {
 if (isset($_POST['request_access'])) {
     $report_id = intval($_POST['report_id']);
     $patient_id = intval($_POST['patient_id']);
-    
-    $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, 'monitor', 'pending')");
-    if ($insert) {
-        $insert->bind_param("iii", $report_id, $patient_id, $monitor_id);
-        $insert->execute();
+
+    $access_stmt = $conn->prepare("
+        SELECT 1
+        FROM patient_monitors
+        WHERE patient_id = ? AND monitor_id = ?
+        LIMIT 1
+    ");
+    if ($access_stmt) {
+        $access_stmt->bind_param("ii", $patient_id, $monitor_id);
+        $access_stmt->execute();
+        $has_monitor_access = $access_stmt->get_result()->num_rows > 0;
+    }
+
+    if (!$has_monitor_access) {
+        $insert = $conn->prepare("INSERT INTO report_share_requests (report_id, patient_id, requester_id, requester_role, status) VALUES (?, ?, ?, 'monitor', 'pending')");
+        if ($insert) {
+            $insert->bind_param("iii", $report_id, $patient_id, $monitor_id);
+            $insert->execute();
+        }
     }
     
     header("Location: view_monitor_reports.php?patient_id=$patient_id");
@@ -168,6 +196,7 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
     $user_address_acc = !empty($user_data_acc['address']) ? $user_data_acc['address'] : 'Not provided';
     $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
     ?>
+    <?php if (false): ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
         <a href="friends.php" class="notif-btn" style="text-decoration:none;" title="Friends & Chat">💬</a>
         <div style="position:relative; display:inline-block;">
@@ -217,6 +246,7 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
         </div>
     </div>
     </div>
+    <?php endif; ?>
 
 <!-- Floating Chatbot Widget -->
 <div class="chatbot-fab" id="chatbotFab">

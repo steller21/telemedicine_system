@@ -38,11 +38,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
 
 // Fetch current monitors (only accepted ones) - Use prepared statement
 $monitors_query = $conn->prepare("
-    SELECT u.id, u.name, u.email, u.gender 
+    SELECT p.id, p.name, p.email, p.gender 
     FROM patient_monitors pm 
-    JOIN users u ON pm.monitor_id=u.id 
+    JOIN patients p ON pm.monitor_id=p.id 
     WHERE pm.patient_id=? 
-    ORDER BY u.name ASC
+    ORDER BY p.name ASC
 ");
 $monitors = null;
 if ($monitors_query) {
@@ -54,9 +54,9 @@ if ($monitors_query) {
 
 // Fetch pending requests sent by this user
 $pending_query = $conn->prepare("
-    SELECT u.id, u.name, u.email, u.gender, mr.created_at
+    SELECT p.id, p.name, p.email, p.gender, mr.created_at
     FROM monitor_requests mr 
-    JOIN users u ON mr.requested_user_id=u.id 
+    JOIN patients p ON mr.requested_user_id=p.id 
     WHERE mr.requester_id=? AND mr.status='pending' 
     ORDER BY mr.created_at DESC
 ");
@@ -70,9 +70,9 @@ if ($pending_query) {
 
 // Fetch incoming requests for this user to accept/reject
 $incoming_query = $conn->prepare("
-    SELECT mr.id, u.id as requester_id, u.name, u.email, u.gender, mr.created_at 
+    SELECT mr.id, p.id as requester_id, p.name, p.email, p.gender, mr.created_at 
     FROM monitor_requests mr 
-    JOIN users u ON mr.requester_id=u.id 
+    JOIN patients p ON mr.requester_id=p.id 
     WHERE mr.requested_user_id=? AND mr.status='pending' 
     ORDER BY mr.created_at DESC
 ");
@@ -86,10 +86,11 @@ if ($incoming_query) {
 
 // Fetch incoming report share requests
 $report_query = $conn->prepare("
-    SELECT rsr.id, r.report_name, u.name as requester_name, rsr.requester_role, rsr.created_at 
+    SELECT rsr.id, r.report_name, COALESCE(p.name, d.name) as requester_name, rsr.requester_role, rsr.created_at 
     FROM report_share_requests rsr 
     JOIN reports r ON rsr.report_id = r.id 
-    JOIN users u ON rsr.requester_id = u.id 
+    LEFT JOIN patients p ON rsr.requester_role = 'monitor' AND rsr.requester_id = p.id
+    LEFT JOIN doctors d ON rsr.requester_role = 'doctor' AND rsr.requester_id = d.id
     WHERE rsr.patient_id = ? AND rsr.status = 'pending' 
     ORDER BY rsr.created_at DESC
 ");

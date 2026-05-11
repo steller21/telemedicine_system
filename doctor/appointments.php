@@ -2,7 +2,7 @@
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $doctor_id = $_SESSION['user_id'];
-$stmt = $conn->prepare("SELECT a.*, u.name AS patient_name FROM appointments a JOIN users u ON a.patient_id = u.id WHERE a.doctor_id = ? ORDER BY a.appointment_date DESC");
+$stmt = $conn->prepare("SELECT a.*, p.name AS patient_name FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.doctor_id = ? ORDER BY a.appointment_date DESC");
 if ($stmt !== false) {
     $stmt->bind_param("i", $doctor_id); $stmt->execute(); $result = $stmt->get_result();
 } else {
@@ -302,8 +302,8 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="nav-section"><div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="appointments.php" class="nav-link active"><span class="nav-icon">📅</span> Appointments</a>
-        <a href="monitor_patients.php" class="nav-link"><span class="nav-icon">👥</span> Monitor Patients</a>
-        <a href="friends.php" class="nav-link"><span class="nav-icon">💬</span> Friends & Chat</a>
+        <a href="patients.php" class="nav-link"><span class="nav-icon">👥</span> Patients</a>
+        <a href="account.php" class="nav-link"><span class="nav-icon">💬</span> My Account</a>
     </div>
 </aside>
 <main class="main">
@@ -352,3 +352,8 @@ if (window.history.replaceState) {
     window.history.replaceState({}, document.title, url);
 }
 </script>
+
+
+
+
+

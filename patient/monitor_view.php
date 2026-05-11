@@ -2,7 +2,7 @@
 session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 $monitor_id = $_SESSION['user_id'];
-$stmt = $conn->prepare("SELECT DISTINCT users.id, users.name FROM patient_monitors JOIN users ON patient_monitors.patient_id = users.id WHERE patient_monitors.monitor_id = ?");
+$stmt = $conn->prepare("SELECT DISTINCT p.id, p.name FROM patient_monitors pm JOIN patients p ON pm.patient_id = p.id WHERE pm.monitor_id = ?");
 $stmt->bind_param("i", $monitor_id); $stmt->execute(); $result = $stmt->get_result();
 ?>
 <!DOCTYPE html><html lang="en"><head>

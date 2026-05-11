@@ -105,6 +105,7 @@ if ($checklist_id) {
                     'item_id' => $item_id,
                     'medicine_name' => $item['medicine_name'],
                     'medicine_image' => $item['medicine_image'],
+                    'prescription_file' => $item['prescription_file'],
                     'doctor_name' => $item['doctor_name'],
                     'dosage' => $item['dosage'],
                     'times_of_day' => $item['times_of_day'],
@@ -600,6 +601,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                                     <?php if($m['is_prescribed']): ?>
                                                         <div style="font-size:0.7rem;color:var(--teal);font-weight:500;">Prescribed by Dr. <?php echo htmlspecialchars($m['doctor_name']); ?></div>
                                                     <?php endif; ?>
+                                                    <?php if(!empty($m['prescription_file'])): ?>
+                                                        <div style="font-size:0.7rem;margin-top:4px;">
+                                                            <a href="<?php echo htmlspecialchars($m['prescription_file']); ?>" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:500;">View attached prescription</a>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                         </td>
@@ -660,7 +666,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <?php foreach ($past_medicines as $pm): ?>
                             <tr>
                                 <td style="color:var(--muted);"><?php echo date('D, M d', strtotime($pm['scheduled_date'])); ?></td>
-                                <td style="font-weight:500;"><?php echo htmlspecialchars($pm['medicine_name']); ?></td>
+                                <td style="font-weight:500;">
+                                    <?php echo htmlspecialchars($pm['medicine_name']); ?>
+                                    <?php if(!empty($pm['prescription_file'])): ?>
+                                        <div style="font-size:0.7rem;margin-top:4px;">
+                                            <a href="<?php echo htmlspecialchars($pm['prescription_file']); ?>" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:500;">View attached prescription</a>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                                 <td style="text-transform:capitalize;"><?php echo $pm['time_slot']; ?></td>
                                 <td>
                                     <?php if($pm['status'] == 'completed'): ?><span class="badge badge-success">Taken</span><?php else: ?><span class="badge badge-danger">Missed</span><?php endif; ?>

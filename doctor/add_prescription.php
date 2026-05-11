@@ -11,13 +11,25 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 $doctor_id = intval($_SESSION['user_id']);
 $patient_id = isset($_GET['patient_id']) ? intval($_GET['patient_id']) : 0;
 
-// Verify doctor has authority (monitors patient or has an appointment)
-$check = $conn->prepare("SELECT u.name, u.gender FROM users u 
-                         LEFT JOIN patient_monitors pm ON u.id = pm.patient_id AND pm.monitor_id = ?
-                         LEFT JOIN appointments a ON u.id = a.patient_id AND a.doctor_id = ?
-                         LEFT JOIN video_calls vc ON u.id = vc.patient_id AND vc.doctor_id = ? AND vc.status = 'active'
-                         WHERE u.id = ? AND (pm.id IS NOT NULL OR a.id IS NOT NULL OR vc.id IS NOT NULL) LIMIT 1");
-$check->bind_param("iiii", $doctor_id, $doctor_id, $doctor_id, $patient_id);
+function convertDurationToDays($duration_value, $duration_unit) {
+    $duration_value = max(1, (int) $duration_value);
+    if ($duration_unit === 'weeks') {
+        return $duration_value * 7;
+    }
+    if ($duration_unit === 'months') {
+        $start = new DateTime();
+        $end = (clone $start)->modify('+' . $duration_value . ' month');
+        return max(1, (int) $start->diff($end)->days);
+    }
+    return $duration_value;
+}
+
+// Verify doctor has authority (appointments or an active call)
+$check = $conn->prepare("SELECT p.name, p.gender FROM patients p 
+                                                  LEFT JOIN appointments a ON p.id = a.patient_id AND a.doctor_id = ?
+                         LEFT JOIN video_calls vc ON p.id = vc.patient_id AND vc.doctor_id = ? AND vc.status = 'active'
+                         WHERE p.id = ? AND (a.id IS NOT NULL OR vc.id IS NOT NULL) LIMIT 1");
+$check->bind_param("iii", $doctor_id, $doctor_id, $patient_id);
 $check->execute();
 $patient_data = $check->get_result()->fetch_assoc();
 
@@ -30,6 +42,8 @@ if (isset($_POST['issue_prescription'])) {
     $medicine_names = $_POST['medicine_name'] ?? [];
     $dosages = $_POST['dosage'] ?? [];
     $all_times = $_POST['medicine_time'] ?? [];
+    $duration_values = $_POST['duration_value'] ?? [];
+    $duration_units = $_POST['duration_unit'] ?? [];
 
     $success_count = 0;
     $error_occurred = false;
@@ -57,11 +71,14 @@ if (isset($_POST['issue_prescription'])) {
             $medicine_name = trim($medicine_name);
             $dosage = trim($dosages[$index]);
             $times_for_medicine = isset($all_times[$index]) ? $all_times[$index] : [];
+            $duration_value = isset($duration_values[$index]) ? (int) $duration_values[$index] : 1;
+            $duration_unit = $duration_units[$index] ?? 'days';
+            $duration_days = convertDurationToDays($duration_value, $duration_unit);
             $time_str = implode(",", $times_for_medicine);
 
             if (!empty($medicine_name) && !empty($dosage) && !empty($time_str)) {
-                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by) VALUES (?, ?, ?, ?, 'pending', ?)");
-                $is->bind_param("isssi", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id); // Changed due_time to times_of_day
+                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by, duration_days) VALUES (?, ?, ?, ?, 'pending', ?, ?)");
+                $is->bind_param("isssii", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id, $duration_days);
                 
                 if ($is->execute()) {
                     $success_count++;
@@ -115,7 +132,7 @@ if (isset($_POST['issue_prescription'])) {
 </style>
 </head><body>
     <div class="card">
-        <a href="monitor_patients.php" class="btn btn-secondary btn-sm" style="margin-bottom: 20px;">← Back</a>
+        <a href="patients.php" class="btn btn-secondary btn-sm" style="margin-bottom: 20px;">← Back</a>
         <h1>💊 Issue Prescription</h1>
         <p style="color:var(--muted); margin-bottom: 24px; font-size: 0.9rem;">Issuing for: <strong><?php echo htmlspecialchars($patient_data['name']); ?></strong></p>
         <?php if($msg): ?>
@@ -148,6 +165,17 @@ if (isset($_POST['issue_prescription'])) {
                             <label class="checkbox-item">
                                 <input type="checkbox" name="medicine_time[0][]" value="night"> 🌙 Night
                             </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Duration</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                            <input type="number" name="duration_value[]" class="form-input" min="1" value="1" required>
+                            <select name="duration_unit[]" class="form-input">
+                                <option value="days">Days</option>
+                                <option value="weeks">Weeks</option>
+                                <option value="months">Months</option>
+                            </select>
                         </div>
                     </div>
                     <button type="button" class="btn btn-danger btn-sm remove-medicine-btn" style="display:none;">Remove</button>
