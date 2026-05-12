@@ -940,6 +940,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedDoctorLabel = document.getElementById('selectedDoctorLabel');
     const selectedSpecializationLabel = document.getElementById('selectedSpecializationLabel');
     const dateSelect = document.getElementById('dateSelect');
+    const step2 = document.getElementById('step2');
     let selectedSlot = null;
 
     slotButtons.forEach(button => {
@@ -989,6 +990,17 @@ document.addEventListener('DOMContentLoaded', function() {
             doctorRadios.forEach(radio => {
                 radio.checked = false;
             });
+            selectedSlot = null;
+            if (selectedSlotInput) {
+                selectedSlotInput.value = '';
+            }
+            if (bookingForm) {
+                bookingForm.style.display = 'none';
+            }
+            slotButtons.forEach(btn => btn.classList.remove('selected'));
+            if (step2) {
+                step2.style.display = 'none';
+            }
         }
 
         doctorPrompt.classList.toggle('is-hidden', selectedSpecialization !== '');

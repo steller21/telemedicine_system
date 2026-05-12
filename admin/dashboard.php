@@ -223,8 +223,12 @@ tr:last-child td{border-bottom:none;}
                                 </td>
                                 <td>
                                     <div class="actions">
-                                        <a class="btn btn-verify" href="?verify_doctor=<?php echo (int)$doctor['id']; ?>">Verify</a>
-                                        <a class="btn btn-reject" href="?reject_doctor=<?php echo (int)$doctor['id']; ?>">Reject</a>
+                                        <?php if (($doctor['verification_status'] ?? 'pending') === 'verified'): ?>
+                                            <span class="btn btn-verify" style="cursor:default;pointer-events:none;">Approved</span>
+                                        <?php else: ?>
+                                            <a class="btn btn-verify" href="?verify_doctor=<?php echo (int)$doctor['id']; ?>">Approve</a>
+                                            <a class="btn btn-reject" href="?reject_doctor=<?php echo (int)$doctor['id']; ?>">Reject</a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
