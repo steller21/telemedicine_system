@@ -22,7 +22,9 @@ $msg = ""; $msg_type = "";
 $conn->query("CREATE TABLE IF NOT EXISTS friend_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sender_id INT NOT NULL,
+    sender_role ENUM('pending', 'patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient',
     receiver_id INT NOT NULL,
+    receiver_role ENUM('pending', 'patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient',
     status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY (sender_id, receiver_id)
@@ -31,7 +33,9 @@ $conn->query("CREATE TABLE IF NOT EXISTS friend_requests (
 $conn->query("CREATE TABLE IF NOT EXISTS friends (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id1 INT NOT NULL,
+    user_role1 ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient',
     user_id2 INT NOT NULL,
+    user_role2 ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY (user_id1, user_id2)
 )");
@@ -39,11 +43,34 @@ $conn->query("CREATE TABLE IF NOT EXISTS friends (
 $conn->query("CREATE TABLE IF NOT EXISTS messages (
     id INT AUTO_INCREMENT PRIMARY KEY,
     sender_id INT NOT NULL,
+    sender_role ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient',
     receiver_id INT NOT NULL,
+    receiver_role ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient',
     message TEXT NOT NULL,
     is_read TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
+
+function ensureColumnExists($conn, $table, $column, $definition) {
+    $safe_table = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+    $safe_column = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+
+    if ($safe_table === '' || $safe_column === '') {
+        return;
+    }
+
+    $result = $conn->query("SHOW COLUMNS FROM `{$safe_table}` LIKE '{$safe_column}'");
+    if ($result && $result->num_rows === 0) {
+        $conn->query("ALTER TABLE `{$safe_table}` ADD COLUMN `{$safe_column}` {$definition}");
+    }
+}
+
+ensureColumnExists($conn, 'friend_requests', 'sender_role', "ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient' AFTER sender_id");
+ensureColumnExists($conn, 'friend_requests', 'receiver_role', "ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient' AFTER receiver_id");
+ensureColumnExists($conn, 'friends', 'user_role1', "ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient' AFTER user_id1");
+ensureColumnExists($conn, 'friends', 'user_role2', "ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient' AFTER user_id2");
+ensureColumnExists($conn, 'messages', 'sender_role', "ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient' AFTER sender_id");
+ensureColumnExists($conn, 'messages', 'receiver_role', "ENUM('patient', 'doctor', 'monitor') NOT NULL DEFAULT 'patient' AFTER receiver_id");
 
 /**
  * SECTION 3: FRIEND REQUEST HANDLERS (POST & GET)
@@ -203,7 +230,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 ?>
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="UTF-8"><title>Friends & Messages — MediConnect</title>
+<meta charset="UTF-8"><title>Friends &amp; Messages &mdash; MediConnect</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
     /**
@@ -218,9 +245,27 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         --muted: #7A8EA8;
         --border: rgba(255,255,255,0.07);
     }
-    body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); margin: 0; display: flex; min-height: 100vh; }
-    .sidebar { width: 240px; background: var(--navy-mid); border-right: 1px solid var(--border); padding: 24px; flex: 0 0 264px; }
-    .main { flex: 1; padding: 40px; margin-left: 0 !important; max-width: none !important; width: auto !important; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); margin: 0; min-height: 100vh; }
+    .page-bg {
+        position: fixed; inset: 0; z-index: -1;
+        background:
+            radial-gradient(ellipse 60% 50% at 15% 0%, rgba(14,184,160,0.1) 0%, transparent 60%),
+            radial-gradient(ellipse 40% 40% at 85% 90%, rgba(14,184,160,0.07) 0%, transparent 50%),
+            var(--navy);
+    }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar {
+        width: 240px;
+        background: var(--navy-mid);
+        border-right: 1px solid var(--border);
+        padding: 24px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 50;
+    }
+    .main { flex: 1; padding: 36px 40px 36px 72px; margin-left: 240px; max-width: calc(100% - 240px); }
     .card { background: var(--navy-mid); border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-bottom: 24px; }
     h1, h2 { font-family: 'Clash Display', sans-serif; margin-top: 0; }
     .form-input { width: 100%; padding: 12px; background: var(--navy-mid); border: 1px solid var(--border); border-radius: 10px; color: #fff; margin-bottom: 12px; }
@@ -270,10 +315,10 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 
     .friends-shell {
         width: 100%;
-        max-width: 1280px;
+        max-width: none;
         margin: 0;
         padding-top: 84px;
-        padding-right: 16px;
+        padding-left: 18px;
     }
 
     .friends-header {
@@ -401,7 +446,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         margin-bottom: 0;
     }
 
-    @media (max-width: 1100px) {
+    @media (max-width: 1180px) {
         .friends-shell {
             max-width: none;
             padding-right: 0;
@@ -414,7 +459,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 
     @media (max-width: 760px) {
         .friends-shell {
-            padding-top: 110px;
+            padding-top: 24px;
         }
 
         .conversation-item,
@@ -432,7 +477,9 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body>
-    
+    <div class="page-bg"></div>
+    <div class="layout">
+
     <!-- SECTION 6: SIDEBAR COMPONENT -->
     <aside class="sidebar">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;">
