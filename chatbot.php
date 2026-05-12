@@ -35,6 +35,29 @@
         @media (max-width: 600px) { #chatbox { height: 100vh; max-height: none; border-radius: 0; } }
     </style>
 <link rel="stylesheet" href="css/ui-refresh.css">
+<style>
+    .assistant-tools, .triage-options, .triage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .triage-btn { border: none; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; }
+    .triage-btn:hover { transform: translateY(-1px); opacity: 0.96; }
+    .triage-start { background: #0eb8a0; color: #062821; }
+    .triage-lite { background: #eef2ff; color: #334155; border: 1px solid #cbd5e1; }
+    .triage-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .triage-card strong { display: block; font-size: 15px; margin-bottom: 6px; }
+    .triage-note { font-size: 12px; line-height: 1.5; color: #5f6b7a; margin-bottom: 10px; }
+    .triage-question { font-size: 13px; font-weight: 600; color: #1f2937; }
+    .triage-result { margin-top: 4px; padding: 12px; border-radius: 12px; background: #ffffff; color: #1f2937; border: 1px solid #dbe4f0; }
+    .triage-result.emergency { background: #fff1f2; border-color: #fecdd3; }
+    .triage-result.urgent { background: #fff7ed; border-color: #fed7aa; }
+    .triage-result.routine { background: #eff6ff; border-color: #bfdbfe; }
+    .triage-result.selfcare { background: #ecfdf5; border-color: #a7f3d0; }
+    .triage-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px; }
+    .triage-result.emergency .triage-badge { background: #fecdd3; color: #9f1239; }
+    .triage-result.urgent .triage-badge { background: #fed7aa; color: #9a3412; }
+    .triage-result.routine .triage-badge { background: #bfdbfe; color: #1d4ed8; }
+    .triage-result.selfcare .triage-badge { background: #bbf7d0; color: #047857; }
+    .triage-result ul { margin: 10px 0 0 18px; padding: 0; }
+    .triage-result li { margin-bottom: 6px; }
+</style>
 </head>
 
 <body>
@@ -189,5 +212,268 @@ function escapeHtml(t) {
 window.addEventListener('load', initChat);
 </script>
 
+<script>
+const TRIAGE_SYMPTOMS = {
+  chest: 'Chest pain or breathing trouble',
+  fever: 'Fever, cold, cough or infection',
+  injury: 'Injury, fall, burn or bleeding',
+  stomach: 'Stomach pain, vomiting or diarrhea',
+  head: 'Headache, dizziness or weakness',
+  skin: 'Rash, swelling or allergy',
+  other: 'Something else'
+};
+
+const TRIAGE_PROMPTS = {
+  chest: 'chest pain',
+  fever: 'fever',
+  injury: 'fracture',
+  stomach: 'diarrhea',
+  head: 'headache',
+  skin: 'skin rash',
+  other: 'symptoms'
+};
+
+let checkerState = null;
+
+function appendUserMessage(text) {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML += '<div class="msg user"><div class="msg-content">' + escapeHtml(text) + '</div></div>';
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function appendBotMessage(html, extraClass = '') {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML += '<div class="msg bot"><div class="msg-content ' + extraClass + '">' + html + '</div></div>';
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function renderAssistantTools() {
+  return '<div class="assistant-tools">' +
+    '<button type="button" class="triage-btn triage-start" onclick="startSymptomChecker()">Start Symptom Checker</button>' +
+    '<button type="button" class="triage-btn triage-lite" onclick="handleUserText(\'fever\')">Fever Tips</button>' +
+    '<button type="button" class="triage-btn triage-lite" onclick="handleUserText(\'asthma\')">Breathing Tips</button>' +
+  '</div>';
+}
+
+function renderOptionButtons(options, handlerName) {
+  return '<div class="triage-options">' + options.map(option =>
+    '<button type="button" class="triage-btn ' + (option.variant || 'triage-lite') + '" onclick="' + handlerName + '(\'' + option.id + '\')">' + option.label + '</button>'
+  ).join('') + '</div>';
+}
+
+function getProjectBase() {
+  const marker = '/telemedicine_system';
+  const path = window.location.pathname;
+  const idx = path.toLowerCase().indexOf(marker);
+  return idx === -1 ? window.location.origin : window.location.origin + path.substring(0, idx + marker.length);
+}
+
+function openBooking() {
+  const target = getProjectBase() + '/patient/book_appointment.php';
+  if (window.top && window.top !== window) {
+    window.top.location.href = target;
+    return;
+  }
+  window.location.href = target;
+}
+
+function startSymptomChecker() {
+  checkerState = { symptom: null, danger: null, severity: null, duration: null, impact: null };
+  appendBotMessage(
+    '<div class="triage-card">' +
+      '<strong>Symptom Checker</strong>' +
+      '<div class="triage-note">This quick check helps you judge urgency before booking. It is not a diagnosis.</div>' +
+      '<div class="triage-question">What best matches the main problem right now?</div>' +
+      renderOptionButtons([
+        { id: 'chest', label: 'Chest / Breathing', variant: 'triage-danger' },
+        { id: 'fever', label: 'Fever / Infection' },
+        { id: 'injury', label: 'Injury / Bleeding' },
+        { id: 'stomach', label: 'Stomach / Vomiting' },
+        { id: 'head', label: 'Headache / Weakness' },
+        { id: 'skin', label: 'Rash / Allergy' },
+        { id: 'other', label: 'Something Else' }
+      ], 'chooseSymptom') +
+    '</div>'
+  );
+}
+
+function chooseSymptom(id) {
+  checkerState.symptom = id;
+  appendUserMessage(TRIAGE_SYMPTOMS[id]);
+  appendBotMessage(
+    '<div class="triage-card">' +
+      '<div class="triage-question">Are any danger signs happening right now?</div>' +
+      '<div class="triage-note">Examples: severe chest pain, trouble breathing, fainting, confusion, seizure, heavy bleeding, blue lips, or severe swelling.</div>' +
+      renderOptionButtons([
+        { id: 'yes', label: 'Yes, one or more', variant: 'triage-danger' },
+        { id: 'no', label: 'No danger signs', variant: 'triage-lite' }
+      ], 'chooseDanger') +
+    '</div>'
+  );
+}
+
+function chooseDanger(id) {
+  checkerState.danger = id === 'yes';
+  appendUserMessage(id === 'yes' ? 'Yes, there are danger signs' : 'No danger signs');
+  appendBotMessage(
+    '<div class="triage-card">' +
+      '<div class="triage-question">How bad is it right now?</div>' +
+      renderOptionButtons([
+        { id: 'severe', label: 'Severe / getting worse', variant: 'triage-danger' },
+        { id: 'moderate', label: 'Moderate' },
+        { id: 'mild', label: 'Mild' }
+      ], 'chooseSeverity') +
+    '</div>'
+  );
+}
+
+function chooseSeverity(id) {
+  checkerState.severity = id;
+  appendUserMessage(id === 'severe' ? 'Severe / getting worse' : id === 'moderate' ? 'Moderate' : 'Mild');
+  appendBotMessage(
+    '<div class="triage-card">' +
+      '<div class="triage-question">When did this start?</div>' +
+      renderOptionButtons([
+        { id: 'today', label: 'Suddenly / today', variant: 'triage-danger' },
+        { id: 'fewdays', label: '1 to 3 days' },
+        { id: 'longer', label: 'More than 3 days' }
+      ], 'chooseDuration') +
+    '</div>'
+  );
+}
+
+function chooseDuration(id) {
+  checkerState.duration = id;
+  appendUserMessage(id === 'today' ? 'Started suddenly / today' : id === 'fewdays' ? '1 to 3 days' : 'More than 3 days');
+  appendBotMessage(
+    '<div class="triage-card">' +
+      '<div class="triage-question">How much is it affecting normal activity?</div>' +
+      renderOptionButtons([
+        { id: 'cannot', label: 'Cannot do normal activities', variant: 'triage-danger' },
+        { id: 'soon', label: 'Can manage, but need help soon' },
+        { id: 'manageable', label: 'Mostly manageable at home' }
+      ], 'chooseImpact') +
+    '</div>'
+  );
+}
+
+function chooseImpact(id) {
+  checkerState.impact = id;
+  appendUserMessage(id === 'cannot' ? 'Cannot do normal activities' : id === 'soon' ? 'Can manage, but need help soon' : 'Mostly manageable at home');
+  showTriageResult();
+}
+
+function evaluateTriage() {
+  if (checkerState.danger) {
+    return {
+      level: 'emergency',
+      badge: 'Emergency',
+      title: 'Seek emergency care now',
+      points: [
+        'Your answers suggest danger signs that should not wait for an online booking.',
+        'Call 108 immediately or go to the nearest emergency department.',
+        'Use the chatbot again later for care tips once emergency help is on the way.'
+      ]
+    };
+  }
+
+  if (checkerState.symptom === 'chest' || checkerState.severity === 'severe' || checkerState.impact === 'cannot') {
+    return {
+      level: 'urgent',
+      badge: 'Same-day care',
+      title: 'Arrange a doctor consultation as soon as possible',
+      points: [
+        'This looks urgent enough for same-day medical advice.',
+        'Book the earliest appointment available, and seek in-person care if symptoms worsen.',
+        'If new danger signs appear, do not wait: call 108.'
+      ]
+    };
+  }
+
+  if (checkerState.severity === 'moderate' || checkerState.duration === 'longer' || checkerState.impact === 'soon') {
+    return {
+      level: 'routine',
+      badge: 'Book soon',
+      title: 'A routine consultation is a good next step',
+      points: [
+        'Your symptoms do not sound like an emergency, but they should be reviewed by a doctor.',
+        'Book an appointment in the next 24 to 72 hours.',
+        'If symptoms become severe or danger signs appear, switch to urgent care.'
+      ]
+    };
+  }
+
+  return {
+    level: 'selfcare',
+    badge: 'Monitor first',
+    title: 'Home care and monitoring may be reasonable for now',
+    points: [
+      'This sounds mild based on your answers.',
+      'Monitor symptoms, rest, hydrate, and use the chatbot for specific care tips.',
+      'Book an appointment if symptoms persist, spread, or start affecting normal activities.'
+    ]
+  };
+}
+
+function showTriageResult() {
+  const result = evaluateTriage();
+  appendBotMessage(
+    '<div class="triage-result ' + result.level + '">' +
+      '<div class="triage-badge">' + result.badge + '</div>' +
+      '<strong>' + result.title + '</strong>' +
+      '<ul>' + result.points.map(point => '<li>' + point + '</li>').join('') + '</ul>' +
+      '<div class="triage-actions">' +
+        (result.level === 'emergency'
+          ? '<button type="button" class="triage-btn triage-danger" onclick="callEmergency(\'108\')">Call 108</button><button type="button" class="triage-btn triage-lite" onclick="startSymptomChecker()">Start Again</button>'
+          : '<button type="button" class="triage-btn triage-start" onclick="openBooking()">Book Appointment</button><button type="button" class="triage-btn triage-lite" onclick="askCareTips()">Get Care Tips</button>') +
+      '</div>' +
+    '</div>'
+  );
+}
+
+function askCareTips() {
+  const prompt = TRIAGE_PROMPTS[checkerState?.symptom] || 'symptoms';
+  handleUserText(prompt);
+}
+
+function handleUserText(text) {
+  if (!text) return;
+  appendUserMessage(text);
+
+  if (/^(start )?symptom checker$/i.test(text.trim())) {
+    setTimeout(startSymptomChecker, 250);
+    return;
+  }
+
+  setTimeout(() => {
+    const data = findMatch(text);
+    const response = data ? formatResponse(data) : '<span style="color:#666;">I could not find information about "' + escapeHtml(text) + '".</span><br><br>Try: bleeding, fever, fracture, asthma, dengue, cough, headache, burns, emergency, or tap <b>Start Symptom Checker</b>.';
+    const cls = (data && data.emergency) ? 'emergency' : (data && data.steps && data.steps.length) ? 'warning' : '';
+    appendBotMessage(response + (!data ? renderAssistantTools() : ''), cls);
+  }, 300);
+}
+
+initChat = function () {
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML = '';
+  appendBotMessage(
+    'Hello! I am your Smart Health Assistant.<br><br>' +
+    'You can type any symptom for first-aid tips, or use the symptom checker to understand urgency before booking an appointment.<br><br>' +
+    'Examples: bleeding, chest pain, fever, fracture, cough, headache, diarrhea.<br><br>' +
+    'For life-threatening emergencies, call <b>108</b> immediately.' +
+    renderAssistantTools()
+  );
+};
+
+sendMessage = function () {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  handleUserText(text);
+};
+
+window.addEventListener('load', initChat);
+</script>
 </body>
 </html>

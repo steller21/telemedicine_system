@@ -219,8 +219,8 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         --border: rgba(255,255,255,0.07);
     }
     body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); margin: 0; display: flex; min-height: 100vh; }
-    .sidebar { width: 240px; background: var(--navy-mid); border-right: 1px solid var(--border); padding: 24px; }
-    .main { flex: 1; padding: 40px; }
+    .sidebar { width: 240px; background: var(--navy-mid); border-right: 1px solid var(--border); padding: 24px; flex: 0 0 264px; }
+    .main { flex: 1; padding: 40px; margin-left: 0 !important; max-width: none !important; width: auto !important; }
     .card { background: var(--navy-mid); border: 1px solid var(--border); border-radius: 18px; padding: 24px; margin-bottom: 24px; }
     h1, h2 { font-family: 'Clash Display', sans-serif; margin-top: 0; }
     .form-input { width: 100%; padding: 12px; background: var(--navy-mid); border: 1px solid var(--border); border-radius: 10px; color: #fff; margin-bottom: 12px; }
@@ -269,10 +269,11 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
     }
 
     .friends-shell {
-        width: min(1120px, 100%);
-        margin: 0 auto;
-        padding-top: 76px;
-        padding-right: 28px;
+        width: 100%;
+        max-width: 1280px;
+        margin: 0;
+        padding-top: 84px;
+        padding-right: 16px;
     }
 
     .friends-header {
@@ -294,7 +295,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 
     .friends-layout {
         display: grid;
-        grid-template-columns: minmax(320px, 0.92fr) minmax(380px, 1.08fr);
+        grid-template-columns: minmax(340px, 460px) minmax(420px, 1fr);
         gap: 28px;
         align-items: start;
     }
@@ -324,12 +325,12 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
     }
 
     .conversation-card {
-        min-height: 100%;
+        align-self: start;
     }
 
     .conversation-list {
         display: grid;
-        gap: 12px;
+        gap: 10px;
         margin-top: 10px;
     }
 
@@ -395,8 +396,14 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         margin-top: 4px;
     }
 
+    .friends-layout > .card,
+    .friends-stack > .card {
+        margin-bottom: 0;
+    }
+
     @media (max-width: 1100px) {
         .friends-shell {
+            max-width: none;
             padding-right: 0;
         }
 
