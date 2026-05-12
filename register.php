@@ -94,6 +94,7 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
 .footer-link{text-align:center;margin-top:24px;font-size:0.85rem;color:var(--muted);}
 .footer-link a{color:var(--teal);text-decoration:none;font-weight:600;}
 </style>
+<link rel="stylesheet" href="css/ui-refresh.css">
 </head>
 <body>
 <div class="bg"></div>
@@ -208,3 +209,4 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 </body>
 </html>
+

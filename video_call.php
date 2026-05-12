@@ -230,6 +230,7 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
         .btn-action:hover { background: #e67e22; }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="css/ui-refresh.css">
 </head>
 <body>
  
@@ -867,3 +868,4 @@ startCamera();
  
 </body>
 </html>
+

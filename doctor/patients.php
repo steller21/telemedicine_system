@@ -240,6 +240,7 @@ tbody tr:hover { background: rgba(14,184,160,0.05); }
     .page-header h1 { font-size: 1.4rem; }
 }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head>
 <body>
 <div class="page-bg"></div>
@@ -330,4 +331,5 @@ setTimeout(() => {
 </script>
 </body>
 </html>
+
 

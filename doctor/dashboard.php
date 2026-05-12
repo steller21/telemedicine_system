@@ -275,6 +275,7 @@ body {
     .notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
     .notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head>
 <body>
 <div class="page-bg"></div>
@@ -596,6 +597,7 @@ window.addEventListener('click', function(e){
 </script>
 </body>
 </html>
+
 
 
 

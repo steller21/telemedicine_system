@@ -165,6 +165,7 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
 @media(max-width:768px){.sidebar{transform:translateX(-100%);}.main{margin-left:0;max-width:100%;}}
 .chatbot-widget { background: var(--teal-glow) !important; color: var(--teal) !important; border: 1px dashed var(--teal) !important; margin: 0 12px 10px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; gap: 10px; padding: 12px 16px; text-decoration: none; font-size: 0.875rem; transition: all 0.3s; animation: pulse 2s infinite; }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">    
     <div class="sidebar-logo">
@@ -415,3 +416,4 @@ themeToggle.addEventListener('click', () => {
     localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
 });
 </script>
+

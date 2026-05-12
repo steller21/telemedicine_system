@@ -482,6 +482,7 @@ body {
     .grid-2 { grid-template-columns: 1fr; }
 }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body><div class="page-bg"></div><div class="layout">
 
 <aside class="sidebar">
@@ -777,3 +778,4 @@ themeToggle.addEventListener('click', () => {
 });
 </script>
 </body></html>
+

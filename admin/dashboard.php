@@ -118,6 +118,7 @@ tr:last-child td{border-bottom:none;}
 .muted{color:var(--muted);}
 @media (max-width: 900px){.sidebar{position:static;width:100%;height:auto}.layout{display:block}.main{margin-left:0;padding:20px}.grid{grid-template-columns:1fr}}
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head>
 <body>
 <div class="bg"></div>
@@ -282,3 +283,4 @@ tr:last-child td{border-bottom:none;}
 </div>
 </body>
 </html>
+

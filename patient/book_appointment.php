@@ -662,6 +662,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     .card { padding: 22px; }
 }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
@@ -1033,3 +1034,4 @@ document.addEventListener('DOMContentLoaded', function() {
     filterDoctors();
 });
 </script>
+

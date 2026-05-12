@@ -130,6 +130,7 @@ if (isset($_POST['issue_prescription'])) {
     .medicine-entry:not(:first-child) { margin-top: 20px; }
     .remove-medicine-btn { position: absolute; top: 10px; right: 10px; padding: 5px 10px; font-size: 0.75rem; }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body>
     <div class="card">
         <a href="patients.php" class="btn btn-secondary btn-sm" style="margin-bottom: 20px;">← Back</a>
@@ -216,3 +217,4 @@ if (isset($_POST['issue_prescription'])) {
         });
     </script>
 </body></html>
+

@@ -285,6 +285,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     .main { margin-left: 0; max-width: 100%; padding: 20px; }
     .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px; border-bottom:1px solid var(--border); margin-bottom:16px;">
@@ -451,3 +452,4 @@ if (window.history.replaceState) {
     window.history.replaceState({}, document.title, url);
 }
 </script>
+

@@ -499,9 +499,85 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     .notif-btn-sm{padding:5px 12px;border-radius:50px;font-size:0.7rem;font-weight:600;text-decoration:none;transition:0.2s;flex:1;text-align:center;}
     .notif-btn-accept{background:rgba(34,197,94,0.2);color:var(--success);border:1px solid rgba(34,197,94,0.3);}
     .notif-btn-accept:hover{background:rgba(34,197,94,0.3);}
-    .notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
-    .notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
+.notif-btn-reject{background:rgba(239,68,68,0.2);color:var(--danger);border:1px solid rgba(239,68,68,0.3);}
+.notif-btn-reject:hover{background:rgba(239,68,68,0.3);}
+
+.vitals-modal-card {
+    max-width: 620px !important;
+    width: min(92vw, 620px) !important;
+    padding: 34px !important;
+}
+
+.vitals-modal-title {
+    font-family: 'Clash Display', sans-serif;
+    font-size: 1.9rem;
+    font-weight: 600;
+    margin-bottom: 26px;
+    color: var(--white);
+    letter-spacing: -0.03em;
+}
+
+.vitals-form {
+    display: grid;
+    gap: 6px;
+}
+
+.vitals-form .grid-2 {
+    gap: 22px;
+}
+
+.vitals-form .form-group {
+    margin-bottom: 18px;
+}
+
+.vitals-form .form-label {
+    margin-bottom: 10px;
+    line-height: 1.45;
+}
+
+.vitals-form .form-input {
+    min-height: 56px;
+}
+
+.vitals-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 14px;
+    margin-top: 10px;
+    padding-top: 6px;
+}
+
+.vitals-actions .btn {
+    min-width: 126px;
+    justify-content: center;
+}
+
+@media (max-width: 760px) {
+    .vitals-modal-card {
+        width: min(94vw, 620px) !important;
+        padding: 24px !important;
+    }
+
+    .vitals-modal-title {
+        font-size: 1.45rem;
+        margin-bottom: 20px;
+    }
+
+    .vitals-form .grid-2 {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .vitals-actions {
+        flex-direction: column-reverse;
+    }
+
+    .vitals-actions .btn {
+        width: 100%;
+    }
+}
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body>
 <div class="page-bg"></div>
 <div class="layout">
@@ -765,9 +841,9 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 
     <!-- Log Vitals Modal -->
     <div id="logVitalsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
-        <div class="modal-content" style="max-width:500px; animation:modalSlideIn 0.3s ease-out;">
-            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:20px;color:var(--white);">Log Daily Health Details</h2>
-            <form method="POST">
+        <div class="modal-content vitals-modal-card" style="animation:modalSlideIn 0.3s ease-out;">
+            <h2 class="vitals-modal-title">Log Daily Health Details</h2>
+            <form method="POST" class="vitals-form">
                 <div class="grid-2">
                     <div class="form-group"><label class="form-label">Blood Pressure (BP) - Top Number</label><input class="form-input" type="number" name="systolic" placeholder="e.g. 120" required></div>
                     <div class="form-group"><label class="form-label">Blood Pressure (BP) - Bottom Number</label><input class="form-input" type="number" name="diastolic" placeholder="e.g. 80" required></div>
@@ -778,7 +854,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                 </div>
                 <div class="form-group"><label class="form-label">Heart Rate</label><input class="form-input" type="number" name="heart_rate" placeholder="e.g. 72" required></div>
                 
-                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+                <div class="vitals-actions">
                     <button type="button" onclick="hideLogVitalsModal()" class="btn btn-secondary">Cancel</button>
                     <button type="submit" name="log_vitals" class="btn btn-primary">Save Vitals</button>
                 </div>
@@ -1020,3 +1096,4 @@ setInterval(pollIncomingDoctorCall, 4000);
 </script>
 
 </body></html>
+

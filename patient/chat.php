@@ -54,6 +54,7 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
     button { background: var(--teal); border: none; padding: 0 25px; border-radius: 50px; font-weight: 700; cursor: pointer; }
     .back-btn { color: #fff; text-decoration: none; font-size: 1.2rem; }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body>
     <header>
         <a href="friends.php" class="back-btn">←</a>
@@ -101,3 +102,4 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
         }, 3000);
     </script>
 </body></html>
+

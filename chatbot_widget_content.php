@@ -22,6 +22,7 @@
         button { padding: 6px 12px; background: #667eea; color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; }
         button:hover { background: #555bd8; }
     </style>
+<link rel="stylesheet" href="css/ui-refresh.css">
 </head>
 <body>
 

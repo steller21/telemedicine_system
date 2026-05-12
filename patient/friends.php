@@ -267,7 +267,163 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         from { opacity: 0; transform: scale(0.95); }
         to { opacity: 1; transform: scale(1); }
     }
+
+    .friends-shell {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+        padding-top: 76px;
+        padding-right: 28px;
+    }
+
+    .friends-header {
+        margin-bottom: 28px;
+    }
+
+    .friends-header h1 {
+        font-size: clamp(2.2rem, 4vw, 3rem);
+        line-height: 1;
+        margin-bottom: 10px;
+    }
+
+    .friends-header p {
+        color: var(--muted);
+        font-size: 0.98rem;
+        max-width: 620px;
+        margin: 0;
+    }
+
+    .friends-layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 0.92fr) minmax(380px, 1.08fr);
+        gap: 28px;
+        align-items: start;
+    }
+
+    .friends-stack {
+        display: grid;
+        gap: 24px;
+    }
+
+    .friends-card-title {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .friends-card-title h2 {
+        margin: 0;
+        font-size: 1.05rem;
+    }
+
+    .friends-card-copy {
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.6;
+        margin-bottom: 18px;
+    }
+
+    .conversation-card {
+        min-height: 100%;
+    }
+
+    .conversation-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .conversation-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .conversation-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .conversation-item.is-unread {
+        background: rgba(14,184,160,0.08);
+        border: 1px solid rgba(14,184,160,0.2);
+        border-radius: 16px;
+        padding: 16px;
+    }
+
+    .conversation-meta {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .conversation-name {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+    }
+
+    .role-pill {
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        color: var(--muted);
+    }
+
+    .conversation-time {
+        font-size: 0.82rem;
+        color: var(--muted);
+    }
+
+    .request-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .request-email {
+        display: block;
+        font-size: 0.82rem;
+        color: var(--muted);
+        margin-top: 4px;
+    }
+
+    @media (max-width: 1100px) {
+        .friends-shell {
+            padding-right: 0;
+        }
+
+        .friends-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .friends-shell {
+            padding-top: 110px;
+        }
+
+        .conversation-item,
+        .conversation-item.is-unread,
+        .item-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .request-actions,
+        .conversation-item .btn {
+            width: 100%;
+        }
+    }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body>
     
     <!-- SECTION 6: SIDEBAR COMPONENT -->
@@ -361,17 +517,23 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
         </div>
         </div>
 
+        <div class="friends-shell">
         <!-- SECTION 8: MAIN DASHBOARD HEADER -->
-        <h1>👥 Friends & Messages</h1>
+        <div class="friends-header">
+            <h1>👥 Friends & Messages</h1>
+            <p>Manage your requests, keep track of active conversations, and jump back into patient chat without digging through multiple screens.</p>
+        </div>
         
         <?php if($msg): ?><div class="alert alert-<?php echo $msg_type; ?>"><?php echo $msg; ?></div><?php endif; ?>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <div>
+        <div class="friends-layout">
+            <div class="friends-stack">
                 <!-- Add Friend Search Form -->
                 <div class="card">
-                    <h2>🔍 Add Friend</h2>
-                    <p style="color:var(--muted); font-size: 0.85rem;">Search for a doctor or patient by their email address.</p>
+                    <div class="friends-card-title">
+                        <h2>🔍 Add Friend</h2>
+                    </div>
+                    <p class="friends-card-copy">Search for a doctor or patient by their email address.</p>
                     <form method="POST">
                         <input type="email" name="email" class="form-input" placeholder="Enter email address..." required>
                         <button type="submit" name="send_request" class="btn btn-primary">Send Request</button>
@@ -380,12 +542,17 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 
                 <!-- Incoming Requests Inbox -->
                 <div class="card">
-                    <h2>📬 Pending Requests</h2>
+                    <div class="friends-card-title">
+                        <h2>📬 Pending Requests</h2>
+                    </div>
                     <?php if($received->num_rows > 0): ?>
                         <?php while($r = $received->fetch_assoc()): ?>
                             <div class="item-row">
-                                <div><strong><?php echo htmlspecialchars($r['name']); ?></strong><br><small><?php echo htmlspecialchars($r['email']); ?></small></div>
                                 <div>
+                                    <strong><?php echo htmlspecialchars($r['name']); ?></strong>
+                                    <span class="request-email"><?php echo htmlspecialchars($r['email']); ?></span>
+                                </div>
+                                <div class="request-actions">
                                     <a href="?accept=<?php echo $r['id']; ?>" class="btn btn-primary btn-sm" style="padding: 5px 12px; font-size: 0.8rem;">Accept</a>
                                     <a href="?reject=<?php echo $r['id']; ?>" class="btn btn-secondary btn-sm" style="padding: 5px 12px; font-size: 0.8rem;">Reject</a>
                                 </div>
@@ -396,23 +563,26 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
             </div>
 
             <!-- Friends List & Conversation Launchers -->
-            <div class="card">
-                <h2>💬 Your Conversations</h2>
+            <div class="card conversation-card">
+                <div class="friends-card-title">
+                    <h2>💬 Your Conversations</h2>
+                </div>
                 <?php if($friends->num_rows > 0): ?>
+                    <div class="conversation-list">
                     <?php while($f = $friends->fetch_assoc()): ?>
-                        <div class="item-row" style="<?php echo ((int)($f['unread_count'] ?? 0) > 0) ? 'background:rgba(14,184,160,0.08);border:1px solid rgba(14,184,160,0.25);padding:14px 16px;border-radius:14px;margin-bottom:10px;' : ''; ?>">
-                            <div>
-                                <strong><?php echo htmlspecialchars($f['name']); ?></strong> 
-                                <span style="font-size: 0.7rem; background: var(--navy-mid); padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
-                                    <?php echo $f['role']; ?>
-                                </span>
+                        <div class="conversation-item <?php echo ((int)($f['unread_count'] ?? 0) > 0) ? 'is-unread' : ''; ?>">
+                            <div class="conversation-meta">
+                                <div class="conversation-name">
+                                    <strong><?php echo htmlspecialchars($f['name']); ?></strong>
+                                    <span class="role-pill"><?php echo $f['role']; ?></span>
                                 <?php if ((int)($f['unread_count'] ?? 0) > 0): ?>
                                     <span style="font-size:0.72rem;background:rgba(14,184,160,0.16);color:var(--teal);padding:3px 8px;border-radius:999px;font-weight:700;margin-left:8px;">
                                         <?php echo (int)$f['unread_count']; ?> new
                                     </span>
                                 <?php endif; ?>
+                                </div>
                                 <?php if (!empty($f['last_message_at'])): ?>
-                                    <div style="font-size:0.78rem;color:var(--muted);margin-top:6px;">
+                                    <div class="conversation-time">
                                         Last message: <?php echo date('M d, h:i A', strtotime($f['last_message_at'])); ?>
                                     </div>
                                 <?php endif; ?>
@@ -420,8 +590,10 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
                             <a href="chat.php?friend_id=<?php echo $f['id']; ?>" class="btn btn-primary">Message</a>
                         </div>
                     <?php endwhile; ?>
+                    </div>
                 <?php else: ?><p style="color:var(--muted)">You haven't added any friends yet.</p><?php endif; ?>
             </div>
+        </div>
         </div>
     </main>
 
@@ -605,3 +777,4 @@ themeToggle.addEventListener('click', () => {
 });
 </script>
 </body></html>
+

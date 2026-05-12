@@ -269,6 +269,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     .main { margin-left: 0; max-width: 100%; padding: 20px; }
 }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head>
 <body>
 <div class="page-bg"></div>
@@ -383,3 +384,4 @@ if (window.history.replaceState) {
 </script>
 </body>
 </html>
+

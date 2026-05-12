@@ -326,6 +326,7 @@ body {
 }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(14, 184, 160, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(14, 184, 160, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 184, 160, 0); } }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body>
 <div class="page-bg"></div>
 <div class="layout">
@@ -590,3 +591,4 @@ function previewProfilePicture(event) {
 </script>
 </body>
 </html>
+

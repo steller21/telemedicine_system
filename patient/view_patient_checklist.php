@@ -214,6 +214,7 @@ tbody td {
     color: var(--muted);
 }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head>
 <body>
 <div class="page-bg"></div>
@@ -267,3 +268,4 @@ tbody td {
 </main>
 </body>
 </html>
+

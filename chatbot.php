@@ -34,6 +34,7 @@
         button:hover { background: #555bd8; }
         @media (max-width: 600px) { #chatbox { height: 100vh; max-height: none; border-radius: 0; } }
     </style>
+<link rel="stylesheet" href="css/ui-refresh.css">
 </head>
 
 <body>

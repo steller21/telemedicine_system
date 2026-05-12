@@ -140,6 +140,7 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
 .badge-success{background:rgba(34,197,94,0.12);color:var(--success);}.badge-warning{background:rgba(245,158,11,0.12);color:var(--warning);}.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}.empty-state .empty-icon{font-size:3rem;margin-bottom:16px;opacity:0.5;}.empty-state h3{font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--white);}
 @media(max-width:768px){.sidebar{transform:translateX(-100%);}.main{margin-left:0;max-width:100%;padding:20px;}.grid-2{grid-template-columns:1fr;}}
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">
     <div class="sidebar-logo">
@@ -302,6 +303,7 @@ themeToggle.addEventListener('click', () => {
 });
 </script>
 </body></html>
+
 
 
 

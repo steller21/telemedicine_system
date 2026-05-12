@@ -169,6 +169,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 .cred-type { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-top: 4px; }
 .cred-actions { display: flex; gap: 8px; }
 </style>
+<link rel="stylesheet" href="../css/ui-refresh.css">
 </head>
 <body class="dark-mode">
 <div class="page-bg"></div>
@@ -338,4 +339,5 @@ function previewProfilePicture(event) {
 </script>
 </body>
 </html>
+
 

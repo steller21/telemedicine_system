@@ -67,6 +67,7 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
 .footer-link a:hover{text-decoration:underline;}
 code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:6px;color:#dbeafe;}
 </style>
+<link rel="stylesheet" href="css/ui-refresh.css">
 </head>
 <body>
 <div class="bg"></div>
@@ -96,3 +97,4 @@ code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:6px;color:#
 </div>
 </body>
 </html>
+
