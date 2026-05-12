@@ -900,6 +900,7 @@
         <li><a href="#how">How It Works</a></li>
         <li><a href="#testimonials">Reviews</a></li>
         <li><a href="login.php">Sign In</a></li>
+        <li><a href="admin_login.php">Admin</a></li>
         <li><a href="register.php" class="nav-cta">Get Started</a></li>
     </ul>
     <button class="nav-hamburger" onclick="document.querySelector('.nav-mobile').classList.add('open')">☰</button>
@@ -912,6 +913,7 @@
     <a href="#how" onclick="this.parentElement.classList.remove('open')">How It Works</a>
     <a href="#testimonials" onclick="this.parentElement.classList.remove('open')">Reviews</a>
     <a href="login.php">Sign In</a>
+    <a href="admin_login.php">Admin</a>
     <a href="register.php" class="btn-primary" style="font-size:1rem;">Get Started →</a>
 </div>
 
@@ -940,6 +942,9 @@
                 </a>
                 <a href="login.php" class="btn-secondary">
                     Start Consultation
+                </a>
+                <a href="admin_login.php" class="btn-secondary">
+                    Admin Access
                 </a>
             </div>
         </div>
@@ -1189,6 +1194,7 @@
             <a href="register.php?role=patient">Patient Signup</a>
             <a href="register.php?role=doctor">Doctor Signup</a>
             <a href="login.php">Sign In</a>
+            <a href="admin_login.php">Admin Login</a>
         </div>
         <div class="footer-col">
             <h4>Support</h4>

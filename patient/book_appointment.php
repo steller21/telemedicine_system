@@ -2,12 +2,15 @@
 date_default_timezone_set('Asia/Kolkata');
 session_start(); require_once("../config/db.php");
 require_once("monitor_core.php");
+require_once("../includes/admin_core.php");
+require_once("../includes/specializations.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id'];
-$doctor_result = $conn->query("SELECT * FROM doctors ORDER BY specialization ASC, name ASC");
+ensureAdminSchema($conn);
+$doctor_result = $conn->query("SELECT * FROM doctors WHERE verification_status = 'verified' ORDER BY specialization ASC, name ASC");
 $doctor_list = [];
 $doctors_by_id = [];
-$specializations = [];
+$specializations = array_combine(getDoctorSpecializations(), getDoctorSpecializations());
 
 if ($doctor_result) {
     while ($doctor = $doctor_result->fetch_assoc()) {
@@ -135,7 +138,10 @@ if (isset($_POST['book'])) {
         $msg_type = "error";
     } else {
         // Check if slot is still available
-        if (isSlotBooked($doctor_id, $slot_datetime)) {
+        if (!isset($doctors_by_id[$doctor_id])) {
+            $msg = "This doctor is not available for booking.";
+            $msg_type = "error";
+        } elseif (isSlotBooked($doctor_id, $slot_datetime)) {
             $msg = "This time slot is no longer available. Please select a different time.";
             $msg_type = "error";
         } elseif (isPatientBusy($patient_id, $slot_datetime)) {

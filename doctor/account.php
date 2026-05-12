@@ -1,6 +1,9 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("../includes/admin_core.php");
+
+ensureAdminSchema($conn);
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -66,6 +69,7 @@ if (isset($_POST['upload_credential'])) {
                 $stmt = $conn->prepare("INSERT INTO doctor_credentials (doctor_id, credential_type, credential_name, file_path) VALUES (?, ?, ?, ?)");
                 $stmt->bind_param("isss", $doctor_id, $cred_type, $cred_name, $db_path);
                 if ($stmt->execute()) {
+                    $conn->query("UPDATE doctors SET verification_status='pending', verified_at=NULL, verified_by_admin_id=NULL WHERE id='$doctor_id'");
                     $msg = "Credential uploaded successfully!";
                     $msg_type = "success";
                 } else {
@@ -101,6 +105,7 @@ if (isset($_POST['delete_credential'])) {
         $del = $conn->prepare("DELETE FROM doctor_credentials WHERE id=?");
         $del->bind_param("i", $cred_id);
         $del->execute();
+        $conn->query("UPDATE doctors SET verification_status='pending', verified_at=NULL, verified_by_admin_id=NULL WHERE id='$doctor_id'");
         $msg = "Credential deleted.";
         $msg_type = "success";
     }
@@ -199,6 +204,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
             <!-- Profile Edit Section -->
             <div class="card">
                 <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;margin-bottom:20px;">Personal Information</h2>
+                <div style="margin-bottom:18px;padding:14px 16px;border-radius:14px;<?php echo getVerificationBadgeStyles($user_data['verification_status'] ?? 'pending'); ?>">
+                    <strong style="text-transform:capitalize;"><?php echo htmlspecialchars($user_data['verification_status'] ?? 'pending'); ?></strong>
+                    <div style="font-size:0.85rem;margin-top:4px;opacity:0.95;">Your account verification is managed by admin based on uploaded credentials.</div>
+                </div>
                 <form method="POST" enctype="multipart/form-data">
                     <div class="form-group" style="text-align:center; margin-bottom:24px;">
                         <label for="profilePictureInput" style="cursor:pointer; display:inline-block; position:relative;">
