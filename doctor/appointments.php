@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("../includes/call_core.php");
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
@@ -8,6 +9,8 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $doctor_id = $_SESSION['user_id'];
+ensureVideoCallSchema($conn);
+expireWaitingCalls($conn);
 $stmt = $conn->prepare("SELECT a.*, p.name AS patient_name, p.phone AS patient_phone, p.address AS patient_address, p.dob AS patient_dob FROM appointments a JOIN patients p ON a.patient_id = p.id WHERE a.doctor_id = ? ORDER BY a.appointment_date DESC");
 
 if ($stmt !== false) {
@@ -305,6 +308,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                         <th>Address</th>
                         <th>Date & Time</th>
                         <th>Status</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -327,6 +331,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
                         <td style="max-width:260px;"><?php echo !empty($row['patient_address']) ? htmlspecialchars($row['patient_address']) : '<span class="muted-text">Not provided</span>'; ?></td>
                         <td><?php echo date('D, d M Y - h:i A', strtotime($row['appointment_date'])); ?></td>
                         <td><?php if ($isPast): ?><span class="badge badge-info">Completed</span><?php else: ?><span class="badge badge-success">Upcoming</span><?php endif; ?></td>
+                        <td>
+                            <?php if (!$isPast): ?>
+                                <a href="initiate_call.php?appointment_id=<?php echo (int)$row['id']; ?>" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:var(--teal);color:var(--navy);font-weight:700;text-decoration:none;">Call Patient</a>
+                            <?php else: ?>
+                                <span class="muted-text">Unavailable</span>
+                            <?php endif; ?>
+                        </td>
                     </tr>
                 <?php endwhile; ?>
                 </tbody>

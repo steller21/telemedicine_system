@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once("config/db.php");
+require_once("includes/call_core.php");
+
+ensureVideoCallSchema($conn);
+expireWaitingCalls($conn);
  
 if (!isset($_SESSION['user_id'])) { echo "❌ Please login first!"; exit; }
 if (!isset($_GET['call_id'])) { echo "❌ No call ID!"; exit; }
@@ -8,6 +12,11 @@ if (!isset($_GET['call_id'])) { echo "❌ No call ID!"; exit; }
 $call_id = intval($_GET['call_id']);
 $call = $conn->query("SELECT * FROM video_calls WHERE id='$call_id'");
 $data = $call->fetch_assoc();
+
+if (!$data || in_array(($data['status'] ?? ''), ['missed', 'declined', 'ended'], true)) {
+    echo "This call is no longer available.";
+    exit;
+}
  
 $user_id = $_SESSION['user_id'];
 $isDoctor  = ($user_id == $data['doctor_id']);
@@ -68,7 +77,7 @@ if ($isDoctor) {
     while($row = $rpt_res->fetch_assoc()) { $patient_reports[] = $row; }
 }
  
-$conn->query("UPDATE video_calls SET status='active' WHERE id='$call_id'");
+$conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(answered_at, NOW()), ended_reason = NULL WHERE id='$call_id'");
 ?>
  
 <!DOCTYPE html>
@@ -684,9 +693,9 @@ function startCallStatusMonitor() {
         
         pollCount++;
         fetch('check_call_status.php?call_id=<?php echo $call_id; ?>&t=' + Date.now(), { cache: 'no-store' })
-            .then(res => res.text())
-            .then(status => {
-                status = status.trim();
+            .then(res => res.json())
+            .then(data => {
+                const status = (data.status || '').trim();
                 
                 // Debug logs
                 if (pollCount % 4 === 0) {  // Log every 4th poll to reduce noise
@@ -699,7 +708,7 @@ function startCallStatusMonitor() {
                 }
                 
                 // Detect ended status
-                if (status === 'ended' && !callEnded) {
+                if ((status === 'ended' || status === 'missed' || status === 'declined') && !callEnded) {
                     console.log("🔴 DETECTED: Call status is 'ended' - auto-disconnecting");
                     endCallAuto(); // Don't set callEnded here — endCallAuto() handles it
                 }

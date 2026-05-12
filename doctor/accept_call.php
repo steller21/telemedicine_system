@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("../includes/call_core.php");
+
+ensureVideoCallSchema($conn);
+expireWaitingCalls($conn);
 
 if (!isset($_GET['call_id'])) {
     die("❌ No call_id received");
@@ -20,7 +24,7 @@ if ($check->num_rows == 0) {
 }
 
 // 🔥 FORCE UPDATE
-$update = $conn->query("UPDATE video_calls SET status='active' WHERE id = $call_id");
+$update = $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(answered_at, NOW()), ended_reason = NULL WHERE id = $call_id");
 
 if (!$update) {
     die("❌ UPDATE failed: " . $conn->error);

@@ -2,6 +2,7 @@
 session_start();
 require_once("../config/db.php");
 require_once("../patient/monitor_core.php");
+require_once("../includes/call_core.php");
  
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -9,12 +10,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 }
  
 $doctor_id = intval($_SESSION['user_id']);
+ensureVideoCallSchema($conn);
+expireWaitingCalls($conn);
 
 // Get incoming calls
 $calls = $conn->query("SELECT vc.*, u.name as patient_name 
                        FROM video_calls vc
                        LEFT JOIN patients u ON u.id = vc.patient_id
-                       WHERE vc.doctor_id='$doctor_id' AND vc.status='waiting'");
+                       WHERE vc.doctor_id='$doctor_id' AND vc.status='waiting' AND vc.initiated_by='patient'");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -475,8 +478,8 @@ let popupShown = false;
 let knownCallIds = new Set([
     <?php
         // Reset query
-        $conn->query("SELECT id FROM video_calls WHERE doctor_id='$doctor_id' AND status='waiting'");
-        $existing = $conn->query("SELECT id FROM video_calls WHERE doctor_id='$doctor_id' AND status='waiting'");
+        $conn->query("SELECT id FROM video_calls WHERE doctor_id='$doctor_id' AND status='waiting' AND initiated_by='patient'");
+        $existing = $conn->query("SELECT id FROM video_calls WHERE doctor_id='$doctor_id' AND status='waiting' AND initiated_by='patient'");
         $ids = [];
         if ($existing) while($r = $existing->fetch_assoc()) $ids[] = $r['id'];
         echo implode(',', $ids);

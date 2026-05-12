@@ -2,6 +2,7 @@
 session_start();
 require_once("../config/db.php");
 require_once("monitor_core.php");
+require_once("../includes/call_core.php");
  
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') { 
     header("Location: ../login.php"); 
@@ -9,6 +10,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'patient') {
 }
  
 $patient_id = intval($_SESSION['user_id']);
+ensureVideoCallSchema($conn);
+expireWaitingCalls($conn);
 
 // Ensure vitals table exists
 $conn->query("CREATE TABLE IF NOT EXISTS patient_vitals (
@@ -71,7 +74,47 @@ if (isset($_POST['update_profile'])) {
     }
 }
  
-$appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name 
+$appointments = $conn->query("SELECT a.id, a.appointment_date, u.name as doctor_name,
+    (
+        SELECT vc.id
+        FROM video_calls vc
+        WHERE vc.appointment_id = a.id
+          AND vc.patient_id = '$patient_id'
+          AND vc.initiated_by = 'doctor'
+          AND vc.status = 'waiting'
+        ORDER BY vc.created_at DESC
+        LIMIT 1
+    ) AS incoming_call_id,
+    (
+        SELECT vc.id
+        FROM video_calls vc
+        WHERE vc.appointment_id = a.id
+          AND vc.patient_id = '$patient_id'
+          AND vc.initiated_by = 'doctor'
+          AND vc.status = 'missed'
+        ORDER BY vc.created_at DESC
+        LIMIT 1
+    ) AS missed_call_id,
+    (
+        SELECT TIMESTAMPDIFF(SECOND, vc.created_at, NOW())
+        FROM video_calls vc
+        WHERE vc.appointment_id = a.id
+          AND vc.patient_id = '$patient_id'
+          AND vc.initiated_by = 'doctor'
+          AND vc.status = 'missed'
+        ORDER BY vc.created_at DESC
+        LIMIT 1
+    ) AS missed_call_age_seconds,
+    (
+        SELECT COALESCE(vc.patient_ready_notified, 0)
+        FROM video_calls vc
+        WHERE vc.appointment_id = a.id
+          AND vc.patient_id = '$patient_id'
+          AND vc.initiated_by = 'doctor'
+          AND vc.status = 'missed'
+        ORDER BY vc.created_at DESC
+        LIMIT 1
+    ) AS missed_call_ready_notified
 FROM appointments a 
 JOIN doctors u ON a.doctor_id = u.id 
 WHERE a.patient_id = '$patient_id' AND DATE_ADD(a.appointment_date, INTERVAL 2 HOUR) >= NOW() 
@@ -602,7 +645,31 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <tr>
                 <td><strong>Dr. <?php echo htmlspecialchars($row['doctor_name']); ?></strong></td>
                 <td><?php echo date('D, d M Y · h:i A', strtotime($row['appointment_date'])); ?></td>
-                <td><a href="start_call.php?appointment_id=<?php echo $row['id']; ?>" class="btn btn-primary btn-sm">📞 Start Call</a></td>
+                <td>
+                    <?php
+                    $missedCallAgeSeconds = isset($row['missed_call_age_seconds']) ? (int)$row['missed_call_age_seconds'] : 0;
+                    $callbackAllowed = !empty($row['missed_call_id']) && $missedCallAgeSeconds >= 300;
+                    $readyAlreadySent = !empty($row['missed_call_ready_notified']);
+                    ?>
+                    <?php if (!empty($row['incoming_call_id'])): ?>
+                        <a href="accept_call.php?call_id=<?php echo (int)$row['incoming_call_id']; ?>" class="btn btn-primary btn-sm">📞 Accept Call</a>
+                    <?php elseif (!empty($row['missed_call_id'])): ?>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                            <?php if (!$readyAlreadySent): ?>
+                                <a href="notify_doctor_ready.php?call_id=<?php echo (int)$row['missed_call_id']; ?>" class="btn btn-secondary btn-sm" style="white-space:nowrap;">I'm Ready for Consultancy</a>
+                            <?php else: ?>
+                                <span style="font-size:0.8rem;color:var(--muted);font-weight:600;">Doctor has been notified.</span>
+                            <?php endif; ?>
+                            <?php if ($callbackAllowed): ?>
+                                <a href="start_call.php?appointment_id=<?php echo (int)$row['id']; ?>" class="btn btn-primary btn-sm">📞 Call Doctor</a>
+                            <?php else: ?>
+                                <span style="font-size:0.78rem;color:var(--muted);">Call option unlocks 5 minutes after the doctor's missed call.</span>
+                            <?php endif; ?>
+                        </div>
+                    <?php else: ?>
+                        <span style="font-size:0.8rem;color:var(--muted);font-weight:600;">Doctor will call you for consultation.</span>
+                    <?php endif; ?>
+                </td>
             </tr>
             <?php endwhile; ?>
             </tbody>
@@ -616,6 +683,19 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
             <br><a href="book_appointment.php" class="btn btn-primary btn-sm">Book Now</a>
         </div>
         <?php endif; ?>
+    </div>
+
+    <div id="incomingCallOverlay" style="display:none;position:fixed;inset:0;background:rgba(2,6,23,0.74);z-index:100000;align-items:center;justify-content:center;padding:20px;">
+        <div style="width:min(92vw,460px);background:var(--navy-card);border:1px solid var(--border);border-radius:24px;padding:30px;text-align:center;box-shadow:0 25px 60px rgba(0,0,0,0.35);">
+            <div style="width:88px;height:88px;border-radius:50%;margin:0 auto 18px;background:rgba(14,184,160,0.16);display:flex;align-items:center;justify-content:center;font-size:2.2rem;animation:pulse 1.4s infinite;">📞</div>
+            <h2 style="font-family:'Clash Display',sans-serif;font-size:1.4rem;margin-bottom:8px;">Doctor is calling</h2>
+            <p id="incomingDoctorName" style="color:var(--muted);margin-bottom:10px;">Please answer your consultancy call.</p>
+            <p id="incomingCallTimer" style="color:var(--muted);font-size:0.9rem;margin-bottom:20px;"></p>
+            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+                <a id="acceptIncomingCallBtn" href="#" class="btn btn-primary btn-sm">Accept Call</a>
+                <a id="declineIncomingCallBtn" href="#" class="btn btn-secondary btn-sm">Decline</a>
+            </div>
+        </div>
     </div>
     <!-- HEALTH TRENDS (VITALS) -->
     <div class="card" style="margin-bottom:28px;">
@@ -898,6 +978,44 @@ themeToggle.addEventListener('click', () => {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
 });
+
+let visibleIncomingCallId = null;
+const incomingCallOverlay = document.getElementById('incomingCallOverlay');
+const incomingDoctorName = document.getElementById('incomingDoctorName');
+const incomingCallTimer = document.getElementById('incomingCallTimer');
+const acceptIncomingCallBtn = document.getElementById('acceptIncomingCallBtn');
+const declineIncomingCallBtn = document.getElementById('declineIncomingCallBtn');
+
+function showIncomingCall(call) {
+    visibleIncomingCallId = call.id;
+    incomingDoctorName.textContent = 'Dr. ' + call.doctor_name + ' is calling you for consultancy.';
+    incomingCallTimer.textContent = 'This ring will stop in ' + call.seconds_left + ' seconds.';
+    acceptIncomingCallBtn.href = 'accept_call.php?call_id=' + call.id;
+    declineIncomingCallBtn.href = 'decline_call.php?call_id=' + call.id;
+    incomingCallOverlay.style.display = 'flex';
+}
+
+function hideIncomingCall() {
+    visibleIncomingCallId = null;
+    incomingCallOverlay.style.display = 'none';
+}
+
+function pollIncomingDoctorCall() {
+    fetch('check_incoming_call.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.call) {
+                showIncomingCall(data.call);
+                return;
+            }
+
+            hideIncomingCall();
+        })
+        .catch(() => {});
+}
+
+pollIncomingDoctorCall();
+setInterval(pollIncomingDoctorCall, 4000);
 
 </script>
 
