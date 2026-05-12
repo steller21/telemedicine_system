@@ -107,7 +107,7 @@ require_once("monitor_core.php");
 // Fetch notification and account data here, before HTML output
 $notifCount = getPendingNotificationCount($conn, $user_id);
 $notifications = getPendingNotifications($conn, $user_id);
-$chatNotifCount = count(array_filter($notifications, static fn($notification) => ($notification['type'] ?? '') === 'chat'));
+$chatNotifCount = getUnreadChatNotificationCount($conn, $patient_id, true);
 
 $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
 $acc_stmt->bind_param("i", $user_id);

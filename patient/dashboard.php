@@ -508,7 +508,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <?php 
     $notifCount = getPendingNotificationCount($conn, $patient_id);
     $notifications = getPendingNotifications($conn, $patient_id);
-    $chatNotifCount = count(array_filter($notifications, static fn($notification) => ($notification['type'] ?? '') === 'chat'));
+    $chatNotifCount = getUnreadChatNotificationCount($conn, $patient_id, true);
     ?>
         <?php 
     $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("../config/db.php");
+require_once("monitor_core.php");
 if (!isset($_SESSION['user_id']) || !isset($_GET['friend_id'])) { header("Location: friends.php"); exit; }
 
 $user_id = $_SESSION['user_id'];
@@ -19,6 +20,7 @@ $friend = $friend_stmt->get_result()->fetch_assoc();
 $mark_read = $conn->prepare("UPDATE messages SET is_read = 1 WHERE sender_id = ? AND sender_role = 'patient' AND receiver_id = ? AND receiver_role = 'patient' AND is_read = 0");
 $mark_read->bind_param("ii", $friend_id, $user_id);
 $mark_read->execute();
+clearDismissedChatNotification($user_id, $friend_id);
 
 // Handle Send
 if (isset($_POST['send'])) {

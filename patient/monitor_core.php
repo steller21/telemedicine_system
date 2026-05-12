@@ -67,6 +67,53 @@ function initMonitorTables($conn) {
 
 initMonitorTables($conn);
 
+function getDismissedChatNotificationIds($user_id) {
+    $dismissed = $_SESSION['dismissed_chat_notifications'][$user_id] ?? [];
+    if (!is_array($dismissed)) {
+        return [];
+    }
+
+    return array_values(array_unique(array_map('intval', $dismissed)));
+}
+
+function dismissChatNotification($user_id, $sender_id) {
+    $dismissed = getDismissedChatNotificationIds($user_id);
+    if (!in_array((int)$sender_id, $dismissed, true)) {
+        $dismissed[] = (int)$sender_id;
+    }
+    $_SESSION['dismissed_chat_notifications'][$user_id] = $dismissed;
+}
+
+function clearDismissedChatNotification($user_id, $sender_id) {
+    $dismissed = getDismissedChatNotificationIds($user_id);
+    $_SESSION['dismissed_chat_notifications'][$user_id] = array_values(array_filter(
+        $dismissed,
+        static fn($id) => (int)$id !== (int)$sender_id
+    ));
+}
+
+function getUnreadChatNotificationCount($conn, $user_id, $includeDismissed = false) {
+    $sql = "
+        SELECT COUNT(DISTINCT sender_id) AS unread_chat_count
+        FROM messages
+        WHERE receiver_id = ? AND receiver_role = 'patient' AND sender_role = 'patient' AND is_read = 0
+    ";
+
+    $dismissed = $includeDismissed ? [] : getDismissedChatNotificationIds($user_id);
+    if (!empty($dismissed)) {
+        $sql .= " AND sender_id NOT IN (" . implode(',', array_map('intval', $dismissed)) . ")";
+    }
+
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        return 0;
+    }
+
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    return (int)($stmt->get_result()->fetch_assoc()['unread_chat_count'] ?? 0);
+}
+
 // Handle Global Actions (Accept/Reject for both Monitors and Reports)
 if (isset($_SESSION['user_id'])) {
     $current_user_id = $_SESSION['user_id'];
@@ -236,11 +283,7 @@ if (isset($_SESSION['user_id'])) {
 
         if (isset($_GET['clear_chat'])) {
             $sender_id = intval($_GET['clear_chat']);
-            $clear_chat = $conn->prepare("UPDATE messages SET is_read = 1 WHERE sender_id = ? AND sender_role = 'patient' AND receiver_id = ? AND receiver_role = 'patient' AND is_read = 0");
-            if ($clear_chat) {
-                $clear_chat->bind_param("ii", $sender_id, $current_user_id);
-                $clear_chat->execute();
-            }
+            dismissChatNotification($current_user_id, $sender_id);
             header("Location: $current_page"); exit;
         }
     }
@@ -372,12 +415,7 @@ function getPendingNotificationCount($conn, $user_id) {
     }
 
     // Unread messages count
-    $stmt5 = $conn->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND receiver_role = 'patient' AND sender_role = 'patient' AND is_read = 0");
-    if ($stmt5) {
-        $stmt5->bind_param("i", $user_id);
-        $stmt5->execute();
-        $count += $stmt5->get_result()->fetch_row()[0];
-    }
+    $count += getUnreadChatNotificationCount($conn, $user_id);
 
     // General notifications count
     $stmt4 = $conn->prepare("SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0");
@@ -486,7 +524,11 @@ function getPendingNotifications($conn, $user_id) {
         $stmt5->bind_param("i", $user_id);
         $stmt5->execute();
         $res5 = $stmt5->get_result();
+        $dismissedChats = getDismissedChatNotificationIds($user_id);
         while ($row = $res5->fetch_assoc()) {
+            if (in_array((int)$row['sender_id'], $dismissedChats, true)) {
+                continue;
+            }
             $notifications[] = [
                 'id' => $row['sender_id'], 
                 'title' => 'New Message', 

@@ -155,9 +155,79 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
             <!-- Doctor-only fields -->
             <div id="doctorFields" style="display:none;">
                 <div class="form-group">
-                    <label class="form-label">Specialization</label>
-                    <input class="form-input" type="text" name="specialization" placeholder="e.g. Cardiology">
-                </div>
+    <label class="form-label">Specialization</label>
+    <select class="form-select" name="specialization" required>
+        <option value="">Select Specialization</option>
+
+        <option value="General Physician">General Physician</option>
+        <option value="Family Medicine Specialist">Family Medicine Specialist</option>
+        <option value="Internal Medicine Specialist">Internal Medicine Specialist</option>
+        <option value="Cardiologist">Cardiologist</option>
+        <option value="Cardiac Surgeon">Cardiac Surgeon</option>
+        <option value="Hematologist">Hematologist</option>
+        <option value="Neurologist">Neurologist</option>
+        <option value="Neurosurgeon">Neurosurgeon</option>
+        <option value="Psychiatrist">Psychiatrist</option>
+        <option value="Psychotherapist">Psychotherapist</option>
+        <option value="Clinical Psychologist">Clinical Psychologist</option>
+        <option value="Counselor">Counselor</option>
+        <option value="Orthopedic Surgeon">Orthopedic Surgeon</option>
+        <option value="Rheumatologist">Rheumatologist</option>
+        <option value="Physiotherapist">Physiotherapist</option>
+        <option value="Pediatrician">Pediatrician</option>
+        <option value="Neonatologist">Neonatologist</option>
+        <option value="Gynecologist">Gynecologist</option>
+        <option value="Obstetrician">Obstetrician</option>
+        <option value="Fertility Specialist">Fertility Specialist</option>
+        <option value="Dermatologist">Dermatologist</option>
+        <option value="Cosmetologist">Cosmetologist</option>
+        <option value="Plastic Surgeon">Plastic Surgeon</option>
+        <option value="Ophthalmologist">Ophthalmologist</option>
+        <option value="ENT Specialist">ENT Specialist</option>
+        <option value="Otolaryngologist">Otolaryngologist</option>
+        <option value="Audiologist">Audiologist</option>
+        <option value="Dentist">Dentist</option>
+        <option value="Orthodontist">Orthodontist</option>
+        <option value="Oral Surgeon">Oral Surgeon</option>
+        <option value="Pulmonologist">Pulmonologist</option>
+        <option value="Respiratory Therapist">Respiratory Therapist</option>
+        <option value="Gastroenterologist">Gastroenterologist</option>
+        <option value="Hepatologist">Hepatologist</option>
+        <option value="Nephrologist">Nephrologist</option>
+        <option value="Urologist">Urologist</option>
+        <option value="Endocrinologist">Endocrinologist</option>
+        <option value="Diabetologist">Diabetologist</option>
+        <option value="Oncologist">Oncologist</option>
+        <option value="Radiation Oncologist">Radiation Oncologist</option>
+        <option value="General Surgeon">General Surgeon</option>
+        <option value="Vascular Surgeon">Vascular Surgeon</option>
+        <option value="Thoracic Surgeon">Thoracic Surgeon</option>
+        <option value="Trauma Surgeon">Trauma Surgeon</option>
+        <option value="Emergency Medicine Specialist">Emergency Medicine Specialist</option>
+        <option value="Critical Care Specialist">Critical Care Specialist</option>
+        <option value="Anesthesiologist">Anesthesiologist</option>
+        <option value="Infectious Disease Specialist">Infectious Disease Specialist</option>
+        <option value="Immunologist">Immunologist</option>
+        <option value="Allergist">Allergist</option>
+        <option value="Radiologist">Radiologist</option>
+        <option value="Pathologist">Pathologist</option>
+        <option value="Microbiologist">Microbiologist</option>
+        <option value="Geriatrician">Geriatrician</option>
+        <option value="Rehabilitation Specialist">Rehabilitation Specialist</option>
+        <option value="Pain Management Specialist">Pain Management Specialist</option>
+        <option value="Ayurvedic Doctor">Ayurvedic Doctor</option>
+        <option value="Homeopathic Doctor">Homeopathic Doctor</option>
+        <option value="Unani Specialist">Unani Specialist</option>
+        <option value="Siddha Doctor">Siddha Doctor</option>
+        <option value="Naturopathy Specialist">Naturopathy Specialist</option>
+        <option value="Nutritionist">Nutritionist</option>
+        <option value="Dietitian">Dietitian</option>
+        <option value="Speech Therapist">Speech Therapist</option>
+        <option value="Occupational Therapist">Occupational Therapist</option>
+        <option value="Sports Medicine Specialist">Sports Medicine Specialist</option>
+        <option value="Sleep Specialist">Sleep Specialist</option>
+    </select>
+</div>
                 <div class="form-group">
                     <label class="form-label">License Number</label>
                     <input class="form-input" type="text" name="license_number" placeholder="Medical license number">
@@ -201,4 +271,4 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 </body>
-</html>
+</html>

@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <?php 
         $notifCount = getPendingNotificationCount($conn, $user_id);
         $notifications = getPendingNotifications($conn, $user_id);
-        $chatNotifCount = count(array_filter($notifications, static fn($notification) => ($notification['type'] ?? '') === 'chat'));
+        $chatNotifCount = getUnreadChatNotificationCount($conn, $user_id, true);
         ?>
         <?php 
     $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
