@@ -55,6 +55,7 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
     .back-btn { color: #fff; text-decoration: none; font-size: 1.2rem; }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body>
     <header>
         <a href="friends.php" class="back-btn">←</a>

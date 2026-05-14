@@ -104,7 +104,7 @@ if ($check && $check->num_rows > 0) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Patient Checklist - MediConnect</title>
+<title>Patient Checklist - TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -215,6 +215,7 @@ tbody td {
 }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head>
 <body>
 <div class="page-bg"></div>

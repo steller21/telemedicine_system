@@ -35,6 +35,7 @@
         @media (max-width: 600px) { #chatbox { height: 100vh; max-height: none; border-radius: 0; } }
     </style>
 <link rel="stylesheet" href="css/ui-refresh.css">
+<script src="js/page-transition.js"></script>
 <style>
     .assistant-tools, .triage-options, .triage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .triage-btn { border: none; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; }

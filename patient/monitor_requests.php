@@ -107,7 +107,7 @@ require_once("monitor_core.php");
 // Fetch notification and account data here, before HTML output
 $notifCount = getPendingNotificationCount($conn, $user_id);
 $notifications = getPendingNotifications($conn, $user_id);
-$chatNotifCount = getUnreadChatNotificationCount($conn, $patient_id, true);
+$chatNotifCount = getUnreadChatNotificationCount($conn, $user_id, true);
 
 $acc_stmt = $conn->prepare("SELECT name, email, address, profile_picture FROM patients WHERE id = ?");
 $acc_stmt->bind_param("i", $user_id);
@@ -121,7 +121,7 @@ $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Monitor Requests — MediConnect</title>
+<title>Monitor Requests — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -327,11 +327,12 @@ body {
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(14, 184, 160, 0.4); } 70% { box-shadow: 0 0 0 8px rgba(14, 184, 160, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 184, 160, 0); } }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body>
 <div class="page-bg"></div>
 <div class="layout">
 <aside class="sidebar">
-    <a href="dashboard.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">MediConnect</span></a>
+    <a href="dashboard.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">TELEMEDICINE</span></a>
     <div class="nav-section"><div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>

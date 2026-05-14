@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="MediConnect - Smart telemedicine platform. Connect with doctors instantly via HD video calls, manage prescriptions, and monitor your health.">
-    <title>MediConnect - Smart Telemedicine Platform</title>
+    <meta name="description" content="TELEMEDICINE - Smart telemedicine platform. Connect with doctors instantly via HD video calls, manage prescriptions, and monitor your health.">
+    <title>TELEMEDICINE - Smart Telemedicine Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1019,7 +1019,7 @@
             <div class="brand-wrap">
                 <a href="index.php" class="logo">
                     <span class="logo-dot"></span>
-                    <span>MediConnect</span>
+                    <span>TELEMEDICINE</span>
                 </a>
                 <button id="themeToggle" class="theme-btn" title="Toggle Theme">Theme</button>
             </div>
@@ -1053,7 +1053,7 @@
                         <div class="eyebrow reveal">Smart Telemedicine Platform</div>
                         <h1 class="hero-title reveal">Clinical care, <em>recomposed</em> for modern life.</h1>
                         <p class="hero-copy reveal">
-                            MediConnect brings appointments, live consultation, prescriptions, health tracking, caregiver monitoring, and admin-reviewed doctor onboarding into one focused care experience.
+                            TELEMEDICINE brings appointments, live consultation, prescriptions, health tracking, caregiver monitoring, and admin-reviewed doctor onboarding into one focused care experience.
                         </p>
 
                         <div class="hero-actions reveal">
@@ -1099,7 +1099,7 @@
                                     <strong>Verified clinicians</strong>
                                     <span>Doctor visibility can be gated by admin credential approval for trust-first booking.</span>
                                 </div>
-                                <img src="images/hero_doctor.png" alt="Doctor illustration - MediConnect telemedicine platform">
+                                <img src="images/hero_doctor.png" alt="Doctor illustration - TELEMEDICINE telemedicine platform">
                             </div>
                         </div>
 
@@ -1261,7 +1261,7 @@
             <div class="reviews-grid">
                 <article class="review-card reveal">
                     <div class="review-stars">*****</div>
-                    <p class="review-text">"MediConnect made it easy to meet my doctor from home. The video quality feels polished, and medicine tracking finally keeps me consistent."</p>
+                    <p class="review-text">"TELEMEDICINE made it easy to meet my doctor from home. The video quality feels polished, and medicine tracking finally keeps me consistent."</p>
                     <div class="review-author">
                         <div class="review-avatar">S</div>
                         <div>
@@ -1302,7 +1302,7 @@
                 <div>
                     <div class="section-kicker">Get Started</div>
                     <h2 class="section-title">Build a <em>better care loop</em> from the first visit.</h2>
-                    <p class="section-copy">Whether you are booking as a patient or joining as a doctor, MediConnect is designed to make digital care feel direct, trustworthy, and human.</p>
+                    <p class="section-copy">Whether you are booking as a patient or joining as a doctor, TELEMEDICINE is designed to make digital care feel direct, trustworthy, and human.</p>
                 </div>
                 <div class="cta-stack">
                     <a href="register.php?role=patient" class="btn-primary">I'm a Patient</a>
@@ -1316,7 +1316,7 @@
             <div class="footer-shell">
                 <div class="footer-grid">
                     <div class="footer-brand">
-                        <h3>MediConnect</h3>
+                        <h3>TELEMEDICINE</h3>
                         <p>Smart telemedicine and care coordination system for video consultation, prescriptions, monitoring, and report sharing.</p>
                     </div>
                     <div class="footer-col">
@@ -1340,7 +1340,7 @@
                     </div>
                 </div>
                 <div class="footer-bottom">
-                    <div>&copy; 2026 MediConnect - Built for better healthcare.</div>
+                    <div>&copy; 2026 TELEMEDICINE - Built for better healthcare.</div>
                     <div>Smart Telemedicine Platform</div>
                 </div>
             </div>

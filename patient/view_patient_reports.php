@@ -128,7 +128,7 @@ if (isset($_POST['request_report'])) {
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Patient Reports — MediConnect</title>
+<title>Patient Reports — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -158,9 +158,10 @@ tbody td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.04);}.badg
 @media(max-width:768px){.sidebar{transform:translateX(-100%);}.main{margin-left:0;max-width:100%;padding:20px;}.grid-2{grid-template-columns:1fr;}}
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">
-    <a href="../index.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">MediConnect</span></a>
+    <a href="../index.php" class="sidebar-logo"><div class="logo-dot"></div><span class="logo-text">TELEMEDICINE</span></a>
     <div class="nav-section"><div class="nav-section-label"><?php echo ucfirst($role); ?></div>
         <?php if ($role === 'doctor'): ?>
             <a href="monitor_patients.php" class="nav-link"><span style="font-size:1.1rem;">💊</span> Monitor Patients</a>

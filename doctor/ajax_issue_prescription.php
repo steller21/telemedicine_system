@@ -2,6 +2,7 @@
 session_start();
 require_once("../config/db.php");
 require_once("../patient/monitor_core.php");
+require_once("../includes/prescription_pdf.php");
 
 header('Content-Type: application/json');
 
@@ -33,7 +34,7 @@ if ($duration_unit === 'weeks') {
 }
 
 // Verify authorization through appointments or an active call.
-$check = $conn->prepare("SELECT p.id FROM patients p
+$check = $conn->prepare("SELECT p.id, p.name FROM patients p
                          LEFT JOIN appointments a ON p.id = a.patient_id AND a.doctor_id = ?
                          LEFT JOIN video_calls vc ON p.id = vc.patient_id AND vc.doctor_id = ? AND vc.status = 'active'
                          WHERE p.id = ? AND (a.id IS NOT NULL OR vc.id IS NOT NULL) LIMIT 1");
@@ -63,12 +64,29 @@ if ($res_checklist->num_rows > 0) {
 
 $time_str = implode(",", $medicine_times);
 
-$is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by, duration_days) VALUES (?, ?, ?, ?, 'pending', ?, ?)");
-$is->bind_param("isssii", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id, $duration_days);
+$prescriptionPdf = createPrescriptionPdf(
+    $_SESSION['name'] ?? 'Doctor',
+    $patient_data['name'] ?? 'Patient',
+    $medicine_name,
+    $dosage,
+    $medicine_times,
+    $duration_days
+);
+$prescriptionDbPath = $prescriptionPdf ? $prescriptionPdf['db_path'] : null;
+$prescriptionPublicPath = $prescriptionPdf ? $prescriptionPdf['public_path'] : null;
+$prescriptionFilename = $prescriptionPdf ? $prescriptionPdf['filename'] : null;
+
+$is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by, duration_days, prescription_file) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)");
+$is->bind_param("isssiis", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id, $duration_days, $prescriptionDbPath);
 
 if ($is->execute()) {
     addUserNotification($conn, $patient_id, "New Prescription Issued", "Dr. " . $_SESSION['name'] . " has issued a new prescription.");
-    echo json_encode(["success" => true]);
+    echo json_encode([
+        "success" => true,
+        "message" => $prescriptionPublicPath ? "Prescription issued successfully." : "Prescription issued, but the PDF file could not be generated.",
+        "download_url" => $prescriptionPublicPath,
+        "download_name" => $prescriptionFilename
+    ]);
 } else {
     echo json_encode(["success" => false, "message" => "Database error"]);
 }

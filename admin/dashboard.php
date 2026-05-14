@@ -73,7 +73,7 @@ $patients = $conn->query("SELECT * FROM patients ORDER BY created_at DESC");
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Dashboard - MediConnect</title>
+<title>Admin Dashboard - TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--teal:#0EB8A0;--teal-dark:#0A8A78;--navy:#0B1526;--navy-mid:#112035;--navy-light:#1A3050;--navy-card:#0F1E36;--white:#fff;--muted:#7A8EA8;--border:rgba(255,255,255,0.07);--danger:#EF4444;--warning:#F59E0B;--success:#22C55E;}
@@ -119,6 +119,7 @@ tr:last-child td{border-bottom:none;}
 @media (max-width: 900px){.sidebar{position:static;width:100%;height:auto}.layout{display:block}.main{margin-left:0;padding:20px}.grid{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head>
 <body>
 <div class="bg"></div>
@@ -126,7 +127,7 @@ tr:last-child td{border-bottom:none;}
     <aside class="sidebar">
         <a href="dashboard.php" class="logo">
             <div class="logo-dot"></div>
-            <div class="logo-text">MediConnect Admin</div>
+            <div class="logo-text">TELEMEDICINE Admin</div>
         </a>
         <div class="nav">
             <a href="#doctors" class="nav-link active">Doctor Verification</a>

@@ -30,6 +30,7 @@ if (($row['status'] ?? '') === 'active') {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Waiting for Doctor</title>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head>
 <body style="text-align:center; padding:50px; background:#1a1a2e; color:white; font-family:Arial, sans-serif;">
 <h2>Waiting for doctor to join...</h2>

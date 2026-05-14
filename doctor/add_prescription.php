@@ -2,6 +2,7 @@
 session_start();
 require_once("../config/db.php");
 require_once("../patient/monitor_core.php");
+require_once("../includes/prescription_pdf.php");
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -77,8 +78,18 @@ if (isset($_POST['issue_prescription'])) {
             $time_str = implode(",", $times_for_medicine);
 
             if (!empty($medicine_name) && !empty($dosage) && !empty($time_str)) {
-                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by, duration_days) VALUES (?, ?, ?, ?, 'pending', ?, ?)");
-                $is->bind_param("isssii", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id, $duration_days);
+                $prescriptionPdf = createPrescriptionPdf(
+                    $_SESSION['name'] ?? 'Doctor',
+                    $patient_data['name'] ?? 'Patient',
+                    $medicine_name,
+                    $dosage,
+                    $times_for_medicine,
+                    $duration_days
+                );
+                $prescriptionDbPath = $prescriptionPdf ? $prescriptionPdf['db_path'] : null;
+
+                $is = $conn->prepare("INSERT INTO checklist_items (checklist_id, medicine_name, dosage, times_of_day, status, prescribed_by, duration_days, prescription_file) VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)");
+                $is->bind_param("isssiis", $checklist_id, $medicine_name, $dosage, $time_str, $doctor_id, $duration_days, $prescriptionDbPath);
                 
                 if ($is->execute()) {
                     $success_count++;
@@ -105,7 +116,7 @@ if (isset($_POST['issue_prescription'])) {
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Issue Prescription — MediConnect</title>
+<title>Issue Prescription — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
     :root { --teal: #0EB8A0; --navy: #f8fafc; --navy-mid: #ffffff; --white: #1e293b; --muted: #64748b; --border: rgba(0,0,0,0.08); --radius: 14px; }
@@ -131,6 +142,7 @@ if (isset($_POST['issue_prescription'])) {
     .remove-medicine-btn { position: absolute; top: 10px; right: 10px; padding: 5px 10px; font-size: 0.75rem; }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body>
     <div class="card">
         <a href="patients.php" class="btn btn-secondary btn-sm" style="margin-bottom: 20px;">← Back</a>

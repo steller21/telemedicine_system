@@ -51,7 +51,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS messages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
 
-function ensureColumnExists($conn, $table, $column, $definition) {
+function ensureColumnExists(mysqli $conn, string $table, string $column, string $definition): void {
     $safe_table = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
     $safe_column = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
 
@@ -230,7 +230,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
 ?>
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="UTF-8"><title>Friends &amp; Messages &mdash; MediConnect</title>
+<meta charset="UTF-8"><title>Friends &amp; Messages &mdash; TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
     /**
@@ -476,6 +476,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
     }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body>
     <div class="page-bg"></div>
     <div class="layout">
@@ -483,7 +484,7 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
     <!-- SECTION 6: SIDEBAR COMPONENT -->
     <aside class="sidebar">
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;">
-            <h2 style="color:var(--teal); margin:0; font-size:1.4rem;">MediConnect</h2>
+            <h2 style="color:var(--teal); margin:0; font-size:1.4rem;">TELEMEDICINE</h2>
             <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
         </div>
         <nav>

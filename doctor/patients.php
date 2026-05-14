@@ -21,7 +21,7 @@ ORDER BY p.name ASC");
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>My Patients — MediConnect</title>
+<title>My Patients — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -241,6 +241,7 @@ tbody tr:hover { background: rgba(14,184,160,0.05); }
 }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head>
 <body>
 <div class="page-bg"></div>
@@ -250,7 +251,7 @@ tbody tr:hover { background: rgba(14,184,160,0.05); }
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
         <a href="dashboard.php" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
             <div class="logo-dot"></div>
-            <span class="logo-text">MediConnect</span>
+            <span class="logo-text">TELEMEDICINE</span>
         </a>
         <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
     </div>

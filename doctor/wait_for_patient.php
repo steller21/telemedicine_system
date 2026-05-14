@@ -55,6 +55,7 @@ body { margin: 0; font-family: Arial, sans-serif; background: #0f172a; color: #f
 @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14,184,160,0.45); } 70% { transform: scale(1.03); box-shadow: 0 0 0 20px rgba(14,184,160,0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14,184,160,0); } }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head>
 <body>
     <div class="card">

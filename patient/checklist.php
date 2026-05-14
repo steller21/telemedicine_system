@@ -3,6 +3,11 @@ session_start(); require_once("../config/db.php");
 if (!isset($_SESSION['user_id'])) { header("Location: ../login.php"); exit; }
 require_once("../patient/monitor_core.php"); // Ensure tables and columns are initialized
 $patient_id = $_SESSION['user_id'];
+
+function checklistIsAjaxRequest() {
+    return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower((string) $_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
 $stmt = $conn->prepare("SELECT id FROM checklists WHERE patient_id = ? LIMIT 1");
 $stmt->bind_param("i", $patient_id);
 $stmt->execute();
@@ -20,6 +25,19 @@ if (isset($_POST['mark_done'])) {
     $u = $conn->prepare("INSERT INTO medicine_intakes (checklist_item_id, scheduled_date, time_of_day_slot, status, completed_at) VALUES (?, ?, ?, 'completed', NOW()) ON DUPLICATE KEY UPDATE status='completed', completed_at=NOW()");
     $u->bind_param("iss", $item_id, $scheduled_date, $time_slot);
     $u->execute();
+
+    if (checklistIsAjaxRequest()) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'completed_at' => date('h:i A'),
+            'item_id' => $item_id,
+            'scheduled_date' => $scheduled_date,
+            'time_slot' => $time_slot
+        ]);
+        exit;
+    }
+
     header("Location: checklist.php"); exit;
 }
 
@@ -142,7 +160,7 @@ if ($checklist_id) {
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>My Medicines — MediConnect</title>
+<title>My Medicines — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -422,12 +440,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
         <a href="../index.php" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
             <div class="logo-dot"></div>
-            <span class="logo-text">MediConnect</span>
+            <span class="logo-text">TELEMEDICINE</span>
         </a>
         <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
     </div>
@@ -614,17 +633,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                             <?php endif; ?>
                                         </td>
                                         <td><span style="color:var(--muted);"><?php echo htmlspecialchars($m['dosage']); ?></span></td>
-                                        <td>
+                                        <td class="medicine-status-cell">
                                             <?php if($m['status'] == 'completed'): ?>
                                                 <span class="badge badge-success">Taken</span>
-                                                <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;">at <?php echo date('h:i A', strtotime($m['completed_at'])); ?></div>
+                                                <div class="medicine-completed-at" style="font-size:0.7rem;color:var(--muted);margin-top:4px;">at <?php echo date('h:i A', strtotime($m['completed_at'])); ?></div>
                                             <?php else: ?>
                                                 <span class="badge badge-warning">Pending</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td>
+                                        <td class="medicine-action-cell">
                                             <?php if($m['status'] !== 'completed'): ?>
-                                                <form method="POST" style="margin:0;">
+                                                <form method="POST" style="margin:0;" class="mark-taken-form">
                                                     <input type="hidden" name="item_id" value="<?php echo $m['item_id']; ?>">
                                                     <input type="hidden" name="scheduled_date" value="<?php echo $m['scheduled_date']; ?>">
                                                     <input type="hidden" name="time_slot" value="<?php echo $m['time_slot']; ?>">
@@ -691,7 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <p style="color:var(--muted);text-align:center;padding:20px;font-size:0.9rem;">No medicine history found.</p>
         <?php endif; ?>
     </div>
-</main></div></body></html>
+</main></div>
 <script>
 // Theme Toggle Logic
 const themeToggle = document.getElementById('themeToggle');
@@ -719,5 +738,56 @@ if (window.history.replaceState) {
     url.searchParams.delete('error');
     window.history.replaceState({}, document.title, url);
 }
+
+document.querySelectorAll('.mark-taken-form').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const button = form.querySelector('button[name="mark_done"]');
+        const actionCell = form.closest('.medicine-action-cell');
+        const row = form.closest('tr');
+        const statusCell = row ? row.querySelector('.medicine-status-cell') : null;
+        const originalText = button ? button.textContent : 'Mark Taken';
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Saving...';
+        }
+
+        try {
+            const formData = new FormData(form);
+            formData.append('mark_done', '1');
+
+            const response = await fetch('checklist.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error('Failed to mark medicine as taken.');
+            }
+
+            if (statusCell) {
+                statusCell.innerHTML = '<span class="badge badge-success">Taken</span><div class="medicine-completed-at" style="font-size:0.7rem;color:var(--muted);margin-top:4px;">at ' + (data.completed_at || '') + '</div>';
+            }
+
+            if (actionCell) {
+                actionCell.innerHTML = '<span style="color:var(--success); font-weight:bold;">✓</span>';
+            }
+        } catch (error) {
+            console.error(error);
+            if (button) {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+            alert('Unable to mark this medicine as taken right now.');
+        }
+    });
+});
 </script>
+</body></html>
 

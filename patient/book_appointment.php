@@ -26,7 +26,7 @@ $specializations = array_values($specializations);
 $msg = ""; $msg_type = "";
 
 // Function to get valid appointment slots for a given date
-function getValidAppointmentSlots($date) {
+function getValidAppointmentSlots(string $date): array {
     $slots = [];
     $start_time = strtotime($date . ' 09:30:00');
     $end_time = strtotime($date . ' 16:30:00'); // 4:30 PM
@@ -63,7 +63,7 @@ function getValidAppointmentSlots($date) {
 }
 
 // Function to check if a slot is already booked
-function isSlotBooked($doctor_id, $slot_datetime) {
+function isSlotBooked(int $doctor_id, string $slot_datetime): bool {
     global $conn;
     $stmt = $conn->prepare("SELECT id FROM appointments WHERE doctor_id = ? AND appointment_date = ?");
     $stmt->bind_param("is", $doctor_id, $slot_datetime);
@@ -73,7 +73,7 @@ function isSlotBooked($doctor_id, $slot_datetime) {
 }
 
 // Function to check if the patient already has an appointment at the exact same time
-function isPatientBusy($patient_id, $slot_datetime) {
+function isPatientBusy(int $patient_id, string $slot_datetime): bool {
     global $conn;
     $stmt = $conn->prepare("SELECT id FROM appointments WHERE patient_id = ? AND appointment_date = ?");
     $stmt->bind_param("is", $patient_id, $slot_datetime);
@@ -82,7 +82,7 @@ function isPatientBusy($patient_id, $slot_datetime) {
     return $result->num_rows > 0;
 }
 
-function isSlotStillBookable($slot_datetime) {
+function isSlotStillBookable(string $slot_datetime): bool {
     $slot_timestamp = strtotime($slot_datetime);
     return $slot_timestamp > (time() + 3600);
 }
@@ -172,7 +172,7 @@ if (isset($_POST['book'])) {
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Book Appointment — MediConnect</title>
+<title>Book Appointment — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -663,12 +663,13 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body><div class="page-bg"></div><div class="layout">
 <aside class="sidebar">
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
         <a href="../index.php" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
             <div class="logo-dot"></div>
-            <span class="logo-text">MediConnect</span>
+            <span class="logo-text">TELEMEDICINE</span>
         </a>
         <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
     </div>

@@ -23,6 +23,7 @@
         button:hover { background: #555bd8; }
     </style>
 <link rel="stylesheet" href="css/ui-refresh.css">
+<script src="js/page-transition.js"></script>
 <style>
     .assistant-tools, .triage-options, .triage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
     .triage-btn { border: none; border-radius: 999px; padding: 7px 11px; font-size: 11px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease; }

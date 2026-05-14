@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
+html {
+    min-height: 100%;
+    background: #081525;
+}
+
 :root {
     --teal: #1bb8a7;
     --teal-dark: #138d82;
@@ -38,11 +43,13 @@ body.dark-mode {
 
 body {
     font-family: 'DM Sans', sans-serif;
+    min-height: 100%;
     background:
         radial-gradient(circle at 8% 12%, rgba(27, 184, 167, 0.16), transparent 26%),
         radial-gradient(circle at 92% 14%, rgba(255, 127, 80, 0.12), transparent 24%),
         radial-gradient(circle at 82% 84%, rgba(94, 166, 255, 0.12), transparent 24%),
         linear-gradient(180deg, var(--navy-light) 0%, var(--navy) 100%);
+    background-color: var(--navy);
     color: var(--white);
 }
 
@@ -57,6 +64,20 @@ body::before {
     background-size: 34px 34px;
     opacity: 0.35;
     mask-image: radial-gradient(circle at center, black 36%, transparent 92%);
+}
+
+body.page-transitioning::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 14% 10%, rgba(27, 184, 167, 0.16), transparent 28%),
+        radial-gradient(circle at 88% 12%, rgba(255, 127, 80, 0.12), transparent 24%),
+        radial-gradient(circle at 80% 82%, rgba(94, 166, 255, 0.13), transparent 22%),
+        linear-gradient(180deg, var(--navy-light) 0%, var(--navy) 100%);
+    opacity: 1;
 }
 
 .bg,

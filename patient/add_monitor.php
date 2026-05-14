@@ -104,7 +104,7 @@ if ($report_query) {
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Add Monitor — MediConnect</title>
+<title>Add Monitor — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -317,6 +317,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body>
 <div class="page-bg"></div>
 <div class="layout">
@@ -324,7 +325,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
         <a href="../index.php" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
             <div class="logo-dot"></div>
-            <span class="logo-text">MediConnect</span>
+            <span class="logo-text">TELEMEDICINE</span>
         </a>
         <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
     </div>
@@ -468,7 +469,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         <!-- ADD MONITOR FORM -->
         <div class="card">
             <h2 style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:16px;">➕ Add New Monitor</h2>
-            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the email address of a trusted person (they must have a MediConnect account). They'll receive a request to monitor your health.</p>
+            <p style="color:var(--muted);font-size:0.875rem;margin-bottom:24px;">Enter the email address of a trusted person (they must have a TELEMEDICINE account). They'll receive a request to monitor your health.</p>
             <form method="POST" action="">
                 <div class="form-group">
                     <label class="form-label">Monitor's Email Address</label>

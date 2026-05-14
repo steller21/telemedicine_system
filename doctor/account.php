@@ -126,7 +126,7 @@ $creds = $conn->query("SELECT * FROM doctor_credentials WHERE doctor_id='$doctor
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>My Account — MediConnect</title>
+<title>My Account — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
@@ -170,6 +170,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 .cred-actions { display: flex; gap: 8px; }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head>
 <body class="dark-mode">
 <div class="page-bg"></div>
@@ -179,7 +180,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
     <aside class="sidebar">
         <a href="dashboard.php" class="sidebar-logo">
             <div class="logo-dot"></div>
-            <div class="logo-text">MediConnect</div>
+            <div class="logo-text">TELEMEDICINE</div>
         </a>
         <div class="nav-section">
             <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>

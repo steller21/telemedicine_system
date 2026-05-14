@@ -205,7 +205,7 @@ if (isset($_GET['error'])) {
 ?>
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Patient Dashboard — MediConnect</title>
+<title>Patient Dashboard — TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
@@ -578,6 +578,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
 }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
+<script src="../js/page-transition.js"></script>
 </head><body>
 <div class="page-bg"></div>
 <div class="layout">
@@ -586,7 +587,7 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
         <a href="../index.php" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
             <div class="logo-dot"></div>
-            <span class="logo-text">MediConnect</span>
+            <span class="logo-text">TELEMEDICINE</span>
         </a>
         <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
     </div>

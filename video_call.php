@@ -228,9 +228,75 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
         .btn-primary:hover { background: #0A8A78; }
         .btn-action { background: #f39c12; color: white; border: none; border-radius: 6px; padding: 10px 15px; cursor: pointer; font-weight: bold; }
         .btn-action:hover { background: #e67e22; }
+        #prescriptionModal {
+            background: rgba(6,14,24,0.68);
+            backdrop-filter: blur(6px);
+        }
+        #prescriptionModal .modal-content {
+            background: linear-gradient(180deg, #ffffff 0%, #f3f8fb 100%);
+            color: #12243d;
+            box-shadow: 0 28px 80px rgba(0,0,0,0.28);
+            border-radius: 24px;
+            padding: 28px;
+        }
+        #prescriptionModal .modal-header {
+            border-bottom: 1px solid rgba(18,36,61,0.08);
+        }
+        #prescriptionModal .modal-header h3,
+        #prescriptionModal .form-group label {
+            color: #12243d;
+            font-weight: 700;
+        }
+        #prescriptionModal .close-btn {
+            color: #64748b;
+        }
+        #prescriptionModal .form-group input[type="text"] {
+            background: #ffffff;
+            color: #12243d;
+            border: 1px solid #d7e2ec;
+            padding: 12px 14px;
+        }
+        #prescriptionModal .time-grid {
+            background: #eef4f8;
+            border: 1px solid #d7e2ec;
+            padding: 12px;
+            gap: 12px;
+        }
+        #prescriptionModal .time-grid label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #1f3551;
+            font-weight: 600;
+        }
+        #prescriptionModal .time-grid input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #0EB8A0;
+        }
+        #prescriptionModal .btn-primary {
+            background: linear-gradient(90deg, #0EB8A0 0%, #34d3c4 100%);
+            color: #06263a;
+            border-radius: 999px;
+            padding: 14px 20px;
+            box-shadow: 0 18px 35px rgba(14,184,160,0.24);
+        }
+        #prescriptionModal .btn-primary:hover {
+            background: linear-gradient(90deg, #0aa390 0%, #25c6b7 100%);
+        }
+        .prescription-helper {
+            font-size: 0.82em;
+            color: #5f7085;
+            margin-top: 10px;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="css/ui-refresh.css">
+<script src="js/page-transition.js"></script>
+<script src="js/prescription-download.js"></script>
 </head>
 <body>
  
@@ -341,6 +407,7 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
                 </div>
             </div>
             <button type="submit" class="btn-primary" id="submitPrescriptionBtn">Issue Digital Prescription</button>
+            <p class="prescription-helper">After issuing, a PDF save dialog will open so you can choose where to save the prescription.</p>
         </form>
     </div>
 </div>
@@ -415,6 +482,52 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
             btn.innerText = 'Issue Digital Prescription';
         });
     }
+</script>
+<script>
+    submitPrescription = async function (e) {
+        e.preventDefault();
+        const btn = document.getElementById('submitPrescriptionBtn');
+        btn.disabled = true;
+        btn.innerText = 'Issuing...';
+
+        const form = document.getElementById('prescriptionForm');
+        const formData = new FormData(form);
+        formData.append('patient_id', <?php echo $data['patient_id']; ?>);
+
+        try {
+            const response = await fetch('doctor/ajax_issue_prescription.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (!data.success) {
+                alert(data.message || 'Failed to issue prescription');
+                return;
+            }
+
+            hidePrescriptionModal();
+
+            if (data.download_url) {
+                try {
+                    await downloadFileWithPicker(data.download_url, data.download_name || 'prescription.pdf');
+                } catch (downloadError) {
+                    if (!downloadError || downloadError.name !== 'AbortError') {
+                        console.error('Download error:', downloadError);
+                        window.open(data.download_url, '_blank', 'noopener');
+                    }
+                }
+            }
+
+            alert(data.message || 'Prescription issued successfully!');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred.');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = 'Issue Digital Prescription';
+        }
+    };
 </script>
 <?php endif; ?>
  

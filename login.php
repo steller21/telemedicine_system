@@ -43,7 +43,7 @@ if (isset($_POST['login'])) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - MediConnect</title>
+<title>Login - TELEMEDICINE</title>
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--teal:#0EB8A0;--teal-dark:#0A8A78;--navy:#0B1526;--navy-mid:#112035;--navy-light:#1A3050;--navy-card:#0F1E36;--white:#fff;--muted:#7A8EA8;--border:rgba(255,255,255,0.07);--danger:#EF4444;}
@@ -75,13 +75,14 @@ h2{font-family:'Clash Display',sans-serif;font-size:1.5rem;font-weight:600;margi
 code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:6px;color:#dbeafe;}
 </style>
 <link rel="stylesheet" href="css/ui-refresh.css">
+<script src="js/page-transition.js"></script>
 </head>
 <body>
 <div class="bg"></div>
 <div class="wrap">
     <a href="index.php" class="logo">
         <div class="logo-dot"></div>
-        <span class="logo-text">MediConnect</span>
+        <span class="logo-text">TELEMEDICINE</span>
     </a>
     <div class="card">
         <h2>Welcome back</h2>
