@@ -7,7 +7,14 @@ require_once("../includes/specializations.php");
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'patient') { header("Location: ../login.php"); exit; }
 $patient_id = $_SESSION['user_id'];
 ensureAdminSchema($conn);
-$doctor_result = $conn->query("SELECT * FROM doctors WHERE verification_status = 'verified' ORDER BY specialization ASC, name ASC");
+$doctor_result = $conn->query("
+    SELECT * FROM doctors
+    WHERE verification_status = 'verified'
+    ORDER BY
+        CASE WHEN availability_status = 'available' THEN 0 ELSE 1 END ASC,
+        specialization ASC,
+        name ASC
+");
 $doctor_list = [];
 $doctors_by_id = [];
 $specializations = array_combine(getDoctorSpecializations(), getDoctorSpecializations());
@@ -108,13 +115,16 @@ if ($selected_doctor && !isset($doctors_by_id[$selected_doctor])) {
 
 // Get available slots for selected date and doctor
 $available_slots = [];
-if ($selected_doctor && isset($doctors_by_id[$selected_doctor]) && !$is_selected_date_past) {
+if ($selected_doctor && isset($doctors_by_id[$selected_doctor]) && (($doctors_by_id[$selected_doctor]['availability_status'] ?? 'available') === 'available') && !$is_selected_date_past) {
     $all_slots = getValidAppointmentSlots($selected_date);
     foreach ($all_slots as $slot) {
         if (isSlotStillBookable($slot) && !isSlotBooked($selected_doctor, $slot)) {
             $available_slots[] = $slot;
         }
     }
+} elseif ($selected_doctor && isset($doctors_by_id[$selected_doctor]) && (($doctors_by_id[$selected_doctor]['availability_status'] ?? 'available') !== 'available') && $msg === "") {
+    $msg = "This doctor is currently marked as not available for appointments.";
+    $msg_type = "warning";
 } elseif ($selected_doctor && $is_selected_date_past && $msg === "") {
     $msg = "Past dates are not available for booking.";
     $msg_type = "warning";
@@ -140,6 +150,9 @@ if (isset($_POST['book'])) {
         // Check if slot is still available
         if (!isset($doctors_by_id[$doctor_id])) {
             $msg = "This doctor is not available for booking.";
+            $msg_type = "error";
+        } elseif (($doctors_by_id[$doctor_id]['availability_status'] ?? 'available') !== 'available') {
+            $msg = "This doctor is currently marked as not available for appointments.";
             $msg_type = "error";
         } elseif (isSlotBooked($doctor_id, $slot_datetime)) {
             $msg = "This time slot is no longer available. Please select a different time.";
@@ -520,6 +533,10 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     padding-right: 4px;
 }
 
+.doctor-search {
+    margin-bottom: 16px;
+}
+
 .doctor-option {
     position: relative;
 }
@@ -544,6 +561,20 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     transform: translateY(-2px);
     border-color: rgba(14,184,160,0.35);
     box-shadow: 0 12px 24px rgba(0,0,0,0.06);
+}
+
+.doctor-option.is-unavailable .doctor-card {
+    background: linear-gradient(180deg, rgba(239,68,68,0.07), rgba(239,68,68,0.02));
+    border-color: rgba(239,68,68,0.18);
+}
+
+.doctor-option.is-unavailable .doctor-card:hover {
+    border-color: rgba(239,68,68,0.3);
+}
+
+.doctor-option.is-unavailable .doctor-radio:disabled + .doctor-card {
+    cursor: not-allowed;
+    opacity: 0.82;
 }
 
 .doctor-radio:checked + .doctor-card {
@@ -571,6 +602,31 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
     color: var(--teal);
     font-size: 0.82rem;
     font-weight: 600;
+}
+
+.doctor-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.doctor-status-badge.available {
+    background: rgba(34,197,94,0.14);
+    color: var(--success);
+    border: 1px solid rgba(34,197,94,0.22);
+}
+
+.doctor-status-badge.unavailable {
+    background: rgba(239,68,68,0.14);
+    color: var(--danger);
+    border: 1px solid rgba(239,68,68,0.22);
 }
 
 .doctor-avatar {
@@ -811,32 +867,40 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
             <div class="card">
-                <h3 class="section-title">Available Doctors</h3>
-                <p class="section-subtitle">Only doctors from the chosen specialization are shown here.</p>
+                <h3 class="section-title">Doctors</h3>
+                <p class="section-subtitle">Available doctors are listed first. Doctors marked not available still appear below so patients can search and view them.</p>
+                <div class="doctor-search">
+                    <input class="form-input" type="text" id="doctorSearchInput" placeholder="Search doctor by name">
+                </div>
                 <div class="doctor-list" id="doctorList">
                     <?php foreach ($doctor_list as $doctor): ?>
                     <?php
                         $doctor_id = (int) $doctor['id'];
                         $doctor_name = trim($doctor['name'] ?? 'Unnamed Doctor');
                         $doctor_specialization = $doctor['specialization'];
+                        $doctor_availability = $doctor['availability_status'] ?? 'available';
+                        $is_doctor_available = $doctor_availability === 'available';
                         $doctor_affiliations = trim($doctor['affiliations'] ?? '');
                         $doctor_bio = trim($doctor['bio'] ?? '');
                         $doctor_bio_preview = strlen($doctor_bio) > 110 ? substr($doctor_bio, 0, 107) . '...' : $doctor_bio;
                         $doctor_initials = strtoupper(substr($doctor_name, 0, 1));
                     ?>
-                    <div class="doctor-option<?php echo ($selected_specialization !== '' && $doctor_specialization !== $selected_specialization) ? ' is-hidden' : ''; ?>" data-specialization="<?php echo htmlspecialchars($doctor_specialization); ?>">
-                        <input class="doctor-radio" type="radio" name="doctor_option" id="doctor-option-<?php echo $doctor_id; ?>" value="<?php echo $doctor_id; ?>" data-name="<?php echo htmlspecialchars($doctor_name); ?>" data-specialization="<?php echo htmlspecialchars($doctor_specialization); ?>" <?php echo ($selected_doctor === $doctor_id) ? 'checked' : ''; ?>>
+                    <div class="doctor-option<?php echo ($selected_specialization !== '' && $doctor_specialization !== $selected_specialization) ? ' is-hidden' : ''; ?><?php echo $is_doctor_available ? '' : ' is-unavailable'; ?>" data-specialization="<?php echo htmlspecialchars($doctor_specialization); ?>" data-search="<?php echo htmlspecialchars(strtolower($doctor_name . ' ' . $doctor_specialization . ' ' . str_replace('_', ' ', $doctor_availability))); ?>" data-availability="<?php echo htmlspecialchars($doctor_availability); ?>">
+                        <input class="doctor-radio" type="radio" name="doctor_option" id="doctor-option-<?php echo $doctor_id; ?>" value="<?php echo $doctor_id; ?>" data-name="<?php echo htmlspecialchars($doctor_name); ?>" data-specialization="<?php echo htmlspecialchars($doctor_specialization); ?>" <?php echo ($selected_doctor === $doctor_id && $is_doctor_available) ? 'checked' : ''; ?> <?php echo $is_doctor_available ? '' : 'disabled'; ?>>
                         <label class="doctor-card" for="doctor-option-<?php echo $doctor_id; ?>">
                             <div class="doctor-card-top">
                                 <div>
                                     <div class="doctor-name">Dr. <?php echo htmlspecialchars($doctor_name); ?></div>
                                     <div class="doctor-specialization"><?php echo htmlspecialchars($doctor_specialization); ?></div>
+                                    <div class="doctor-status-badge <?php echo $is_doctor_available ? 'available' : 'unavailable'; ?>">
+                                        <?php echo $is_doctor_available ? 'Available' : 'Not Available'; ?>
+                                    </div>
                                 </div>
                                 <div class="doctor-avatar"><?php echo htmlspecialchars($doctor_initials); ?></div>
                             </div>
                             <div class="doctor-meta">
-                                <div class="doctor-meta-item"><?php echo $doctor_affiliations !== '' ? htmlspecialchars($doctor_affiliations) : 'Available for online consultation and appointment booking.'; ?></div>
-                                <div class="doctor-meta-item"><?php echo $doctor_bio !== '' ? htmlspecialchars($doctor_bio_preview) : 'Choose this doctor to view open time slots for your selected date.'; ?></div>
+                                <div class="doctor-meta-item"><?php echo $doctor_affiliations !== '' ? htmlspecialchars($doctor_affiliations) : ($is_doctor_available ? 'Available for online consultation and appointment booking.' : 'Currently unavailable for appointment booking.'); ?></div>
+                                <div class="doctor-meta-item"><?php echo $doctor_bio !== '' ? htmlspecialchars($doctor_bio_preview) : ($is_doctor_available ? 'Choose this doctor to view open time slots for your selected date.' : 'You can still find this doctor here, but booking is disabled until availability is turned back on.'); ?></div>
                             </div>
                         </label>
                     </div>
@@ -847,13 +911,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="doctor-empty is-hidden" id="doctorEmptyState">
                         <strong>No doctors found</strong>
-                        There are no doctors available in this specialization right now.
+                        There are no doctors matching this specialization and search right now.
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="card slots-card" id="step2" style="display: <?php echo $selected_doctor ? 'block' : 'none'; ?>;">
+        <div class="card slots-card" id="step2" style="display: <?php echo ($selected_doctor && isset($doctors_by_id[$selected_doctor]) && (($doctors_by_id[$selected_doctor]['availability_status'] ?? 'available') === 'available')) ? 'block' : 'none'; ?>;">
             <!-- Step 2: Select Time Slot -->
                 <h3 class="section-title">Step 2: Select Time Slot</h3>
                 <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 20px;">
@@ -934,6 +998,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmBtn = document.getElementById('confirmBtn');
     const selectionForm = document.getElementById('selectionForm');
     const specializationSelect = document.getElementById('specializationSelect');
+    const doctorSearchInput = document.getElementById('doctorSearchInput');
     const doctorInput = document.getElementById('doctorInput');
     const doctorCards = document.querySelectorAll('.doctor-option');
     const doctorRadios = document.querySelectorAll('.doctor-radio');
@@ -972,16 +1037,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function filterDoctors() {
         const selectedSpecialization = specializationSelect.value;
+        const searchTerm = (doctorSearchInput?.value || '').trim().toLowerCase();
         let visibleCount = 0;
         let selectedDoctorStillVisible = false;
 
         doctorCards.forEach(card => {
-            const matches = selectedSpecialization !== '' && card.dataset.specialization === selectedSpecialization;
+            const matchesSpecialization = selectedSpecialization !== '' && card.dataset.specialization === selectedSpecialization;
+            const matchesSearch = searchTerm === '' || (card.dataset.search || '').includes(searchTerm);
+            const matches = matchesSpecialization && matchesSearch;
             card.classList.toggle('is-hidden', !matches);
             if (matches) {
                 visibleCount += 1;
                 const radio = card.querySelector('.doctor-radio');
-                if (radio && radio.checked) {
+                if (radio && radio.checked && !radio.disabled) {
                     selectedDoctorStillVisible = true;
                 }
             }
@@ -1029,8 +1097,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     specializationSelect.addEventListener('change', function() {
         doctorInput.value = '';
+        if (doctorSearchInput) {
+            doctorSearchInput.value = '';
+        }
         filterDoctors();
     });
+
+    if (doctorSearchInput) {
+        doctorSearchInput.addEventListener('input', filterDoctors);
+    }
 
     filterDoctors();
 });

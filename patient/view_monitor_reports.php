@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $monitor_id = $_SESSION['user_id'];
-
+$patients_result = false;
 // Get monitored patients' reports
 $patients = $conn->prepare("
     SELECT DISTINCT p.id, p.name

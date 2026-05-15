@@ -11,7 +11,7 @@ if (!isset($conn)) {
 /**
  * Initialize necessary tables if they don't exist
  */
-function initMonitorTables($conn) {
+function initMonitorTables(mysqli $conn): void {
     // Create monitor_requests table
     $sql1 = "CREATE TABLE IF NOT EXISTS monitor_requests (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,7 +67,7 @@ function initMonitorTables($conn) {
 
 initMonitorTables($conn);
 
-function getDismissedChatNotificationIds($user_id) {
+function getDismissedChatNotificationIds(int $user_id): array {
     $dismissed = $_SESSION['dismissed_chat_notifications'][$user_id] ?? [];
     if (!is_array($dismissed)) {
         return [];
@@ -76,7 +76,7 @@ function getDismissedChatNotificationIds($user_id) {
     return array_values(array_unique(array_map('intval', $dismissed)));
 }
 
-function dismissChatNotification($user_id, $sender_id) {
+function dismissChatNotification(int $user_id, int $sender_id): void {
     $dismissed = getDismissedChatNotificationIds($user_id);
     if (!in_array((int)$sender_id, $dismissed, true)) {
         $dismissed[] = (int)$sender_id;
@@ -84,7 +84,7 @@ function dismissChatNotification($user_id, $sender_id) {
     $_SESSION['dismissed_chat_notifications'][$user_id] = $dismissed;
 }
 
-function clearDismissedChatNotification($user_id, $sender_id) {
+function clearDismissedChatNotification(int $user_id, int $sender_id): void {
     $dismissed = getDismissedChatNotificationIds($user_id);
     $_SESSION['dismissed_chat_notifications'][$user_id] = array_values(array_filter(
         $dismissed,
@@ -92,7 +92,7 @@ function clearDismissedChatNotification($user_id, $sender_id) {
     ));
 }
 
-function getUnreadChatNotificationCount($conn, $user_id, $includeDismissed = false) {
+function getUnreadChatNotificationCount(mysqli $conn, int $user_id, bool $includeDismissed = false): int {
     $sql = "
         SELECT COUNT(DISTINCT sender_id) AS unread_chat_count
         FROM messages
@@ -123,7 +123,7 @@ if (isset($_SESSION['user_id'])) {
     /**
      * Helper to add a persistent notification for a user
      */
-    function addUserNotification($conn, $user_id, $title, $message) {
+    function addUserNotification(mysqli $conn, int $user_id, string $title, string $message): bool {
         $stmt = $conn->prepare("INSERT INTO user_notifications (user_id, title, message) VALUES (?, ?, ?)");
         $stmt->bind_param("iss", $user_id, $title, $message);
         return $stmt->execute();
@@ -292,7 +292,7 @@ if (isset($_SESSION['user_id'])) {
 /**
  * Centralized function to send a monitor request (WITH DETAILED ERROR LOGGING)
  */
-function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = null) {
+function sendMonitorRequest(mysqli $conn, int $requester_id, string $target_email, ?string $target_role = null) {
     // Validate input
     if (empty($target_email) || !filter_var($target_email, FILTER_VALIDATE_EMAIL)) {
         error_log("sendMonitorRequest: Invalid email format: $target_email");
@@ -387,7 +387,7 @@ function sendMonitorRequest($conn, $requester_id, $target_email, $target_role = 
 /**
  * Get total count of pending notifications (requests) for a user
  */
-function getPendingNotificationCount($conn, $user_id) {
+function getPendingNotificationCount(mysqli $conn, int $user_id): int {
     $count = 0;
     
     // Monitor requests received
@@ -431,7 +431,7 @@ function getPendingNotificationCount($conn, $user_id) {
 /**
  * Get a combined list of all pending requests as notifications
  */
-function getPendingNotifications($conn, $user_id) {
+function getPendingNotifications(mysqli $conn, int $user_id): array {
     $notifications = [];
 
     // Monitor requests

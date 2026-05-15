@@ -101,6 +101,7 @@ const KB = [
   
   { keys: /cpr|cardiac arrest|not breathing|stopped breathing|no pulse|resuscit|no heartbeat|unconscious.*breathing/i, title: "CPR - Cardiac First Aid", emergency: true, steps: ["Call 108 immediately.", "Place person on flat hard surface.", "Tilt head back, lift chin to open airway.", "Check for breathing — max 10 seconds.", "Place heel of hand on center of chest.", "Push hard and fast: 5-6 cm deep, 100-120 compressions per minute.", "Give 2 rescue breaths after every 30 compressions (if trained).", "Continue until ambulance arrives or person recovers.", "AED machines: use immediately if available."], note: "Hands-only CPR (without breaths) is also effective. Free CPR training available at Indian Red Cross Society branches." },
   
+  { keys: /breathing tips|breathing help|breathing exercise|breathing exercises|saans tips|saans lene ki tips|how to breathe better/i, title: "Breathing Support Tips", emergency: false, steps: ["Sit upright and relax your shoulders.", "Breathe in slowly through your nose for 4 seconds.", "Breathe out gently through pursed lips for 6 seconds.", "Repeat for 5 to 10 breaths without forcing the chest.", "Sip water if your throat feels dry.", "Move to fresh air and loosen tight clothing.", "If you develop wheezing, blue lips, chest pain, or severe breathing trouble, call 108 immediately."], note: "These are general breathing tips for mild discomfort or calming yourself. They are not a substitute for asthma treatment or emergency care." },
   { keys: /asthma|saans.*nahi|breathless|wheezing|inhaler|bronchial|breathing.*difficult|saans phool|cant breathe|can't breathe|dyspnea/i, title: "Asthma Attack", emergency: true, steps: ["Sit upright immediately.", "Use blue/rescue inhaler (Salbutamol/Asthalin): 1-2 puffs, breathe in deeply.", "Wait 15 minutes for improvement.", "If no improvement: use inhaler again (1-2 puffs).", "Wait another 15 minutes.", "If still no relief or lips turning blue: call 108.", "Go to nearest PHC or hospital for nebulization if severe."], note: "Asthalin is available free at government hospitals and ~₹50 at Jan Aushadhi stores. Always carry your inhaler." },
   
   { keys: /fever|bukhar|high temperature|pyrexia|viral fever|body heat|temperature/i, title: "Fever", emergency: false, steps: ["Rest completely.", "Drink plenty of fluids: water, juice, warm tea.", "Take cool baths or use damp cloth on forehead.", "Wear light clothing.", "Use temperature thermometer to monitor.", "If fever > 3 days, > 103°F, or with rash/stiff neck: see doctor immediately."], note: "Persistent fever in India may be malaria, dengue, or typhoid. Get blood test at PHC if fever > 3 days — free or low cost." },
@@ -252,7 +253,7 @@ function renderAssistantTools() {
   return '<div class="assistant-tools">' +
     '<button type="button" class="triage-btn triage-start" onclick="startSymptomChecker()">Start Symptom Checker</button>' +
     '<button type="button" class="triage-btn triage-lite" onclick="handleUserText(\'fever\')">Fever Tips</button>' +
-    '<button type="button" class="triage-btn triage-lite" onclick="handleUserText(\'asthma\')">Breathing Tips</button>' +
+    '<button type="button" class="triage-btn triage-lite" onclick="handleUserText(\'breathing tips\')">Breathing Tips</button>' +
   '</div>';
 }
 

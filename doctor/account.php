@@ -13,6 +13,23 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 $doctor_id = intval($_SESSION['user_id']);
 $msg = ""; $msg_type = "";
 
+// Handle Availability Update
+if (isset($_POST['update_availability'])) {
+    $availability_status = ($_POST['availability_status'] ?? '') === 'not_available' ? 'not_available' : 'available';
+    $stmt = $conn->prepare("UPDATE doctors SET availability_status = ? WHERE id = ?");
+    $stmt->bind_param("si", $availability_status, $doctor_id);
+
+    if ($stmt->execute()) {
+        $msg = $availability_status === 'available'
+            ? "You are now visible to patients for appointment booking."
+            : "You are now hidden from the patient appointment page.";
+        $msg_type = "success";
+    } else {
+        $msg = "Failed to update availability.";
+        $msg_type = "error";
+    }
+}
+
 // Handle Profile Update
 if (isset($_POST['update_profile'])) {
     $name = trim($_POST['name']);
@@ -162,6 +179,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 .alert { padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; font-weight: 500; font-size: 0.9rem; }
 .alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--success); }
 .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--danger); }
+.status-chip { display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px; font-size:0.85rem; font-weight:700; text-transform:capitalize; }
 .cred-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: var(--navy-light); border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; }
 .cred-info { display: flex; align-items: center; gap: 16px; }
 .cred-icon { width: 44px; height: 44px; background: var(--teal-glow); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
@@ -209,6 +227,26 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
                 <div style="margin-bottom:18px;padding:14px 16px;border-radius:14px;<?php echo getVerificationBadgeStyles($user_data['verification_status'] ?? 'pending'); ?>">
                     <strong style="text-transform:capitalize;"><?php echo htmlspecialchars($user_data['verification_status'] ?? 'pending'); ?></strong>
                     <div style="font-size:0.85rem;margin-top:4px;opacity:0.95;">Your account verification is managed by admin based on uploaded credentials.</div>
+                </div>
+                <div style="margin-bottom:18px;padding:16px;border-radius:14px;background:var(--navy-light);border:1px solid var(--border);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <div style="font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:700;margin-bottom:8px;">Appointment Availability</div>
+                            <div class="status-chip" style="<?php echo (($user_data['availability_status'] ?? 'available') === 'available') ? 'background:rgba(34,197,94,0.14);color:#22C55E;border:1px solid rgba(34,197,94,0.28);' : 'background:rgba(239,68,68,0.14);color:#EF4444;border:1px solid rgba(239,68,68,0.28);'; ?>">
+                                <?php echo (($user_data['availability_status'] ?? 'available') === 'available') ? 'Available' : 'Not Available'; ?>
+                            </div>
+                            <div style="font-size:0.85rem;color:var(--muted);margin-top:10px;">Only doctors marked available appear on the patient appointment page.</div>
+                        </div>
+                        <form method="POST" style="min-width:220px;">
+                            <div class="form-group" style="margin-bottom:12px;">
+                                <select class="form-input" name="availability_status">
+                                    <option value="available" <?php echo (($user_data['availability_status'] ?? 'available') === 'available') ? 'selected' : ''; ?>>Available</option>
+                                    <option value="not_available" <?php echo (($user_data['availability_status'] ?? 'available') === 'not_available') ? 'selected' : ''; ?>>Not Available</option>
+                                </select>
+                            </div>
+                            <button type="submit" name="update_availability" class="btn btn-primary" style="width:100%;">Update Availability</button>
+                        </form>
+                    </div>
                 </div>
                 <form method="POST" enctype="multipart/form-data">
                     <div class="form-group" style="text-align:center; margin-bottom:24px;">

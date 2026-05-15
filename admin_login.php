@@ -92,7 +92,7 @@ code{background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:6px;color:#
             </div>
             <button class="btn" type="submit" name="login">Sign In as Admin</button>
         </form>
-        <div class="footer-link">Default admin: <code>admin@mediconnect.local</code> / <code>admin123</code></div>
+        <div class="footer-link">Default admin: <code>admin@telemedicine.local</code> / <code>admin123</code></div>
         <div class="footer-link"><a href="login.php">Back to patient / doctor login</a></div>
     </div>
 </div>

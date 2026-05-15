@@ -130,17 +130,18 @@ CREATE TABLE `doctors` (
   `bio` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `profile_picture` varchar(255) DEFAULT NULL,
-  `affiliations` text DEFAULT NULL
+  `affiliations` text DEFAULT NULL,
+  `availability_status` enum('available','not_available') NOT NULL DEFAULT 'available'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `doctors`
 --
 
-INSERT INTO `doctors` (`id`, `name`, `email`, `password`, `specialization`, `license_number`, `phone`, `bio`, `created_at`, `profile_picture`, `affiliations`) VALUES
-(1, 'Nitin Kumar', 'nitin23@gmail.com', '$2y$10$kng8zBXHmFMuSgYit7R7w.3G1ejQCaDYZDF4JSP.McLlzuEh6EqyG', 'cardiology', '1234', '9739525084', 'good at hearts', '2026-05-04 16:44:04', NULL, NULL),
-(2, 'GaMeZaaDE', 'game23@gmail.com', '$2y$10$GrFgRh1fj4cTaVefRNrI9eBz88opdTRf3x.PyyO1yYIeWpQ.Yp61q', 'physician', '15634556', '9739525084', 'baba', '2026-05-09 15:41:00', NULL, 'american'),
-(4, 'gagan', 'gagan23@gmail.com', '$2y$10$h0AezHexiVdPN6klGtW/yuw1alp0Kj4Qg4tkWMPw82O.eNf0yCK/G', 'cardiology', '548745', '9513524624', 'regfsdas', '2026-05-09 15:51:25', NULL, 'hagsduiba');
+INSERT INTO `doctors` (`id`, `name`, `email`, `password`, `specialization`, `license_number`, `phone`, `bio`, `created_at`, `profile_picture`, `affiliations`, `availability_status`) VALUES
+(1, 'Nitin Kumar', 'nitin23@gmail.com', '$2y$10$kng8zBXHmFMuSgYit7R7w.3G1ejQCaDYZDF4JSP.McLlzuEh6EqyG', 'cardiology', '1234', '9739525084', 'good at hearts', '2026-05-04 16:44:04', NULL, NULL, 'available'),
+(2, 'GaMeZaaDE', 'game23@gmail.com', '$2y$10$GrFgRh1fj4cTaVefRNrI9eBz88opdTRf3x.PyyO1yYIeWpQ.Yp61q', 'physician', '15634556', '9739525084', 'baba', '2026-05-09 15:41:00', NULL, 'american', 'available'),
+(4, 'gagan', 'gagan23@gmail.com', '$2y$10$h0AezHexiVdPN6klGtW/yuw1alp0Kj4Qg4tkWMPw82O.eNf0yCK/G', 'cardiology', '548745', '9513524624', 'regfsdas', '2026-05-09 15:51:25', NULL, 'hagsduiba', 'available');
 
 -- --------------------------------------------------------
 

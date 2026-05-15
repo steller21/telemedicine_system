@@ -3,6 +3,7 @@ session_start();
 require_once("../config/db.php");
 require_once("../patient/monitor_core.php");
 require_once("../includes/call_core.php");
+require_once("../includes/admin_core.php");
  
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -10,8 +11,39 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 }
  
 $doctor_id = intval($_SESSION['user_id']);
+$msg = "";
+$msg_type = "";
+$is_ajax_request = strtolower($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'xmlhttprequest';
+ensureAdminSchema($conn);
 ensureVideoCallSchema($conn);
 expireWaitingCalls($conn);
+
+if (isset($_POST['update_availability'])) {
+    $availability_status = ($_POST['availability_status'] ?? '') === 'not_available' ? 'not_available' : 'available';
+    $stmt = $conn->prepare("UPDATE doctors SET availability_status = ? WHERE id = ?");
+    $stmt->bind_param("si", $availability_status, $doctor_id);
+
+    if ($stmt->execute()) {
+        $msg = $availability_status === 'available'
+            ? 'You are now visible on the patient appointment page.'
+            : 'You are now hidden from the patient appointment page.';
+        $msg_type = 'success';
+    } else {
+        $msg = 'Failed to update availability.';
+        $msg_type = 'error';
+    }
+
+    if ($is_ajax_request) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'ok' => $msg_type === 'success',
+            'message' => $msg,
+            'status' => $availability_status,
+            'message_type' => $msg_type,
+        ]);
+        exit;
+    }
+}
 
 // Get incoming calls
 $calls = $conn->query("SELECT vc.*, u.name as patient_name 
@@ -227,6 +259,9 @@ body {
 .btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
 .btn-danger:hover { background: rgba(239,68,68,0.25); }
 .btn-sm { padding: 7px 16px; font-size: 0.8rem; }
+.alert { padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; font-weight: 500; font-size: 0.9rem; }
+.alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: var(--success); }
+.alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: var(--danger); }
  
 /* CALL STYLES */
 .call-item {
@@ -308,15 +343,7 @@ body {
         ));
         $notifCount = count($notifications);
         ?>
-            <?php 
-    $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture FROM doctors WHERE id = ?");
-    $acc_stmt->bind_param("i", $doctor_id);
-    $acc_stmt->execute();
-    $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
-    $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
-    $user_email_acc = $user_data_acc['email'] ?? 'N/A';
-    $user_address_acc = !empty($user_data_acc['specialization']) ? $user_data_acc['specialization'] : 'General Practice';
-    $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
+            <?php
     // Handle doctor profile update
     if (isset($_POST['update_profile'])) {
         $new_name = trim($_POST['name']);
@@ -338,6 +365,16 @@ body {
         $us = $conn->prepare($upd_sql); $us->bind_param($upd_types, ...$upd_params);
         if ($us->execute()) { $_SESSION['name'] = $new_name; header("Location: dashboard.php?success=Profile updated!"); exit; }
     }
+
+    $acc_stmt = $conn->prepare("SELECT name, email, specialization, profile_picture, availability_status FROM doctors WHERE id = ?");
+    $acc_stmt->bind_param("i", $doctor_id);
+    $acc_stmt->execute();
+    $user_data_acc = $acc_stmt->get_result()->fetch_assoc();
+    $user_name_acc = $user_data_acc['name'] ?? $_SESSION['name'];
+    $user_email_acc = $user_data_acc['email'] ?? 'N/A';
+    $user_address_acc = !empty($user_data_acc['specialization']) ? $user_data_acc['specialization'] : 'General Practice';
+    $user_pic_acc = $user_data_acc['profile_picture'] ?? null;
+    $availability_status_acc = $user_data_acc['availability_status'] ?? 'available';
     ?>
     <div class="notif-container" style="display:flex; gap:15px; align-items:center;">
         <div style="position:relative; display:inline-block;">
@@ -399,6 +436,33 @@ body {
     <div class="page-header">
         <h1>Welcome back, Dr. <?php echo htmlspecialchars($_SESSION['name']); ?> 👨‍⚕️</h1>
         <p>Your practice is online. Manage your incoming calls and appointments here.</p>
+    </div>
+
+    <div id="availabilityAlertWrap">
+    <?php if ($msg): ?>
+        <div class="alert alert-<?php echo $msg_type; ?>" id="availabilityAlert">
+            <?php echo $msg_type === 'success' ? '✅' : '❌'; ?> <?php echo htmlspecialchars($msg); ?>
+        </div>
+    <?php endif; ?>
+    </div>
+
+    <div class="card" style="margin-bottom: 28px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div>
+                <div style="font-family:'Clash Display',sans-serif;font-size:1.1rem;font-weight:600;margin-bottom:8px;">Appointment Availability</div>
+                <div id="availabilityBadge" style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:0.85rem;font-weight:700;text-transform:capitalize;<?php echo $availability_status_acc === 'available' ? 'background:rgba(34,197,94,0.14);color:#22C55E;border:1px solid rgba(34,197,94,0.28);' : 'background:rgba(239,68,68,0.14);color:#EF4444;border:1px solid rgba(239,68,68,0.28);'; ?>">
+                    <?php echo $availability_status_acc === 'available' ? 'Available' : 'Not Available'; ?>
+                </div>
+                <p id="availabilityHelp" style="color:var(--muted);font-size:0.85rem;margin-top:10px;">Patients can book appointments with you only while this is set to available.</p>
+            </div>
+            <form method="POST" id="availabilityForm" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <select name="availability_status" id="availabilitySelect" class="form-select" style="min-width:200px;">
+                    <option value="available" <?php echo $availability_status_acc === 'available' ? 'selected' : ''; ?>>Available</option>
+                    <option value="not_available" <?php echo $availability_status_acc === 'not_available' ? 'selected' : ''; ?>>Not Available</option>
+                </select>
+                <button type="submit" name="update_availability" id="availabilitySubmit" class="btn btn-primary">Update</button>
+            </form>
+        </div>
     </div>
  
     <!-- Incoming calls section -->
@@ -464,6 +528,73 @@ body {
 
 <script>
 function hideAccountDropdown() { const d = document.getElementById('accountDropdown'); if(d) d.classList.remove('show'); }
+
+const availabilityForm = document.getElementById('availabilityForm');
+const availabilitySelect = document.getElementById('availabilitySelect');
+const availabilitySubmit = document.getElementById('availabilitySubmit');
+const availabilityBadge = document.getElementById('availabilityBadge');
+const availabilityHelp = document.getElementById('availabilityHelp');
+const availabilityAlertWrap = document.getElementById('availabilityAlertWrap');
+
+function renderAvailabilityAlert(type, message) {
+    availabilityAlertWrap.innerHTML = `<div class="alert alert-${type}" id="availabilityAlert">${type === 'success' ? '✅' : '❌'} ${message}</div>`;
+    setTimeout(() => {
+        const alert = document.getElementById('availabilityAlert');
+        if (!alert) return;
+        alert.style.transition = 'opacity 0.5s ease';
+        alert.style.opacity = '0';
+        setTimeout(() => alert.remove(), 500);
+    }, 7000);
+}
+
+function renderAvailabilityState(status) {
+    const isAvailable = status === 'available';
+    availabilityBadge.textContent = isAvailable ? 'Available' : 'Not Available';
+    availabilityBadge.style.background = isAvailable ? 'rgba(34,197,94,0.14)' : 'rgba(239,68,68,0.14)';
+    availabilityBadge.style.color = isAvailable ? '#22C55E' : '#EF4444';
+    availabilityBadge.style.border = isAvailable ? '1px solid rgba(34,197,94,0.28)' : '1px solid rgba(239,68,68,0.28)';
+    availabilityHelp.textContent = isAvailable
+        ? 'Patients can book appointments with you only while this is set to available.'
+        : 'Patients will not see you on the appointment page while this is set to not available.';
+}
+
+if (availabilityForm) {
+    availabilityForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const previousLabel = availabilitySubmit.textContent;
+        availabilitySubmit.disabled = true;
+        availabilitySubmit.textContent = 'Updating...';
+
+        try {
+            const formData = new FormData(availabilityForm);
+            formData.append('update_availability', '1');
+
+            const response = await fetch('dashboard.php', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                throw new Error(data.message || 'Failed to update availability.');
+            }
+
+            renderAvailabilityState(data.status);
+            availabilitySelect.value = data.status;
+            renderAvailabilityAlert(data.message_type || 'success', data.message || 'Availability updated.');
+        } catch (error) {
+            renderAvailabilityAlert('error', error.message || 'Failed to update availability.');
+        } finally {
+            availabilitySubmit.disabled = false;
+            availabilitySubmit.textContent = previousLabel;
+        }
+    });
+}
 
 function openImageModal(src) {
     const modal = document.getElementById('imageModal');

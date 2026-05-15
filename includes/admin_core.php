@@ -18,6 +18,7 @@ function ensureAdminSchema($conn) {
         'verification_status' => "ALTER TABLE doctors ADD COLUMN verification_status ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending' AFTER affiliations",
         'verified_at' => "ALTER TABLE doctors ADD COLUMN verified_at DATETIME DEFAULT NULL AFTER verification_status",
         'verified_by_admin_id' => "ALTER TABLE doctors ADD COLUMN verified_by_admin_id INT DEFAULT NULL AFTER verified_at",
+        'availability_status' => "ALTER TABLE doctors ADD COLUMN availability_status ENUM('available','not_available') NOT NULL DEFAULT 'available' AFTER verified_by_admin_id",
     ];
 
     foreach ($doctorColumns as $column => $sql) {

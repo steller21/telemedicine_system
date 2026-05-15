@@ -3,6 +3,8 @@ session_start();
 require_once("config/db.php");
 require_once("includes/call_core.php");
 
+$patientName = '';
+
 ensureVideoCallSchema($conn);
 expireWaitingCalls($conn);
  
