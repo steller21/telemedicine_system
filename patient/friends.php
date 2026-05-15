@@ -307,7 +307,11 @@ $received = $conn->query("SELECT fr.id, p.name, p.email FROM friend_requests fr 
     .modal-content { background:var(--navy-card);border:1px solid var(--border);border-radius:20px;padding:32px;max-width:450px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4); }
     .form-group { margin-bottom: 20px; }
     .form-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
-    .form-input { width: 100%; padding: 12px 16px; background: var(--navy-light); border: 1px solid var(--border); border-radius: 14px; color: var(--white); outline: none; }
+    .form-input { width: 100%; padding: 12px 16px; background: var(--navy-light); border: 1px solid var(--border); border-radius: 14px; color: var(--white); outline: none; box-sizing: border-box; }
+    .friends-stack form {
+        display: grid;
+        gap: 12px;
+    }
     @keyframes modalSlideIn {
         from { opacity: 0; transform: scale(0.95); }
         to { opacity: 1; transform: scale(1); }

@@ -2,15 +2,21 @@
 session_start();
 require_once("../config/db.php");
 require_once("monitor_core.php");
-if (!isset($_SESSION['user_id']) || !isset($_GET['friend_id'])) { header("Location: friends.php"); exit; }
+
+if (!isset($_SESSION['user_id']) || !isset($_GET['friend_id'])) {
+    header("Location: friends.php");
+    exit;
+}
 
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'] ?? 'patient';
 $friend_id = intval($_GET['friend_id']);
 
-// Verify Friendship
+// Verify friendship before allowing chat access.
 $check = $conn->query("SELECT id FROM friends WHERE ((user_id1=$user_id AND user_role1='patient' AND user_id2=$friend_id AND user_role2='patient') OR (user_id1=$friend_id AND user_role1='patient' AND user_id2=$user_id AND user_role2='patient'))");
-if ($check->num_rows == 0) { die("You are not friends with this user."); }
+if ($check->num_rows == 0) {
+    die("You are not friends with this user.");
+}
 
 $friend_stmt = $conn->prepare("SELECT name FROM patients WHERE id = ?");
 $friend_stmt->bind_param("i", $friend_id);
@@ -22,7 +28,6 @@ $mark_read->bind_param("ii", $friend_id, $user_id);
 $mark_read->execute();
 clearDismissedChatNotification($user_id, $friend_id);
 
-// Handle Send
 if (isset($_POST['send'])) {
     $msg = trim($_POST['message']);
     if (!empty($msg)) {
@@ -30,14 +35,17 @@ if (isset($_POST['send'])) {
         $stmt->bind_param("isis", $user_id, $user_role, $friend_id, $msg);
         $stmt->execute();
     }
-    header("Location: chat.php?friend_id=$friend_id"); exit;
+    header("Location: chat.php?friend_id=$friend_id");
+    exit;
 }
 
-// Fetch Messages
 $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND sender_role='patient' AND receiver_id=$friend_id AND receiver_role='patient') OR (sender_id=$friend_id AND sender_role='patient' AND receiver_id=$user_id AND receiver_role='patient')) ORDER BY created_at ASC");
 ?>
-<!DOCTYPE html><html lang="en"><head>
-<meta charset="UTF-8"><title>Chat with <?php echo htmlspecialchars($friend['name']); ?></title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chat with <?php echo htmlspecialchars($friend['name']); ?></title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
     :root { --teal: #0EB8A0; --navy: #0B1526; --navy-mid: #112035; --white: #fff; --border: rgba(255,255,255,0.07); }
@@ -50,15 +58,33 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
     .msg-time { display: block; font-size: 0.7rem; opacity: 0.6; margin-top: 5px; }
     footer { padding: 20px; background: #0F1E36; border-top: 1px solid var(--border); }
     .input-wrap { display: flex; gap: 10px; }
-    input { flex: 1; padding: 12px 18px; background: var(--navy-mid); border: 1px solid var(--border); border-radius: 50px; color: #fff; outline: none; }
+    input { flex: 1; padding: 12px 18px; background: var(--navy-mid); border: 1px solid var(--border); border-radius: 50px; color: #fff; outline: none; box-sizing: border-box; }
     button { background: var(--teal); border: none; padding: 0 25px; border-radius: 50px; font-weight: 700; cursor: pointer; }
-    .back-btn { color: #fff; text-decoration: none; font-size: 1.2rem; }
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--navy-light) 80%, white 20%);
+        border: 1px solid var(--border);
+        color: var(--teal-dark);
+        text-decoration: none;
+        font-size: 1.3rem;
+        font-weight: 700;
+        line-height: 1;
+        flex-shrink: 0;
+        box-shadow: 0 10px 24px rgba(17, 31, 52, 0.10);
+    }
+    .back-btn:hover { background: var(--teal); color: var(--navy); }
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
 <script src="../js/page-transition.js"></script>
-</head><body>
+</head>
+<body>
     <header>
-        <a href="friends.php" class="back-btn">←</a>
+        <a href="friends.php" class="back-btn" aria-label="Back to friends list">&larr;</a>
         <div style="width:40px;height:40px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--navy);font-weight:700;">
             <?php echo strtoupper(substr($friend['name'], 0, 1)); ?>
         </div>
@@ -66,7 +92,7 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
     </header>
 
     <div class="chat-box" id="chatBox">
-        <?php while($m = $messages->fetch_assoc()): 
+        <?php while ($m = $messages->fetch_assoc()):
             $isSent = ($m['sender_id'] == $user_id);
         ?>
             <div class="msg <?php echo $isSent ? 'msg-sent' : 'msg-received'; ?>">
@@ -86,8 +112,7 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
     <script>
         const chatBox = document.getElementById('chatBox');
         chatBox.scrollTop = chatBox.scrollHeight;
-        
-        // Simple auto-refresh for new messages
+
         setInterval(() => {
             fetch(window.location.href)
                 .then(res => res.text())
@@ -102,5 +127,5 @@ $messages = $conn->query("SELECT * FROM messages WHERE ((sender_id=$user_id AND 
                 });
         }, 3000);
     </script>
-</body></html>
-
+</body>
+</html>
