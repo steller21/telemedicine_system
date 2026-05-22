@@ -329,11 +329,24 @@ tbody tr:hover { background: rgba(255,255,255,0.02); }
         </a>
         <button id="themeToggle" style="background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center;" title="Toggle Theme">🌓</button>
     </div>
-    <div class="nav-section"><div class="nav-section-label">Main</div>
+    <div class="nav-section">
+        <div class="nav-section-label">Main</div>
         <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
         <a href="book_appointment.php" class="nav-link"><span class="nav-icon">📅</span> Book Appointment</a>
     </div>
-    <div class="nav-section"><div class="nav-section-label">Monitoring</div>
+    <div class="nav-section">
+    <div class="nav-section-label">Health</div>
+
+    <a href="checklist.php" class="nav-link">
+        <span class="nav-icon">💊</span> My Medicines
+    </a>
+
+    <a href="upload_report.php" class="nav-link">
+        <span class="nav-icon">📄</span> Upload Report
+    </a>
+</div>
+    <div class="nav-section">
+        <div class="nav-section-label">Monitoring</div>
         <a href="add_monitor.php" class="nav-link active"><span class="nav-icon">👁️</span> Add Monitor</a>
         <a href="monitor_view.php" class="nav-link"><span class="nav-icon">👥</span> Monitored Patients</a>
     </div>
@@ -637,4 +650,5 @@ if (window.history.replaceState) {
 </script>
 
 </body></html>
+
 
