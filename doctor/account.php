@@ -147,7 +147,8 @@ $creds = $conn->query("SELECT * FROM doctor_credentials WHERE doctor_id='$doctor
 <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
-:root { --teal:#0EB8A0; --teal-dark:#0A8A78; --teal-glow:rgba(14,184,160,0.15); --navy:#0B1526; --navy-mid:#112035; --navy-light:#1A3050; --navy-card:#0F1E36; --white:#FFFFFF; --muted:#7A8EA8; --muted-dim:#4A5E78; --border:rgba(255,255,255,0.07); --danger:#EF4444; --success:#22C55E; --shadow:0 8px 32px rgba(0,0,0,0.25); }
+:root { --teal:#0EB8A0; --teal-dark:#0A8A78; --teal-glow:rgba(14,184,160,0.15); --navy:#f8fafc; --navy-mid:#ffffff; --navy-light:#f1f5f9; --navy-card:#ffffff; --white:#1e293b; --muted:#64748b; --muted-dim:#94a3b8; --border:rgba(0,0,0,0.08); --danger:#EF4444; --success:#22C55E; --shadow:0 4px 20px rgba(0,0,0,0.05); }
+body.dark-mode { --navy:#0B1526; --navy-mid:#112035; --navy-light:#1A3050; --navy-card:#0F1E36; --white:#FFFFFF; --muted:#7A8EA8; --muted-dim:#4A5E78; --border:rgba(255,255,255,0.07); --shadow:0 8px 32px rgba(0,0,0,0.25); }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(--white); min-height: 100vh; line-height: 1.6; }
 .page-bg { position: fixed; inset: 0; z-index: -1; background: radial-gradient(ellipse 60% 50% at 15% 0%, rgba(14,184,160,0.1) 0%, transparent 60%), radial-gradient(ellipse 40% 40% at 85% 90%, rgba(14,184,160,0.07) 0%, transparent 50%), var(--navy); }
@@ -157,6 +158,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 .logo-dot { width: 9px; height: 9px; background: var(--teal); border-radius: 50%; box-shadow: 0 0 10px var(--teal); animation: blink 2s ease-in-out infinite; flex-shrink: 0; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
 .logo-text { font-family: 'Clash Display', sans-serif; font-size: 1.15rem; font-weight: 700; color: var(--white); }
+.sidebar-brand { display:flex; align-items:center; gap:10px; min-width:0; text-decoration:none; }
+.theme-toggle { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center; padding:6px; border-radius:999px; transition:color 0.2s ease, background 0.2s ease; }
+.theme-toggle:hover { color:var(--white); background:var(--teal-glow); }
 .nav-section { padding: 0 12px; margin-bottom: 8px; }
 .nav-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; transition: all 0.2s; margin-bottom: 2px; }
 .nav-link:hover { background: var(--teal-glow); color: var(--white); }
@@ -190,16 +194,19 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 <link rel="stylesheet" href="../css/ui-refresh.css">
 <script src="../js/page-transition.js"></script>
 </head>
-<body class="dark-mode">
+<body>
 <div class="page-bg"></div>
 
 <div class="layout">
     <!-- SIDEBAR -->
     <aside class="sidebar">
-        <a href="dashboard.php" class="sidebar-logo">
-            <div class="logo-dot"></div>
-            <div class="logo-text">TELEMEDICINE</div>
-        </a>
+        <div class="sidebar-logo" style="display:flex; align-items:center; justify-content:space-between; padding-right:15px;">
+            <a href="dashboard.php" class="sidebar-brand">
+                <div class="logo-dot"></div>
+                <div class="logo-text">TELEMEDICINE</div>
+            </a>
+            <button id="themeToggle" class="theme-toggle" type="button" title="Toggle Theme">🌓</button>
+        </div>
         <div class="nav-section">
             <a href="dashboard.php" class="nav-link"><span class="nav-icon">🏠</span> Dashboard</a>
             <a href="appointments.php" class="nav-link"><span class="nav-icon">📅</span> Appointments</a>
@@ -358,6 +365,17 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
 </div>
 
 <script>
+const themeToggle = document.getElementById('themeToggle');
+if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-mode');
+}
+if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+    });
+}
+
 function previewProfilePicture(event) {
     const reader = new FileReader();
     reader.onload = function(){

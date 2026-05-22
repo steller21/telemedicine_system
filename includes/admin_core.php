@@ -4,6 +4,9 @@ if (!isset($conn)) {
 }
 
 function ensureAdminSchema($conn) {
+    $defaultAdminEmail = 'admin@telemedicine.local';
+    $legacyAdminEmail = 'admin@mediconnect.local';
+
     $conn->query("
         CREATE TABLE IF NOT EXISTS admins (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -28,11 +31,39 @@ function ensureAdminSchema($conn) {
         }
     }
 
+    $hasExpectedAdmin = $conn->prepare("SELECT id FROM admins WHERE email = ? LIMIT 1");
+    $expectedAdminExists = false;
+    if ($hasExpectedAdmin) {
+        $hasExpectedAdmin->bind_param("s", $defaultAdminEmail);
+        $hasExpectedAdmin->execute();
+        $expectedAdminExists = $hasExpectedAdmin->get_result()->num_rows > 0;
+    }
+
+    if (!$expectedAdminExists) {
+        $legacyAdmin = $conn->prepare("SELECT id FROM admins WHERE email = ? LIMIT 1");
+        if ($legacyAdmin) {
+            $legacyAdmin->bind_param("s", $legacyAdminEmail);
+            $legacyAdmin->execute();
+            $legacyResult = $legacyAdmin->get_result();
+            if ($legacyResult && $legacyResult->num_rows > 0) {
+                $legacyId = (int)($legacyResult->fetch_assoc()['id'] ?? 0);
+                if ($legacyId > 0) {
+                    $updateLegacyAdmin = $conn->prepare("UPDATE admins SET email = ? WHERE id = ?");
+                    if ($updateLegacyAdmin) {
+                        $updateLegacyAdmin->bind_param("si", $defaultAdminEmail, $legacyId);
+                        $updateLegacyAdmin->execute();
+                        $expectedAdminExists = true;
+                    }
+                }
+            }
+        }
+    }
+
     $adminCount = $conn->query("SELECT COUNT(*) AS total FROM admins");
     $hasAdmin = $adminCount ? (int)($adminCount->fetch_assoc()['total'] ?? 0) : 0;
     if ($hasAdmin === 0) {
         $name = 'System Admin';
-        $email = 'admin@mediconnect.local';
+        $email = $defaultAdminEmail;
         $password = password_hash('admin123', PASSWORD_DEFAULT);
         $stmt = $conn->prepare("INSERT INTO admins (name, email, password) VALUES (?, ?, ?)");
         if ($stmt) {
