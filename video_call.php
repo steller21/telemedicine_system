@@ -91,19 +91,23 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #1a1a2e;
+            background:
+                radial-gradient(circle at 15% 18%, rgba(14,184,160,0.18), transparent 28%),
+                radial-gradient(circle at 85% 20%, rgba(255,122,89,0.14), transparent 26%),
+                linear-gradient(180deg, #091324 0%, #0e1b2e 100%);
             color: white;
             font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             min-height: 100vh;
             padding: 20px;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1500px;
             width: 100%;
+            min-height: calc(100vh - 40px);
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         h2 {
             text-align: center;
@@ -122,20 +126,21 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
         .video-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
+            gap: 24px;
+            margin-bottom: 24px;
             justify-items: center;
             align-items: center;
         }
         .video-box {
             position: relative;
             background: #000;
-            border-radius: 10px;
+            border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             width: 100%;
-            max-width: 450px;
-            aspect-ratio: 4/3;
+            max-width: 100%;
+            min-height: min(42vh, 460px);
+            aspect-ratio: 16/10;
         }
         video {
             width: 100%;
@@ -147,11 +152,15 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
             position: absolute;
             bottom: 12px;
             left: 12px;
-            background: rgba(0,0,0,0.7);
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.9em;
-            font-weight: bold;
+            background: rgba(5, 10, 20, 0.82);
+            color: #f8fafc;
+            border: 1px solid rgba(255,255,255,0.14);
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.45);
             z-index: 10;
         }
         .controls {
@@ -160,7 +169,7 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
             gap: 12px;
             justify-content: center;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
         .control-group {
             display: flex;
@@ -206,11 +215,20 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
             background: #c0392b;
         }
         @media (max-width: 768px) {
+            body {
+                padding: 14px;
+            }
+            .container {
+                min-height: calc(100vh - 28px);
+                justify-content: flex-start;
+                padding-top: 12px;
+            }
             .video-container {
                 grid-template-columns: 1fr;
             }
             .video-box {
                 max-width: 100%;
+                min-height: 260px;
             }
             h2 {
                 font-size: 1.4em;
@@ -344,7 +362,12 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
             <h3>📊 Health Trends - <?php echo htmlspecialchars($patientName); ?></h3>
             <button class="close-btn" onclick="hideTrendsModal()">&times;</button>
         </div>
-        <div style="height:300px; width:100%;"><canvas id="trendsChart"></canvas></div>
+        <div id="trendsEmptyState" style="display:none; text-align:center; padding:48px 24px; color:#5f7085;">
+            <div style="font-size:2.5rem; margin-bottom:12px;">No chart</div>
+            <p style="font-weight:700; margin-bottom:8px; color:#12243d;">No health trend data available</p>
+            <p style="font-size:0.9rem;">This patient has not logged vitals yet, so there is nothing to plot.</p>
+        </div>
+        <div id="trendsChartWrap" style="height:300px; width:100%;"><canvas id="trendsChart"></canvas></div>
     </div>
 </div>
 
@@ -420,27 +443,53 @@ $conn->query("UPDATE video_calls SET status='active', answered_at = COALESCE(ans
 
     function showTrendsModal() {
         document.getElementById('trendsModal').style.display = 'flex';
-        const ctx = document.getElementById('trendsChart').getContext('2d');
+        const trendsCanvas = document.getElementById('trendsChart');
+        const trendsChartWrap = document.getElementById('trendsChartWrap');
+        const trendsEmptyState = document.getElementById('trendsEmptyState');
+        const hasTrendData = Array.isArray(patientVitals) && patientVitals.length > 0;
+
+        trendsEmptyState.style.display = hasTrendData ? 'none' : 'block';
+        trendsChartWrap.style.display = hasTrendData ? 'block' : 'none';
+
+        if (!hasTrendData) {
+            if (trendChart) {
+                trendChart.destroy();
+                trendChart = null;
+            }
+            return;
+        }
+
+        const ctx = trendsCanvas.getContext('2d');
         if (trendChart) trendChart.destroy();
         trendChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: patientVitals.map(v => v.label),
                 datasets: [
-                    { label: 'Systolic', data: patientVitals.map(v => v.systolic), borderColor: '#0EB8A0', tension: 0.3 },
-                    { label: 'Diastolic', data: patientVitals.map(v => v.diastolic), borderColor: '#22C55E', tension: 0.3 },
-                    { label: 'Glucose', data: patientVitals.map(v => v.glucose), borderColor: '#F59E0B', tension: 0.3 },
-                    { label: 'Heart Rate', data: patientVitals.map(v => v.heart_rate), borderColor: '#EF4444', tension: 0.3 }
+                    { label: 'Systolic', data: patientVitals.map(v => v.systolic), borderColor: '#0EB8A0', backgroundColor: 'rgba(14,184,160,0.14)', pointBackgroundColor: '#0EB8A0', pointBorderColor: '#0EB8A0', pointRadius: 4, pointHoverRadius: 6, borderWidth: 3, tension: 0.3, spanGaps: true },
+                    { label: 'Diastolic', data: patientVitals.map(v => v.diastolic), borderColor: '#22C55E', backgroundColor: 'rgba(34,197,94,0.14)', pointBackgroundColor: '#22C55E', pointBorderColor: '#22C55E', pointRadius: 4, pointHoverRadius: 6, borderWidth: 3, tension: 0.3, spanGaps: true },
+                    { label: 'Glucose', data: patientVitals.map(v => v.glucose), borderColor: '#F59E0B', backgroundColor: 'rgba(245,158,11,0.14)', pointBackgroundColor: '#F59E0B', pointBorderColor: '#F59E0B', pointRadius: 4, pointHoverRadius: 6, borderWidth: 3, tension: 0.3, spanGaps: true },
+                    { label: 'Heart Rate', data: patientVitals.map(v => v.heart_rate), borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.14)', pointBackgroundColor: '#EF4444', pointBorderColor: '#EF4444', pointRadius: 4, pointHoverRadius: 6, borderWidth: 3, tension: 0.3, spanGaps: true },
+                    { label: 'SpO2', data: patientVitals.map(v => v.spo2), borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.14)', pointBackgroundColor: '#3B82F6', pointBorderColor: '#3B82F6', pointRadius: 4, pointHoverRadius: 6, borderWidth: 3, tension: 0.3, spanGaps: true }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'white' } },
-                    x: { grid: { display: false }, ticks: { color: 'white' } }
+                    y: { grid: { color: 'rgba(18,36,61,0.08)' }, ticks: { color: '#475569' } },
+                    x: { grid: { display: false }, ticks: { color: '#475569' } }
                 },
-                plugins: { legend: { labels: { color: 'white' } } }
+                plugins: {
+                    legend: { labels: { color: '#12243d', boxWidth: 28, boxHeight: 12, padding: 18 } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15,23,42,0.94)',
+                        titleColor: '#f8fafc',
+                        bodyColor: '#e2e8f0',
+                        borderColor: 'rgba(148,163,184,0.25)',
+                        borderWidth: 1
+                    }
+                }
             }
         });
     }

@@ -3,7 +3,35 @@ session_start();
 require_once("../config/db.php");
 require_once("../includes/admin_core.php");
 
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("Expires: 0");
+
 ensureAdminSchema($conn);
+
+function redirectAccountWithFlash(string $message, string $type = 'success'): void {
+    header("Location: account.php?msg_type=" . urlencode($type) . "&msg=" . urlencode($message));
+    exit;
+}
+
+function syncDoctorVerificationStatus(mysqli $conn, int $doctorId): void {
+    $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM doctor_credentials WHERE doctor_id = ?");
+    if (!$countStmt) {
+        return;
+    }
+
+    $countStmt->bind_param("i", $doctorId);
+    $countStmt->execute();
+    $credentialTotal = (int) ($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
+
+    if ($credentialTotal === 0) {
+        $resetStmt = $conn->prepare("UPDATE doctors SET verification_status = 'pending', verified_at = NULL, verified_by_admin_id = NULL WHERE id = ?");
+        if ($resetStmt) {
+            $resetStmt->bind_param("i", $doctorId);
+            $resetStmt->execute();
+        }
+    }
+}
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
     header("Location: ../login.php");
@@ -11,7 +39,11 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'doctor') {
 }
 
 $doctor_id = intval($_SESSION['user_id']);
-$msg = ""; $msg_type = "";
+$msg = isset($_GET['msg']) ? trim((string) $_GET['msg']) : "";
+$msg_type = isset($_GET['msg_type']) ? trim((string) $_GET['msg_type']) : "";
+if ($msg_type !== 'success' && $msg_type !== 'error') {
+    $msg_type = "";
+}
 
 // Handle Availability Update
 if (isset($_POST['update_availability'])) {
@@ -20,13 +52,13 @@ if (isset($_POST['update_availability'])) {
     $stmt->bind_param("si", $availability_status, $doctor_id);
 
     if ($stmt->execute()) {
-        $msg = $availability_status === 'available'
-            ? "You are now visible to patients for appointment booking."
-            : "You are now hidden from the patient appointment page.";
-        $msg_type = "success";
+        redirectAccountWithFlash(
+            $availability_status === 'available'
+                ? "You are now visible to patients for appointment booking."
+                : "You are now hidden from the patient appointment page."
+        );
     } else {
-        $msg = "Failed to update availability.";
-        $msg_type = "error";
+        redirectAccountWithFlash("Failed to update availability.", "error");
     }
 }
 
@@ -61,11 +93,9 @@ if (isset($_POST['update_profile'])) {
     $stmt->bind_param($types, ...$params);
     if ($stmt->execute()) {
         $_SESSION['name'] = $name;
-        $msg = "Profile updated successfully!";
-        $msg_type = "success";
+        redirectAccountWithFlash("Profile updated successfully!");
     } else {
-        $msg = "Failed to update profile.";
-        $msg_type = "error";
+        redirectAccountWithFlash("Failed to update profile.", "error");
     }
 }
 
@@ -86,24 +116,18 @@ if (isset($_POST['upload_credential'])) {
                 $stmt = $conn->prepare("INSERT INTO doctor_credentials (doctor_id, credential_type, credential_name, file_path) VALUES (?, ?, ?, ?)");
                 $stmt->bind_param("isss", $doctor_id, $cred_type, $cred_name, $db_path);
                 if ($stmt->execute()) {
-                    $conn->query("UPDATE doctors SET verification_status='pending', verified_at=NULL, verified_by_admin_id=NULL WHERE id='$doctor_id'");
-                    $msg = "Credential uploaded successfully!";
-                    $msg_type = "success";
+                    redirectAccountWithFlash("Credential uploaded successfully!");
                 } else {
-                    $msg = "Database error during upload.";
-                    $msg_type = "error";
+                    redirectAccountWithFlash("Database error during upload.", "error");
                 }
             } else {
-                $msg = "Failed to move uploaded file.";
-                $msg_type = "error";
+                redirectAccountWithFlash("Failed to move uploaded file.", "error");
             }
         } else {
-            $msg = "Invalid file type. Allowed: JPG, PNG, PDF.";
-            $msg_type = "error";
+            redirectAccountWithFlash("Invalid file type. Allowed: JPG, PNG, PDF.", "error");
         }
     } else {
-        $msg = "Please select a valid file.";
-        $msg_type = "error";
+        redirectAccountWithFlash("Please select a valid file.", "error");
     }
 }
 
@@ -122,9 +146,8 @@ if (isset($_POST['delete_credential'])) {
         $del = $conn->prepare("DELETE FROM doctor_credentials WHERE id=?");
         $del->bind_param("i", $cred_id);
         $del->execute();
-        $conn->query("UPDATE doctors SET verification_status='pending', verified_at=NULL, verified_by_admin_id=NULL WHERE id='$doctor_id'");
-        $msg = "Credential deleted.";
-        $msg_type = "success";
+        syncDoctorVerificationStatus($conn, $doctor_id);
+        redirectAccountWithFlash("Credential deleted.");
     }
 }
 
@@ -135,6 +158,16 @@ $acc_stmt->execute();
 $user_data = $acc_stmt->get_result()->fetch_assoc();
 $user_pic = $user_data['profile_picture'] ?? null;
 $user_name_acc = $user_data['name'];
+$verified_by_name = null;
+
+if (!empty($user_data['verified_by_admin_id'])) {
+    $admin_stmt = $conn->prepare("SELECT name FROM admins WHERE id = ?");
+    if ($admin_stmt) {
+        $admin_stmt->bind_param("i", $user_data['verified_by_admin_id']);
+        $admin_stmt->execute();
+        $verified_by_name = $admin_stmt->get_result()->fetch_assoc()['name'] ?? null;
+    }
+}
 
 // Fetch Credentials
 $creds = $conn->query("SELECT * FROM doctor_credentials WHERE doctor_id='$doctor_id' ORDER BY uploaded_at DESC");
@@ -233,7 +266,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--navy); color: var(-
                 <h2 style="font-family:'Clash Display',sans-serif;font-size:1.3rem;margin-bottom:20px;">Personal Information</h2>
                 <div style="margin-bottom:18px;padding:14px 16px;border-radius:14px;<?php echo getVerificationBadgeStyles($user_data['verification_status'] ?? 'pending'); ?>">
                     <strong style="text-transform:capitalize;"><?php echo htmlspecialchars($user_data['verification_status'] ?? 'pending'); ?></strong>
-                    <div style="font-size:0.85rem;margin-top:4px;opacity:0.95;">Your account verification is managed by admin based on uploaded credentials.</div>
+                    <div style="font-size:0.85rem;margin-top:4px;opacity:0.95;">
+                        <?php if (($user_data['verification_status'] ?? 'pending') === 'verified' && !empty($user_data['verified_at'])): ?>
+                            Verified on <?php echo date('M d, Y h:i A', strtotime($user_data['verified_at'])); ?><?php echo $verified_by_name ? ' by ' . htmlspecialchars($verified_by_name) : ''; ?>.
+                        <?php elseif (($user_data['verification_status'] ?? 'pending') === 'rejected'): ?>
+                            Your credentials were reviewed and are currently marked as rejected by admin.
+                        <?php else: ?>
+                            Your account verification is managed by admin based on uploaded credentials.
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <div style="margin-bottom:18px;padding:16px;border-radius:14px;background:var(--navy-light);border:1px solid var(--border);">
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">

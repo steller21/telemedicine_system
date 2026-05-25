@@ -3,12 +3,24 @@ session_start();
 require_once("../config/db.php");
 require_once("../includes/admin_core.php");
 
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Pragma: no-cache");
+header("Expires: 0");
+
 ensureAdminSchema($conn);
 requireAdminSession();
 
 $admin_id = (int)$_SESSION['user_id'];
-$msg = '';
-$msg_type = 'success';
+$msg = isset($_GET['msg']) ? trim((string) $_GET['msg']) : '';
+$msg_type = isset($_GET['msg_type']) ? trim((string) $_GET['msg_type']) : 'success';
+if ($msg_type !== 'error' && $msg_type !== 'success') {
+    $msg_type = 'success';
+}
+
+function redirectAdminDashboard(string $message, string $type = 'success'): void {
+    header("Location: dashboard.php?msg_type=" . urlencode($type) . "&msg=" . urlencode($message));
+    exit;
+}
 
 if (isset($_GET['verify_doctor'])) {
     $doctor_id = (int)$_GET['verify_doctor'];
@@ -21,10 +33,9 @@ if (isset($_GET['verify_doctor'])) {
         $stmt = $conn->prepare("UPDATE doctors SET verification_status = 'verified', verified_at = NOW(), verified_by_admin_id = ? WHERE id = ?");
         $stmt->bind_param("ii", $admin_id, $doctor_id);
         $stmt->execute();
-        $msg = "Doctor verified successfully.";
+        redirectAdminDashboard("Doctor verified successfully.");
     } else {
-        $msg = "Cannot verify a doctor without uploaded credentials.";
-        $msg_type = 'error';
+        redirectAdminDashboard("Cannot verify a doctor without uploaded credentials.", 'error');
     }
 }
 
@@ -33,7 +44,7 @@ if (isset($_GET['reject_doctor'])) {
     $stmt = $conn->prepare("UPDATE doctors SET verification_status = 'rejected', verified_at = NULL, verified_by_admin_id = ? WHERE id = ?");
     $stmt->bind_param("ii", $admin_id, $doctor_id);
     $stmt->execute();
-    $msg = "Doctor marked as rejected.";
+    redirectAdminDashboard("Doctor marked as rejected.");
 }
 
 $doctorCount = (int)($conn->query("SELECT COUNT(*) AS total FROM doctors")->fetch_assoc()['total'] ?? 0);
@@ -99,8 +110,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--navy);color:var(--white);
 .card{background:var(--navy-card);border:1px solid var(--border);border-radius:22px;padding:24px;margin-bottom:24px;}
 .card h2{font-family:'Clash Display',sans-serif;font-size:1.25rem;margin-bottom:16px;}
 .alert{padding:12px 16px;border-radius:12px;margin-bottom:18px;font-size:0.9rem;}
-.alert-success{background:rgba(34,197,94,0.12);color:#bbf7d0;border:1px solid rgba(34,197,94,0.25);}
-.alert-error{background:rgba(239,68,68,0.12);color:#fecaca;border:1px solid rgba(239,68,68,0.25);}
+.alert-success{background:rgba(34,197,94,0.14);color:#14532d;border:1px solid rgba(34,197,94,0.28);font-weight:700;}
+.alert-error{background:rgba(239,68,68,0.14);color:#991b1b;border:1px solid rgba(239,68,68,0.28);font-weight:700;}
 .table-wrap{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:0.9rem;}
 th,td{text-align:left;vertical-align:top;padding:14px 12px;border-bottom:1px solid var(--border);}

@@ -44,8 +44,10 @@ if (($call['status'] ?? '') === 'active') {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Calling Patient</title>
 <style>
-body { margin: 0; font-family: Arial, sans-serif; background: #0f172a; color: #fff; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-.card { width: min(92vw, 520px); background: #16213e; border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 32px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: radial-gradient(circle at 14% 16%, rgba(14,184,160,0.18), transparent 28%), radial-gradient(circle at 88% 20%, rgba(255,122,89,0.14), transparent 24%), linear-gradient(180deg, #091324 0%, #0e1b2e 100%); color: #fff; min-height: 100vh; padding: 24px; }
+.shell { width: min(1200px, 100%); min-height: calc(100vh - 48px); margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+.card { width: min(96vw, 920px); min-height: min(72vh, 680px); background: rgba(12, 24, 42, 0.82); border: 1px solid rgba(255,255,255,0.08); border-radius: 32px; padding: 40px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.35); display: flex; flex-direction: column; justify-content: center; }
 .ring { width: 96px; height: 96px; margin: 0 auto 20px; border-radius: 50%; background: rgba(14,184,160,0.16); display: flex; align-items: center; justify-content: center; font-size: 40px; animation: pulse 1.4s infinite; }
 .muted { color: #94a3b8; }
 .actions { margin-top: 24px; display: flex; justify-content: center; gap: 12px; }
@@ -53,18 +55,25 @@ body { margin: 0; font-family: Arial, sans-serif; background: #0f172a; color: #f
 .btn-primary { background: #0EB8A0; color: #0f172a; }
 .btn-secondary { background: rgba(255,255,255,0.08); color: #fff; }
 @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14,184,160,0.45); } 70% { transform: scale(1.03); box-shadow: 0 0 0 20px rgba(14,184,160,0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(14,184,160,0); } }
+@media (max-width: 768px) {
+    body { padding: 14px; }
+    .shell { min-height: calc(100vh - 28px); }
+    .card { min-height: calc(100vh - 28px); border-radius: 24px; padding: 28px; }
+}
 </style>
 <link rel="stylesheet" href="../css/ui-refresh.css">
 <script src="../js/page-transition.js"></script>
 </head>
 <body>
-    <div class="card">
-        <div class="ring">&#128222;</div>
-        <h1 style="margin:0 0 10px;">Calling <?php echo htmlspecialchars($call['patient_name']); ?></h1>
-        <p class="muted" id="statusText">The patient phone is ringing. This call will ring for up to 1 minute.</p>
-        <p class="muted" id="timerText"></p>
-        <div class="actions">
-            <a class="btn btn-secondary" href="appointments.php">Back to Appointments</a>
+    <div class="shell">
+        <div class="card">
+            <div class="ring">&#128222;</div>
+            <h1 style="margin:0 0 10px;font-size:clamp(2rem,4vw,3.5rem);">Calling <?php echo htmlspecialchars($call['patient_name']); ?></h1>
+            <p class="muted" id="statusText" style="font-size:clamp(1rem,1.7vw,1.35rem); max-width:720px; margin:0 auto;">The patient phone is ringing. This call will ring for up to 1 minute.</p>
+            <p class="muted" id="timerText" style="font-size:clamp(1rem,1.6vw,1.3rem); margin-top:24px;"></p>
+            <div class="actions">
+                <a class="btn btn-secondary" href="appointments.php">Back to Appointments</a>
+            </div>
         </div>
     </div>
 

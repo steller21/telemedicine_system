@@ -32,6 +32,11 @@ ksort($specializations, SORT_NATURAL | SORT_FLAG_CASE);
 $specializations = array_values($specializations);
 $msg = ""; $msg_type = "";
 
+if (empty($doctor_list)) {
+    $msg = "No verified doctors are visible right now. Ask the admin to approve doctor credentials, and make sure the doctor availability is set to available.";
+    $msg_type = "warning";
+}
+
 // Function to get valid appointment slots for a given date
 function getValidAppointmentSlots(string $date): array {
     $slots = [];
