@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 11, 2026 at 03:36 PM
+-- Generation Time: Jun 17, 2026 at 06:16 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -24,6 +24,27 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `admins`
+--
+
+CREATE TABLE `admins` (
+  `id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `admins`
+--
+
+INSERT INTO `admins` (`id`, `name`, `email`, `password`, `created_at`) VALUES
+(1, 'System Admin', 'admin@telemedicine.local', '$2y$10$i6oPbu3H7lTsXBlLSC2I3eqV4OwXq3ABhxeEgW4.aF8hqEMrtwzp2', '2026-05-12 15:02:33');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `appointments`
 --
 
@@ -34,19 +55,6 @@ CREATE TABLE `appointments` (
   `appointment_date` datetime DEFAULT NULL,
   `status` varchar(50) DEFAULT 'pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `appointments`
---
-
-INSERT INTO `appointments` (`id`, `patient_id`, `doctor_id`, `appointment_date`, `status`) VALUES
-(44, 1, 1, '2026-05-05 22:38:00', 'pending'),
-(45, 3, 1, '2026-05-06 15:55:00', 'pending'),
-(46, 3, 1, '2026-05-07 13:28:00', 'pending'),
-(47, 3, 1, '2026-05-08 11:15:00', 'pending'),
-(48, 3, 1, '2026-05-10 09:30:00', 'pending'),
-(49, 3, 4, '2026-05-10 10:05:00', 'pending'),
-(50, 1, 4, '2026-05-12 09:30:00', 'booked');
 
 -- --------------------------------------------------------
 
@@ -61,14 +69,6 @@ CREATE TABLE `checklists` (
   `title` varchar(255) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `checklists`
---
-
-INSERT INTO `checklists` (`id`, `patient_id`, `created_by`, `title`, `created_at`) VALUES
-(12, 1, 1, 'Daily Medicines', '2026-05-05 17:07:17'),
-(13, 3, 3, 'Daily Medicines', '2026-05-06 17:19:47');
 
 -- --------------------------------------------------------
 
@@ -88,17 +88,9 @@ CREATE TABLE `checklist_items` (
   `prescribed_by` int(11) DEFAULT NULL,
   `duration_days` int(11) DEFAULT 1,
   `start_date` date NOT NULL DEFAULT curdate(),
-  `prescription_file` varchar(500) DEFAULT NULL
+  `prescription_file` varchar(500) DEFAULT NULL,
+  `prescription_group_id` varchar(64) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `checklist_items`
---
-
-INSERT INTO `checklist_items` (`id`, `checklist_id`, `medicine_name`, `medicine_image`, `dosage`, `times_of_day`, `status`, `completed_at`, `prescribed_by`, `duration_days`, `start_date`, `prescription_file`) VALUES
-(33, 12, 'ertere', '../uploads/medicines/1778000837_Screenshot 2025-09-22 002453.png', 'erte', 'morning,night', 'pending', NULL, NULL, 1, '2026-05-05', NULL),
-(34, 13, 'dolo 650', NULL, 'hjh', 'morning,night', 'pending', NULL, NULL, 1, '2026-05-06', '../uploads/prescriptions/1778087987_rx_3_0.png'),
-(35, 12, 'wrsw', '../uploads/medicines/1778506285_Screenshot 2025-09-22 002453.png', 'wrf', 'morning,night', 'pending', NULL, NULL, 1, '2026-05-11', NULL);
 
 -- --------------------------------------------------------
 
@@ -131,17 +123,11 @@ CREATE TABLE `doctors` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `profile_picture` varchar(255) DEFAULT NULL,
   `affiliations` text DEFAULT NULL,
+  `verification_status` enum('pending','verified','rejected') NOT NULL DEFAULT 'pending',
+  `verified_at` datetime DEFAULT NULL,
+  `verified_by_admin_id` int(11) DEFAULT NULL,
   `availability_status` enum('available','not_available') NOT NULL DEFAULT 'available'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `doctors`
---
-
-INSERT INTO `doctors` (`id`, `name`, `email`, `password`, `specialization`, `license_number`, `phone`, `bio`, `created_at`, `profile_picture`, `affiliations`, `availability_status`) VALUES
-(1, 'Nitin Kumar', 'nitin23@gmail.com', '$2y$10$kng8zBXHmFMuSgYit7R7w.3G1ejQCaDYZDF4JSP.McLlzuEh6EqyG', 'cardiology', '1234', '9739525084', 'good at hearts', '2026-05-04 16:44:04', NULL, NULL, 'available'),
-(2, 'GaMeZaaDE', 'game23@gmail.com', '$2y$10$GrFgRh1fj4cTaVefRNrI9eBz88opdTRf3x.PyyO1yYIeWpQ.Yp61q', 'physician', '15634556', '9739525084', 'baba', '2026-05-09 15:41:00', NULL, 'american', 'available'),
-(4, 'gagan', 'gagan23@gmail.com', '$2y$10$h0AezHexiVdPN6klGtW/yuw1alp0Kj4Qg4tkWMPw82O.eNf0yCK/G', 'cardiology', '548745', '9513524624', 'regfsdas', '2026-05-09 15:51:25', NULL, 'hagsduiba', 'available');
 
 -- --------------------------------------------------------
 
@@ -173,13 +159,6 @@ CREATE TABLE `friends` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `friends`
---
-
-INSERT INTO `friends` (`id`, `user_id1`, `user_role1`, `user_id2`, `user_role2`, `created_at`) VALUES
-(12, 1, 'patient', 4, 'patient', '2026-05-09 19:30:27');
-
 -- --------------------------------------------------------
 
 --
@@ -196,13 +175,6 @@ CREATE TABLE `friend_requests` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `friend_requests`
---
-
-INSERT INTO `friend_requests` (`id`, `sender_id`, `sender_role`, `receiver_id`, `receiver_role`, `status`, `created_at`) VALUES
-(18, 1, 'patient', 4, 'patient', 'accepted', '2026-05-09 19:30:18');
-
 -- --------------------------------------------------------
 
 --
@@ -217,14 +189,6 @@ CREATE TABLE `medicine_intakes` (
   `status` enum('pending','completed','missed') DEFAULT 'pending',
   `completed_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `medicine_intakes`
---
-
-INSERT INTO `medicine_intakes` (`id`, `checklist_item_id`, `scheduled_date`, `time_of_day_slot`, `status`, `completed_at`) VALUES
-(12, 34, '2026-05-06', 'morning', 'completed', '2026-05-06 17:20:23'),
-(13, 34, '2026-05-06', 'night', 'completed', '2026-05-06 17:24:25');
 
 -- --------------------------------------------------------
 
@@ -243,21 +207,6 @@ CREATE TABLE `messages` (
   `is_read` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Dumping data for table `messages`
---
-
-INSERT INTO `messages` (`id`, `sender_id`, `sender_role`, `receiver_id`, `receiver_role`, `message`, `created_at`, `is_read`) VALUES
-(15, 1, 'patient', 3, 'patient', 'hii', '2026-05-07 17:40:17', 1),
-(16, 3, 'patient', 1, 'patient', 'hello', '2026-05-07 17:40:52', 0),
-(17, 1, 'patient', 3, 'patient', 'dsf', '2026-05-07 17:41:01', 1),
-(18, 1, 'patient', 3, 'patient', 'hiii', '2026-05-07 18:21:47', 1),
-(19, 3, 'patient', 1, 'patient', 'mc', '2026-05-07 18:22:44', 0),
-(20, 3, 'patient', 4, 'patient', 'hewvvhadvuywbedyfbwe', '2026-05-08 12:50:26', 0),
-(21, 3, 'patient', 1, 'patient', 'rjwfdbierfbu', '2026-05-08 12:50:41', 0),
-(22, 3, 'patient', 4, 'patient', 'wejnhfgv uhew', '2026-05-08 12:51:00', 0),
-(23, 3, 'patient', 1, 'patient', 'hiiiiii', '2026-05-09 15:32:13', 0);
-
 -- --------------------------------------------------------
 
 --
@@ -272,13 +221,6 @@ CREATE TABLE `monitor_requests` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `monitor_requests`
---
-
-INSERT INTO `monitor_requests` (`id`, `requester_id`, `requested_user_id`, `status`, `created_at`, `updated_at`) VALUES
-(78, 1, 3, 'pending', '2026-05-11 13:32:06', '2026-05-11 13:32:06');
 
 -- --------------------------------------------------------
 
@@ -313,16 +255,6 @@ CREATE TABLE `patients` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `profile_picture` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `patients`
---
-
-INSERT INTO `patients` (`id`, `name`, `email`, `password`, `phone`, `dob`, `gender`, `address`, `created_at`, `profile_picture`) VALUES
-(1, 'Sujith Kumar', 'sujithkumar9684@gmail.com', '$2y$10$t5iPqdCTexV3a7yGMuIhN.E6f2hgjeQ.6m8t8d5ns67wfzRkK7ALa', '9739525084', '2004-02-20', 'Male', 'Harohalli, kanakapura taluk, ramanagara district', '2026-05-04 14:48:57', 'images/profiles/profile_69f8b1d8f2453.jpg'),
-(2, 'sd sd', 'helloworld@fsg.c', '$2y$10$0K7F6Kwyiob7twP3/J4C.udze3YDAoy5MwS3zd0p/j90BHJyPiDVS', '9513524624', '2004-02-20', 'Male', 'Harohalli', '2026-05-05 17:38:36', NULL),
-(3, 'uhuh', 'sujithkumar69101@gmail.com', '$2y$10$orBF8AoZkYBEC9.8A8gYQu4ibrvyf6N4AF/HQy/Qq2W1l9OXxfBvC', '9739525084', '0000-00-00', 'Male', 'hbj', '2026-05-06 10:20:24', NULL),
-(4, 'dsf', 'gagan23@gmail.com', '$2y$10$irreTbDGKmYbJeg3ubq7HuiGt/Ae0in4AJGGMjm6lXqaTmHc4d1aW', '9513524624', '2026-05-09', 'Male', 'Harohalli', '2026-05-08 12:47:45', NULL);
 
 -- --------------------------------------------------------
 
@@ -460,24 +392,14 @@ CREATE TABLE `video_calls` (
   `appointment_id` int(11) DEFAULT NULL,
   `patient_id` int(11) DEFAULT NULL,
   `doctor_id` int(11) DEFAULT NULL,
-  `status` enum('waiting','active','ongoing','ended') DEFAULT 'waiting',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `initiated_by` enum('doctor','patient') NOT NULL DEFAULT 'patient',
+  `status` enum('waiting','active','ongoing','ended','missed','declined') DEFAULT 'waiting',
+  `ended_reason` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `answered_at` datetime DEFAULT NULL,
+  `ended_at` datetime DEFAULT NULL,
+  `patient_ready_notified` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `video_calls`
---
-
-INSERT INTO `video_calls` (`id`, `appointment_id`, `patient_id`, `doctor_id`, `status`, `created_at`) VALUES
-(79, 44, 1, 1, 'ended', '2026-05-05 17:14:08'),
-(80, 44, 1, 1, 'ended', '2026-05-05 17:14:34'),
-(81, 44, 1, 1, 'ended', '2026-05-05 17:15:45'),
-(82, 45, 3, 1, 'ended', '2026-05-06 10:27:33'),
-(83, 46, 3, 1, 'ended', '2026-05-07 07:57:37'),
-(84, 47, 3, 1, 'ended', '2026-05-07 14:48:29'),
-(85, 48, 3, 1, 'ended', '2026-05-09 15:28:56'),
-(86, 50, 1, 4, 'ended', '2026-05-11 12:59:25'),
-(87, 50, 1, 4, 'ended', '2026-05-11 13:02:14');
 
 -- --------------------------------------------------------
 
@@ -491,6 +413,13 @@ CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW 
 --
 -- Indexes for dumped tables
 --
+
+--
+-- Indexes for table `admins`
+--
+ALTER TABLE `admins`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`);
 
 --
 -- Indexes for table `appointments`
@@ -640,22 +569,28 @@ ALTER TABLE `video_calls`
 --
 
 --
+-- AUTO_INCREMENT for table `admins`
+--
+ALTER TABLE `admins`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- AUTO_INCREMENT for table `checklists`
 --
 ALTER TABLE `checklists`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `checklist_items`
 --
 ALTER TABLE `checklist_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- AUTO_INCREMENT for table `checklist_logs`
@@ -667,43 +602,43 @@ ALTER TABLE `checklist_logs`
 -- AUTO_INCREMENT for table `doctors`
 --
 ALTER TABLE `doctors`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `doctor_credentials`
 --
 ALTER TABLE `doctor_credentials`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- AUTO_INCREMENT for table `friends`
 --
 ALTER TABLE `friends`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `friend_requests`
 --
 ALTER TABLE `friend_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `medicine_intakes`
 --
 ALTER TABLE `medicine_intakes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
 
 --
 -- AUTO_INCREMENT for table `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `monitor_requests`
 --
 ALTER TABLE `monitor_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=79;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
 
 --
 -- AUTO_INCREMENT for table `notifications`
@@ -721,13 +656,13 @@ ALTER TABLE `patients`
 -- AUTO_INCREMENT for table `patient_monitors`
 --
 ALTER TABLE `patient_monitors`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `patient_vitals`
 --
 ALTER TABLE `patient_vitals`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `prescriptions`
@@ -739,7 +674,7 @@ ALTER TABLE `prescriptions`
 -- AUTO_INCREMENT for table `reports`
 --
 ALTER TABLE `reports`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
 -- AUTO_INCREMENT for table `report_access_requests`
@@ -757,13 +692,13 @@ ALTER TABLE `report_share_requests`
 -- AUTO_INCREMENT for table `user_notifications`
 --
 ALTER TABLE `user_notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `video_calls`
 --
 ALTER TABLE `video_calls`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=88;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=112;
 
 --
 -- Constraints for dumped tables
